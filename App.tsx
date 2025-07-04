@@ -18,6 +18,7 @@ import {
 } from "react-native-paper";
 import { AppNavigator } from "./src/navigators/AppNavigator";
 import { ClusterProvider } from "./src/components/cluster/cluster-data-access";
+import "./global.css";
 
 const queryClient = new QueryClient();
 

@@ -26,7 +26,13 @@
       "package": "com.solana.mobile.expo.template"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c3a05e4f-e013-4e57-9631-3eb01b3044fb"
+      }
     }
   }
 }

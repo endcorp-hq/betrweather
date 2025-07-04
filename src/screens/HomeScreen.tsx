@@ -1,6 +1,7 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
+import { View } from "react-native";
+import { Text } from "react-native";
+import "../../global.css";
 
 import { Section } from "../Section";
 import { useAuthorization } from "../utils/useAuthorization";
@@ -11,11 +12,8 @@ export function HomeScreen() {
   const { selectedAccount } = useAuthorization();
 
   return (
-    <View style={styles.screenContainer}>
-      <Text
-        style={{ fontWeight: "bold", marginBottom: 12 }}
-        variant="displaySmall"
-      >
+    <View className="flex-1 p-4">
+      <Text className="text-white font-bold mb-3">
         Solana Mobile Expo Template
       </Text>
       {selectedAccount ? (
@@ -40,14 +38,3 @@ export function HomeScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screenContainer: {
-    padding: 16,
-    flex: 1,
-  },
-  buttonGroup: {
-    flexDirection: "column",
-    paddingVertical: 4,
-  },
-});
