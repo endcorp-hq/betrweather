@@ -33,6 +33,14 @@
       "eas": {
         "projectId": "c3a05e4f-e013-4e57-9631-3eb01b3044fb"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow BetterWeather to use your location."
+        }
+      ]
+    ]
   }
 }

@@ -1,40 +1,521 @@
-import React from "react";
-import { View } from "react-native";
-import { Text } from "react-native";
-import "../../global.css";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+  Modal,
+  Image,
+} from "react-native";
+import { ScreenWrapper } from "../components/ui/ScreenWrapper";
+import { useAPI } from "../utils/useAPI";
+import { useLocation } from "../utils/useLocation";
 
-import { Section } from "../Section";
-import { useAuthorization } from "../utils/useAuthorization";
-import { AccountDetailFeature } from "../components/account/account-detail-feature";
-import { SignInFeature } from "../components/sign-in/sign-in-feature";
+const location = { lat: 13.041155330757062, lon: 77.57709628308064 };
+
+// --- Types for API responses ---
+type WeatherCondition = {
+  iconBaseUri?: string;
+  description?: { text?: string };
+};
+
+type HourlyForecast = {
+  displayDateTime?: { hours?: number };
+  weatherCondition?: WeatherCondition;
+  temperature?: { degrees?: number };
+};
+
+type DaytimeNighttimeForecast = {
+  weatherCondition?: WeatherCondition;
+};
+
+type DailyForecast = {
+  displayDate?: { year?: number; month?: number; day?: number };
+  daytimeForecast?: DaytimeNighttimeForecast;
+  nighttimeForecast?: DaytimeNighttimeForecast;
+  maxTemperature?: { degrees?: number };
+  minTemperature?: { degrees?: number };
+  sunEvents?: { sunriseTime?: string; sunsetTime?: string };
+};
+
+type WeatherAPIResponse = {
+  temperature?: { degrees?: number };
+  weatherCondition?: WeatherCondition;
+  feelsLikeTemperature?: { degrees?: number };
+  currentConditionsHistory?: {
+    maxTemperature?: { degrees?: number };
+    minTemperature?: { degrees?: number };
+  };
+  wind?: {
+    speed?: { value?: number };
+    direction?: { cardinal?: string };
+  };
+  relativeHumidity?: number;
+  dewPoint?: { degrees?: number };
+  uvIndex?: number;
+  airPressure?: { meanSeaLevelMillibars?: number };
+};
+
+type HourlyAPIResponse = { forecastHours?: HourlyForecast[] };
+type DailyAPIResponse = { forecastDays?: DailyForecast[] };
+
+// Fallback icons (emoji or local asset)
+const fallbackIcons = {
+  wind: "💨",
+  humidity: "💧",
+  uv: "🌞",
+  pressure: "🌡️",
+};
 
 export function HomeScreen() {
-  const { selectedAccount } = useAuthorization();
+  const [search, setSearch] = useState("");
+  const [selectedDay, setSelectedDay] = useState<DailyForecast | null>(null);
+
+  const { latitude, longitude, detailedLocation, isLoading: loadingLocation, error: errorLocation } =
+    useLocation();
+
+  // Only create URLs and fetch data if we have valid coordinates
+  const hasValidLocation = latitude && longitude && !loadingLocation && !errorLocation;
+
+  const WEATHER_URL = hasValidLocation 
+    ? `https://weather.googleapis.com/v1/currentConditions:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}`
+    : null;
+  const HOURLY_FORECAST_URL = hasValidLocation
+    ? `https://weather.googleapis.com/v1/forecast/hours:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}`
+    : null;
+  const DAILY_FORECAST_URL = hasValidLocation
+    ? `https://weather.googleapis.com/v1/forecast/days:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}&days=10&pageSize=10`
+    : null;
+
+  const {
+    data: weather,
+    isLoading: loadingWeather,
+    error: errorWeather,
+  } = useAPI<WeatherAPIResponse>(WEATHER_URL || "");
+  const { data: hourlyData, isLoading: loadingHourly } =
+    useAPI<HourlyAPIResponse>(HOURLY_FORECAST_URL || "");
+  const { data: dailyData, isLoading: loadingDaily } =
+    useAPI<DailyAPIResponse>(DAILY_FORECAST_URL || "");
+
+  // Show loading state while getting location
+  if (loadingLocation) {
+    return (
+      <ScreenWrapper>
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#78a646" />
+          <Text className="mt-4 text-gray-700">Getting your location...</Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
+  // Show error if location failed
+  if (errorLocation) {
+    return (
+      <ScreenWrapper>
+        <View className="flex-1 justify-center items-center px-6">
+          <Text className="text-red-500 text-lg font-better-bold mb-2">Location Error</Text>
+          <Text className="text-gray-700 text-center">{errorLocation}</Text>
+          <TouchableOpacity 
+            className="mt-4 bg-accent-green px-6 py-3 rounded-full"
+            onPress={() => {
+              // You might want to add a retry function to your useLocation hook
+              // or reload the component
+            }}
+          >
+            <Text className="text-white font-better-bold">Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
+  // Show loading state while fetching weather data
+  if (loadingWeather || loadingHourly || loadingDaily) {
+    return (
+      <ScreenWrapper>
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#78a646" />
+          <Text className="mt-4 text-gray-700">Loading weather...</Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
+  // Show error if weather API failed
+  if (errorWeather) {
+    return (
+      <ScreenWrapper>
+        <View className="flex-1 justify-center items-center px-6">
+          <Text className="text-red-500 text-lg font-better-bold mb-2">Weather Error</Text>
+          <Text className="text-gray-700 text-center">{errorWeather.message}</Text>
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
+  // Fallbacks for missing data
+  const city = detailedLocation?.[0]?.city || "Your City";
+  const temp = weather?.temperature?.degrees ?? "--";
+  const description = weather?.weatherCondition?.description?.text ?? "--";
+  const feelsLike = weather?.feelsLikeTemperature?.degrees ?? "--";
+  const high =
+    weather?.currentConditionsHistory?.maxTemperature?.degrees ?? "--";
+  const low =
+    weather?.currentConditionsHistory?.minTemperature?.degrees ?? "--";
+  const windSpeed = weather?.wind?.speed?.value ?? "--";
+  const windDesc = weather?.wind
+    ? `${weather.wind.speed?.value ?? ""} km/h · From ${
+        weather.wind.direction?.cardinal ?? ""
+      }`
+    : "--";
+  const humidity = weather?.relativeHumidity ?? "--";
+  const dewPoint = weather?.dewPoint?.degrees ?? "--";
+  const uv = weather?.uvIndex ?? "--";
+  const pressure = weather?.airPressure?.meanSeaLevelMillibars ?? "--";
+
+  // Hourly forecast: show next 10 hours
+  const hourly: HourlyForecast[] =
+    hourlyData?.forecastHours?.slice(0, 10) ?? [];
+
+  // Daily forecast: show all days
+  const daily: DailyForecast[] = dailyData?.forecastDays ?? [];
+
+  // Helper to format date - Updated to show "Monday, July 10" format
+  const formatDate = (displayDate?: {
+    year?: number;
+    month?: number;
+    day?: number;
+  }) => {
+    if (!displayDate) return "";
+
+    const year = displayDate.year ?? new Date().getFullYear();
+    const month = displayDate.month ?? 1;
+    const day = displayDate.day ?? 1;
+
+    // Create a Date object
+    const date = new Date(year, month - 1, day); // month is 0-indexed in Date constructor
+
+    // Get day of week
+    const daysOfWeek = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const dayOfWeek = daysOfWeek[date.getDay()];
+
+    // Get month name
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const monthName = months[date.getMonth()];
+
+    return `${dayOfWeek}, ${monthName} ${day}`;
+  };
+
+  const weatherIcon = weather?.weatherCondition?.iconBaseUri
+    ? `${weather.weatherCondition.iconBaseUri}.png`
+    : undefined;
+
+  // If your API provides wind/humidity icons, use them; otherwise fallback
+  // (Google Weather API does not provide wind/humidity icons, so fallback)
+  const windIcon = undefined; // or a local asset if you have one
+  const humidityIcon = undefined; // or a local asset if you have one
 
   return (
-    <View className="flex-1 p-4">
-      <Text className="text-white font-bold mb-3">
-        Solana Mobile Expo Template
-      </Text>
-      {selectedAccount ? (
-        <AccountDetailFeature />
-      ) : (
-        <>
-          <Section
-            title="Solana SDKs"
-            description="Configured with Solana SDKs like Mobile Wallet Adapter and web3.js."
+    <ScreenWrapper>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="bg-transparent"
+      >
+        {/* Search Bar */}
+        <View className="pt-4">
+          <TextInput
+            className="bg-white/50 rounded-full px-5 py-3 text-white font-better-regular"
+            placeholder="Search location"
+            placeholderTextColor="#888"
+            value={search}
+            onChangeText={setSearch}
           />
-          <Section
-            title="UI Kit and Navigation"
-            description="Utilizes React Native Paper components and the React Native Navigation library."
-          />
-          <Section
-            title="Get started!"
-            description="Connect or Sign in with Solana (SIWS) to link your wallet account."
-          />
-          <SignInFeature />
-        </>
-      )}
-    </View>
+        </View>
+
+        {/* Weather Info (add icon here if you want) */}
+        <View className="mt-6 bg-white/50 rounded-xl p-4 flex flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text className="text-black text-[18px] font-better-regular">
+              {city}
+            </Text>
+            <Text className="text-black text-[72px] font-better-light">
+              {temp}°
+            </Text>
+            <Text className="text-black text-base font-better-light mt-1">
+              High: {high}° - Low: {low}°
+            </Text>
+          </View>
+          <View className="flex flex-col items-end justify-center">
+            {weatherIcon ? (
+              <Image
+                source={{ uri: weatherIcon }}
+                style={{ width: 48, height: 48, marginBottom: 4 }}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text className="text-4xl mb-2">☁️</Text>
+            )}
+            <Text className="text-black text-lg font-better-regular">
+              {description}
+            </Text>
+            <Text className="text-black text-sm font-better-regular">
+              Feels like {feelsLike}°
+            </Text>
+          </View>
+        </View>
+
+        {/* Hourly Forecast - Fixed horizontal scrolling */}
+        <View className="mt-6 bg-white/50 rounded-xl p-4">
+          <Text className="text-black text-lg font-better-regular mb-2">
+            Hourly Forecast
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="py-2"
+            contentContainerStyle={{ paddingHorizontal: 4 }}
+          >
+            {hourly.map((h, idx) => (
+              <View
+                key={idx}
+                className="flex items-center justify-center mx-2 rounded-full px-4 py-2"
+                style={{ minWidth: 80, minHeight: 120 }}
+              >
+                <Text className="text-black font-better-light text-xs mb-2">
+                  {h.displayDateTime?.hours !== undefined
+                    ? `${h.displayDateTime.hours}:00`
+                    : "--:--"}
+                </Text>
+                {h.weatherCondition?.iconBaseUri ? (
+                  <Image
+                    source={{ uri: `${h.weatherCondition.iconBaseUri}.png` }}
+                    style={{ width: 36, height: 36, marginVertical: 4 }}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text className="text-black font-better-light text-2xl my-2">
+                    ?
+                  </Text>
+                )}
+                <Text className="text-black font-better-light text-xs mb-2 text-center">
+                  {h.weatherCondition?.description?.text ?? "?"}
+                </Text>
+                <Text className="text-black font-better-light text-lg">
+                  {h.temperature?.degrees !== undefined
+                    ? `${h.temperature.degrees}°`
+                    : "--"}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* 10 Day Forecast - Fixed to show all 10 entries */}
+        <View className="mt-6 bg-white/50 rounded-xl p-4">
+          <Text className="text-black text-lg font-better-regular mb-2">
+            10 Day Forecast
+          </Text>
+          {daily.slice(0, 10).map((d, idx) => (
+            <TouchableOpacity
+              key={idx}
+              className="flex-row items-center justify-between py-3 border-b border-gray-200 last:border-b-0"
+              onPress={() => setSelectedDay(d)}
+            >
+              <Text className="text-black font-better-regular text-base w-24">
+                {formatDate(d.displayDate)}
+              </Text>
+              {d.daytimeForecast?.weatherCondition?.iconBaseUri ? (
+                <Image
+                  source={{
+                    uri: `${d.daytimeForecast.weatherCondition.iconBaseUri}.png`,
+                  }}
+                  style={{ width: 36, height: 36 }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text className="text-2xl w-10 text-center">?</Text>
+              )}
+              <Text className="text-black font-better-regular text-base w-20 text-center">
+                {d.maxTemperature?.degrees !== undefined
+                  ? `${d.maxTemperature.degrees}°`
+                  : "--"}{" "}
+                /{" "}
+                {d.minTemperature?.degrees !== undefined
+                  ? `${d.minTemperature.degrees}°`
+                  : "--"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Current Conditions */}
+        <Text className="text-black text-lg font-better-regular mt-8 mb-2">
+          Current conditions
+        </Text>
+        <View className="flex-row flex-wrap justify-between">
+          {/* Wind */}
+          <View className="w-[49%] h-[120px] flex flex-col justify-between bg-white/50 rounded-xl p-4 mb-2">
+            <View className="flex-row items-center mb-1">
+              {windIcon ? (
+                <Image
+                  source={{ uri: windIcon }}
+                  style={{ width: 20, height: 20, marginRight: 6 }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text className="text-lg mr-2">{fallbackIcons.wind}</Text>
+              )}
+              <Text className="text-gray-500 text-xs font-better-light">
+                Wind
+              </Text>
+            </View>
+            <Text className="text-gray-700 text-2xl font-better-bold">
+              {windSpeed} km/h
+            </Text>
+            <Text className="text-gray-500 text-xs font-better-light">
+              {windDesc}
+            </Text>
+          </View>
+          {/* Humidity */}
+          <View className="w-[49%] h-[120px] flex flex-col justify-between bg-white/50 rounded-xl p-4 mb-2">
+            <View className="flex-row items-center mb-1">
+              {humidityIcon ? (
+                <Image
+                  source={{ uri: humidityIcon }}
+                  style={{ width: 20, height: 20, marginRight: 6 }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text className="text-lg mr-2">{fallbackIcons.humidity}</Text>
+              )}
+              <Text className="text-gray-500 text-xs font-better-light">
+                Humidity
+              </Text>
+            </View>
+            <Text className="text-gray-700 text-2xl font-better-bold">
+              {humidity}%
+            </Text>
+            <Text className="text-gray-500 text-xs font-better-light">
+              Dew point {dewPoint}°
+            </Text>
+          </View>
+          {/* UV Index */}
+          <View className="w-[49%] h-[120px] flex flex-col justify-between bg-white/50 rounded-xl p-4 mb-2">
+            <View className="flex-row items-center mb-1">
+              <Text className="text-lg mr-2">{fallbackIcons.uv}</Text>
+              <Text className="text-gray-500 text-xs font-better-light">
+                UV Index
+              </Text>
+            </View>
+            <Text className="text-gray-700 text-2xl font-better-bold">
+              {uv}
+            </Text>
+          </View>
+          {/* Pressure */}
+          <View className="w-[49%] h-[120px] flex flex-col justify-between bg-white/50 rounded-xl p-4 mb-2">
+            <View className="flex-row items-center mb-1">
+              <Text className="text-lg mr-2">{fallbackIcons.pressure}</Text>
+              <Text className="text-gray-500 text-xs font-better-light">
+                Pressure
+              </Text>
+            </View>
+            <Text className="text-gray-700 text-2xl font-better-bold">
+              {pressure}
+            </Text>
+            <Text className="text-gray-500 text-xs font-better-light">
+              mBar
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Modal for selected day */}
+      <Modal
+        visible={!!selectedDay}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedDay(null)}
+      >
+        <View className="flex-1 justify-center items-center bg-black/60">
+          <View className="bg-white rounded-xl p-6 w-11/12 max-w-xl">
+            <Text className="text-black text-lg font-bold mb-4">
+              {selectedDay ? formatDate(selectedDay.displayDate) : ""}
+            </Text>
+            {selectedDay?.daytimeForecast?.weatherCondition?.iconBaseUri && (
+              <Image
+                source={{
+                  uri: `${selectedDay.daytimeForecast.weatherCondition.iconBaseUri}.png`,
+                }}
+                style={{
+                  width: 48,
+                  height: 48,
+                  alignSelf: "center",
+                  marginBottom: 8,
+                }}
+                resizeMode="contain"
+              />
+            )}
+            <Text className="mb-2">
+              Day:{" "}
+              {selectedDay?.daytimeForecast?.weatherCondition?.description
+                ?.text ?? "--"}
+            </Text>
+            <Text className="mb-2">
+              Night:{" "}
+              {selectedDay?.nighttimeForecast?.weatherCondition?.description
+                ?.text ?? "--"}
+            </Text>
+            <Text className="mb-2">
+              Max Temp:{" "}
+              {selectedDay?.maxTemperature?.degrees !== undefined
+                ? `${selectedDay.maxTemperature.degrees}°`
+                : "--"}
+            </Text>
+            <Text className="mb-2">
+              Min Temp:{" "}
+              {selectedDay?.minTemperature?.degrees !== undefined
+                ? `${selectedDay.minTemperature.degrees}°`
+                : "--"}
+            </Text>
+            <Text className="mb-2">
+              Sunrise: {selectedDay?.sunEvents?.sunriseTime ?? "--"}
+            </Text>
+            <Text className="mb-2">
+              Sunset: {selectedDay?.sunEvents?.sunsetTime ?? "--"}
+            </Text>
+            <TouchableOpacity
+              className="mt-4 bg-blue-200 rounded px-4 py-2"
+              onPress={() => setSelectedDay(null)}
+            >
+              <Text className="text-blue-900 font-bold text-center">Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </ScreenWrapper>
   );
 }

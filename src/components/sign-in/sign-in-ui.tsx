@@ -1,4 +1,3 @@
-import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import { useState, useCallback } from "react";
 import { Button } from "react-native-paper";
 import { alertAndLog } from "../../utils/alertAndLog";
