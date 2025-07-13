@@ -1,11 +1,11 @@
-import { Button, IconButton, Menu, useTheme } from "react-native-paper";
+import { IconButton, Menu } from "react-native-paper";
 import { Account, useAuthorization } from "../../utils/useAuthorization";
 import { useMobileWallet } from "../../utils/useMobileWallet";
 import { useNavigation } from "@react-navigation/native";
 import { ellipsify } from "../../utils/ellipsify";
 import { useState } from "react";
 import * as Clipboard from "expo-clipboard";
-import { Linking } from "react-native";
+import { Linking, Text, TouchableOpacity, View } from "react-native";
 import { useCluster } from "../cluster/cluster-data-access";
 
 export function TopBarWalletButton({
@@ -17,16 +17,15 @@ export function TopBarWalletButton({
 }) {
   const { connect } = useMobileWallet();
   return (
-    <Button
-      icon="wallet"
-      mode="contained-tonal"
-      style={{ alignSelf: "center" }}
-      onPress={selectedAccount ? openMenu : connect}
-    >
-      {selectedAccount
-        ? ellipsify(selectedAccount.publicKey.toBase58())
-        : "Connect"}
-    </Button>
+    <TouchableOpacity onPress={selectedAccount ? openMenu : connect}>
+      <View className="rounded-full px-6 py-2 shadow-wallet-button-shadow bg-accent-light border">
+        <Text className="text-black font-better-semibold text-lg text-center">
+          {selectedAccount
+            ? ellipsify(selectedAccount.publicKey.toBase58())
+            : "Connect"}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -78,6 +77,7 @@ export function TopBarWalletMenu() {
           openMenu={openMenu}
         />
       }
+      
     >
       <Menu.Item
         onPress={copyAddressToClipboard}

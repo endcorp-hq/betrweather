@@ -1,30 +1,11 @@
-import { StyleSheet } from "react-native";
-import { Appbar, useTheme } from "react-native-paper";
-import { TopBarWalletButton, TopBarWalletMenu } from "./top-bar-ui";
-import { useNavigation } from "@react-navigation/core";
+import { View, Text } from "react-native";
+import { TopBarWalletMenu } from "./top-bar-ui";
 
 export function TopBar() {
-  const navigation = useNavigation();
-  const theme = useTheme();
-
   return (
-    <Appbar.Header mode="small" style={styles.topBar}>
+    <View className="bg-transparent h-20 flex-row px-4 items-center justify-between">
+      <Text className="text-white text-[24px] font-better-extra-bold">BetterWeather</Text>
       <TopBarWalletMenu />
-
-      <Appbar.Action
-        icon="cog"
-        mode="contained-tonal"
-        onPress={() => {
-          navigation.navigate("Settings");
-        }}
-      />
-    </Appbar.Header>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  topBar: {
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-});

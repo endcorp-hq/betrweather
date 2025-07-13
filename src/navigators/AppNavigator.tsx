@@ -2,22 +2,16 @@
  * The app navigator (formerly "AppNavigator" and "MainNavigator") is used for the primary
  * navigation flows of your app.
  */
-import {
-  DarkTheme as NavigationDarkTheme,
-  DefaultTheme as NavigationDefaultTheme,
-  NavigationContainer,
-} from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
-import { Appearance, useColorScheme } from "react-native";
 import * as Screens from "../screens";
 import { HomeNavigator } from "./HomeNavigator";
 import { StatusBar } from "expo-status-bar";
-import {
-  MD3DarkTheme,
-  MD3LightTheme,
-  adaptNavigationTheme,
-} from "react-native-paper";
+import MarketDetailScreen from "../screens/MarketDetailScreen";
+import { TopBar } from "../components/top-bar/top-bar-feature";
+import LoginScreen from "../screens/LoginScreen";
+import { useAuthorization } from "../utils/useAuthorization";
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -35,6 +29,7 @@ import {
 type RootStackParamList = {
   Home: undefined;
   Settings: undefined;
+  MarketDetail: { id: string };
   // 🔥 Your screens go here
 };
 
@@ -44,20 +39,39 @@ declare global {
   }
 }
 
+const RouteGuard = ({ children }: { children: React.ReactNode }) => {
+  const { selectedAccount } = useAuthorization();
+  if (!selectedAccount) {
+    return <LoginScreen />;
+  }
+  return children;
+};
+
 // Documentation: https://reactnavigation.org/docs/stack-navigator/
 const Stack = createNativeStackNavigator();
 
 const AppStack = () => {
   return (
-    <Stack.Navigator initialRouteName={"Home"}>
-      <Stack.Screen
-        name="HomeStack"
-        component={HomeNavigator}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen name="Settings" component={Screens.SettingsScreen} />
-      {/** 🔥 Your screens go here */}
-    </Stack.Navigator>
+    <RouteGuard>
+      <Stack.Navigator initialRouteName={"HomeStack"}>
+        <Stack.Screen
+          name="HomeStack"
+          component={HomeNavigator}
+          options={{ headerShown: false }}
+          initialParams={{ screen: "Markets" }}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={Screens.SettingsScreen}
+          options={{ headerShown: true, header: () => <TopBar /> }}
+        />
+        <Stack.Screen
+          name="MarketDetail"
+          component={MarketDetailScreen}
+          options={{ headerShown: true, header: () => <TopBar /> }}
+        />
+      </Stack.Navigator>
+    </RouteGuard>
   );
 };
 
@@ -65,35 +79,17 @@ export interface NavigationProps
   extends Partial<React.ComponentProps<typeof NavigationContainer>> {}
 
 export const AppNavigator = (props: NavigationProps) => {
-  const colorScheme = useColorScheme();
-  const { LightTheme, DarkTheme } = adaptNavigationTheme({
-    reactNavigationLight: NavigationDefaultTheme,
-    reactNavigationDark: NavigationDarkTheme,
-  });
-
-  const CombinedDefaultTheme = {
-    ...MD3LightTheme,
-    ...LightTheme,
+  const MyTheme = {
+    ...DefaultTheme,
     colors: {
-      ...MD3LightTheme.colors,
-      ...LightTheme.colors,
-    },
-  };
-  const CombinedDarkTheme = {
-    ...MD3DarkTheme,
-    ...DarkTheme,
-    colors: {
-      ...MD3DarkTheme.colors,
-      ...DarkTheme.colors,
+      ...DefaultTheme.colors,
+      background: "transparent",
     },
   };
 
   return (
-    <NavigationContainer
-      theme={colorScheme === "dark" ? CombinedDarkTheme : CombinedDefaultTheme}
-      {...props}
-    >
-      <StatusBar />
+    <NavigationContainer theme={MyTheme} {...props}>
+      <StatusBar style="dark" backgroundColor="#fff" />
       <AppStack />
     </NavigationContainer>
   );
