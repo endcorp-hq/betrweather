@@ -30,7 +30,6 @@
     "@types/module-alias": "^2.0.4",
     "@types/ungap__structured-clone": "^1.2.0",
     "@ungap/structured-clone": "^1.3.0",
-    "anchor": "coral-xyz/anchor",
     "assert": "^2.1.0",
     "axios": "^1.10.0",
     "bn.js": "^5.2.2",
