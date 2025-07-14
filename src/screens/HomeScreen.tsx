@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,8 +13,7 @@ import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 import { useAPI } from "../utils/useAPI";
 import { useLocation } from "../utils/useLocation";
 import { getH3Index, getH3Neighbors } from "../utils/h3";
-
-const location = { lat: 13.041155330757062, lon: 77.57709628308064 };
+import { getDistance } from "../utils/math"
 
 // --- Types for API responses ---
 type WeatherCondition = {
@@ -41,6 +40,19 @@ type DailyForecast = {
   sunEvents?: { sunriseTime?: string; sunsetTime?: string };
 };
 
+type Station = {
+  cellId: string;
+  createdAt: string;
+  id: string;
+  lastDayQod: number;
+  location: {
+    elevation: number;
+    lat: number;
+    lon: number;
+  },
+  name: string;
+}
+
 type WeatherAPIResponse = {
   temperature?: { degrees?: number };
   weatherCondition?: WeatherCondition;
@@ -58,9 +70,47 @@ type WeatherAPIResponse = {
   uvIndex?: number;
   airPressure?: { meanSeaLevelMillibars?: number };
 };
+type MMForecastHourly = {
+  timestamp: string;
+  precipitation: number;
+  precipitation_probability: number;
+  temperature: number;
+  icon: string;
+  wind_speed: number;
+  wind_direction: number;
+  humidity: number;
+  pressure: number;
+  uv_index: number;
+  feels_like: number;
+};
+
+type MMForecastDaily = {
+  temperature_max: number;
+  temperature_min: number;
+  precipitation_probability: number;
+  precipitation_intensity: number;
+  humidity: number;
+  uv_index: number;
+  pressure: number;
+  icon: string;
+  precipitation_type: string;
+  wind_speed: number;
+  wind_direction: number;
+  timestamp: string;
+};
+
+type MMForecastResponse = Array<{
+  tz: string;
+  date: string;
+  hourly: MMForecastHourly[];
+  daily: MMForecastDaily;
+}>;
 
 type HourlyAPIResponse = { forecastHours?: HourlyForecast[] };
 type DailyAPIResponse = { forecastDays?: DailyForecast[] };
+type LocalStationsAPIResponse = { stations?: Station[] };
+
+const WEATHER_XM_RADIUS = 5000;
 
 // Fallback icons (emoji or local asset)
 const fallbackIcons = {
@@ -79,54 +129,114 @@ export function HomeScreen() {
 
   // Only create URLs and fetch data if we have valid coordinates
   const hasValidLocation = latitude && longitude && !loadingLocation && !errorLocation;
-  console.log("hasValidLocation", hasValidLocation);
-  console.log("detailedLocation", detailedLocation);
-  const WEATHER_URL = hasValidLocation 
+
+  // Step 1: Get local stations within 5km radius
+  const LOCAL_STATIONS_URL = hasValidLocation
+    ? `https://pro.weatherxm.com/api/v1/stations/near?lat=${latitude}&lon=${longitude}&radius=${WEATHER_XM_RADIUS}`
+    : null;
+
+  const { data: localStationsData, isLoading: loadingLocalStations } = useAPI<LocalStationsAPIResponse>(
+    LOCAL_STATIONS_URL || "", {
+      headers: {
+        "X-API-Key": process.env.EXPO_PUBLIC_XM_API_KEY || "",
+        "Accept": "application/json",
+        "Host": "pro.weatherxm.com",
+      },
+    }
+  );
+
+  // Find nearest good station
+  const nearestGoodStation = useMemo(() => {
+    if (!localStationsData?.stations || !latitude || !longitude) return null;
+
+    const goodStations = localStationsData.stations.filter(station => station.lastDayQod === 1);
+    if (!goodStations.length) return null;
+
+    return goodStations.reduce((nearest, station) => {
+      const distance = getDistance(
+        latitude,
+        longitude,
+        station.location.lat,
+        station.location.lon
+      );
+      
+      if (!nearest || distance < nearest.distance) {
+        return { station, distance };
+      }
+      
+      return nearest;
+    }, null as { station: Station; distance: number } | null);
+  }, [localStationsData, latitude, longitude]);
+
+  // Step 2: Fetch WeatherXM forecast if we have a good station
+  const MM_FORECAST_URL = nearestGoodStation?.station?.cellId
+    ? `https://pro.weatherxm.com/api/v1/cells/${nearestGoodStation.station.cellId}/mm/forecast`
+    : null;
+
+  const { data: mmForecastData, isLoading: loadingMMForecast, error: errorMMForecast } = useAPI<MMForecastResponse>(
+    MM_FORECAST_URL || "", {
+      headers: {
+        "X-Api-Key": process.env.EXPO_PUBLIC_XM_API_KEY || "",
+        "Accept": "application/json",
+        "Host": "pro.weatherxm.com",
+      },
+    },
+    { enabled: !!MM_FORECAST_URL }
+  );
+
+  // Step 3: Only fetch Google API data if no local station forecast available
+  const shouldUseGoogleAPI = hasValidLocation && !nearestGoodStation && !loadingLocalStations;
+
+  const WEATHER_URL = shouldUseGoogleAPI
     ? `https://weather.googleapis.com/v1/currentConditions:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}`
     : null;
-  const HOURLY_FORECAST_URL = hasValidLocation
+
+  const HOURLY_FORECAST_URL = shouldUseGoogleAPI
     ? `https://weather.googleapis.com/v1/forecast/hours:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}`
     : null;
-  const DAILY_FORECAST_URL = hasValidLocation
+
+  const DAILY_FORECAST_URL = shouldUseGoogleAPI
     ? `https://weather.googleapis.com/v1/forecast/days:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}&days=10&pageSize=10`
     : null;
 
-  const {
-    data: weather,
-    isLoading: loadingWeather,
-    error: errorWeather,
-  } = useAPI<WeatherAPIResponse>(WEATHER_URL || "");
-  const { data: hourlyData, isLoading: loadingHourly } =
-    useAPI<HourlyAPIResponse>(HOURLY_FORECAST_URL || "");
-  const { data: dailyData, isLoading: loadingDaily } =
-    useAPI<DailyAPIResponse>(DAILY_FORECAST_URL || "");
+  const { data: googleWeather, isLoading: loadingGoogleWeather, error: errorGoogleWeather } = useAPI<WeatherAPIResponse>(
+    WEATHER_URL || "", {}, { enabled: !!WEATHER_URL }
+  );
 
+  const { data: googleHourly, isLoading: loadingGoogleHourly } = useAPI<HourlyAPIResponse>(
+    HOURLY_FORECAST_URL || "", {}, { enabled: !!HOURLY_FORECAST_URL }
+  );
 
-  var h3Index = getH3Index(latitude ?? 0, longitude ?? 0);
-  console.log("h3Index", h3Index);
-  var h3Neighbors = getH3Neighbors(h3Index, 1);
-  console.log("h3Neighbors", h3Neighbors);
+  const { data: googleDaily, isLoading: loadingGoogleDaily } = useAPI<DailyAPIResponse>(
+    DAILY_FORECAST_URL || "", {}, { enabled: !!DAILY_FORECAST_URL }
+  );
 
+  // Determine which data source to use
+  const isUsingLocalStation = !!mmForecastData;
+  const weather = isUsingLocalStation ? null : googleWeather;
+  const hourlyData = isUsingLocalStation ? null : googleHourly;
+  const dailyData = isUsingLocalStation ? null : googleDaily;
 
-  // Show loading state while getting location
-  if (loadingLocation) {
+  // Show loading state while getting location or fetching data
+  if (loadingLocation || loadingLocalStations || loadingMMForecast || loadingGoogleWeather || loadingGoogleHourly || loadingGoogleDaily) {
     return (
       <ScreenWrapper>
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#78a646" />
-          <Text className="mt-4 text-gray-700">Getting your location...</Text>
+          <Text className="mt-4 text-gray-700">Loading weather...</Text>
         </View>
       </ScreenWrapper>
     );
   }
 
-  // Show error if location failed
-  if (errorLocation) {
+  // Show error if any API failed
+  if (errorLocation || errorMMForecast || errorGoogleWeather) {
+    const errorMessage = errorLocation || errorMMForecast?.message || errorGoogleWeather?.message;
     return (
       <ScreenWrapper>
         <View className="flex-1 justify-center items-center px-6">
-          <Text className="text-red-500 text-lg font-better-bold mb-2">Location Error</Text>
-          <Text className="text-gray-700 text-center">{errorLocation}</Text>
+          <Text className="text-red-500 text-lg font-better-bold mb-2">Error</Text>
+          <Text className="text-gray-700 text-center">{errorMessage}</Text>
           <TouchableOpacity 
             className="mt-4 bg-accent-green px-6 py-3 rounded-full"
             onPress={() => {
