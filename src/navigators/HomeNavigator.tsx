@@ -3,7 +3,6 @@ import React from "react";
 import { TopBar } from "../components/top-bar/top-bar-feature";
 import { HomeScreen } from "../screens/HomeScreen";
 import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
-import { useTheme } from "react-native-paper";
 import ProfileScreen from "../screens/ProfileScreen";
 import MarketScreen from "../screens/MarketScreen";
 import { CustomTabBar } from "../components/ui/CustomTabBar";
@@ -17,7 +16,6 @@ const Tab = createBottomTabNavigator();
  * More info: https://reactnavigation.org/docs/bottom-tab-navigator/
  */
 export function HomeNavigator() {
-  const theme = useTheme();
   return (
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}

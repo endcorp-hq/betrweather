@@ -187,23 +187,26 @@ import React, {
       const initializeSDK = async () => {
         try {
           const connection = new Connection(
-            process.env.EXPO_PUBLIC_SOLANA_RPC_URL ||
+          
               "https://api.devnet.solana.com"
           );
+
+          console.log("this is connection", connection);
   
           if (
             !process.env.EXPO_PUBLIC_ADMIN_KEY ||
-            !process.env.EXPO_PUBLIC_FEE_VAULT ||
             !process.env.EXPO_PUBLIC_USDC_MINT
           ) {
+            console.log("this is missing nvironment variables", process.env.EXPO_PUBLIC_ADMIN_KEY, process.env.EXPO_PUBLIC_FEE_VAULT, process.env.EXPO_PUBLIC_USDC_MINT);
             throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing environment variables");
           }
           const shortxClient = new ShortXClient(
             connection,
             new PublicKey(process.env.EXPO_PUBLIC_ADMIN_KEY || ""),
-            new PublicKey(process.env.EXPO_PUBLIC_FEE_VAULT || ""),
+            new PublicKey(process.env.EXPO_PUBLIC_FEE_VAULT || "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"),
             new PublicKey(process.env.EXPO_PUBLIC_USDC_MINT || "")
           );
+
           setClient(shortxClient);
           setIsInitialized(true);
         } catch (err) {
@@ -220,7 +223,9 @@ import React, {
       setError(null);
       try {
         if (client) {
+          console.log("this is client", client);
           const m = await client.trade.getAllMarkets();
+          console.log("this is m", m);
           setMarkets(m || []);
         }
       } catch (err: unknown) {

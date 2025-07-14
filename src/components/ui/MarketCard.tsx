@@ -69,7 +69,7 @@ export function MarketCard({ market }: { market: any }) {
   return (
     <Pressable
       onPress={handlePress}
-      className="mt-10 rounded-xl flex flex-col justify-between border border-white bg-white/60 px-3 pt-3 pb-2 h-[198px]"
+      className="mb-10 rounded-xl flex flex-col justify-between border border-white bg-white/60 px-3 pt-3 pb-2 h-[198px]"
       style={{
         shadowColor: "#000",
         shadowOpacity: 0.1,

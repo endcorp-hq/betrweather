@@ -4,5 +4,6 @@ declare namespace NodeJS {
         EXPO_PUBLIC_FEE_VAULT?: string;
         EXPO_PUBLIC_USDC_MINT?: string;
         EXPO_PUBLIC_SOLANA_RPC_URL?: string;
+        EXPO_PUBLIC_BACKEND_URL?: string;
     }
 }

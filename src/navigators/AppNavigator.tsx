@@ -12,6 +12,7 @@ import MarketDetailScreen from "../screens/MarketDetailScreen";
 import { TopBar } from "../components/top-bar/top-bar-feature";
 import LoginScreen from "../screens/LoginScreen";
 import { useAuthorization } from "../utils/useAuthorization";
+import { Toaster } from "sonner-native";
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
