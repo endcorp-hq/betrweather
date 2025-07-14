@@ -29,7 +29,7 @@ const getPriorityFee = async () => {
 };
 
 export function useCreateAndSendTx() {
-  const { signAndSendTransaction } = useMobileWallet();
+  const { signTransaction } = useMobileWallet();
   const { selectedAccount } = useAuthorization();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -53,7 +53,7 @@ export function useCreateAndSendTx() {
         throw new Error("Wallet not connected");
       }
 
-      if (!signAndSendTransaction) {
+      if (!signTransaction) {
         throw new Error("Wallet does not support signing transactions");
       }
 
@@ -67,15 +67,12 @@ export function useCreateAndSendTx() {
         // If a signed versioned transaction is provided, send it directly
         if (signedVersionedTransaction) {
           console.log(Buffer.from(signedVersionedTransaction.serialize()).toString("base64"));
-
           if (signatureRequired) {
             // Use signAndSendTransaction for the signed transaction
-            const signature = await signAndSendTransaction(signedVersionedTransaction);
-            
-            // Wait for confirmation
-            await connection.confirmTransaction(signature, "confirmed");
-            
-            return signature;
+            let result = await signTransaction(signedVersionedTransaction);
+            if (result) {
+              signedVersionedTransaction = result as VersionedTransaction;
+            }
           }
           
           // If no signature required, just send the transaction
@@ -124,10 +121,18 @@ export function useCreateAndSendTx() {
         if (signatureRequired) {
           // Use signAndSendTransaction from wallet
           console.log("this is await signAndSendTransaction");
-          const signature = await signAndSendTransaction(tx);
-          
-          // Wait for confirmation
-          await connection.confirmTransaction(signature, "confirmed");
+          const signedTransaction = await signTransaction(tx);
+          let signature: string | undefined;
+          if (signedTransaction) {
+            signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+              skipPreflight,
+            });
+          }
+
+          if (signature) {
+            // Wait for confirmation
+            await connection.confirmTransaction(signature, "confirmed");
+          }
           
           return signature;
         } else {
@@ -149,7 +154,7 @@ export function useCreateAndSendTx() {
         setIsLoading(false);
       }
     },
-    [selectedAccount?.publicKey, signAndSendTransaction]
+    [selectedAccount?.publicKey, signTransaction]
   );
 
   return {
