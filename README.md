@@ -38,6 +38,10 @@ This template is a ready-to-go Android Expo dApp that offers:
 | TypeScript            | Language          | v5      | Static typechecking                                   |
 | AsyncStorage          | Persistence       | v1.23   | State persistence                                     |
 
+## Additional Dependencies
+
+This App includes [h3-reactnative](https://github.com/endcorp-hq/h3-reactnative) for H3 geospatial functionality. If you encounter yarn install issues, please refer to the [h3-reactnative README](https://github.com/endcorp-hq/h3-reactnative) for setup instructions, particularly for macOS users with Apple silicon, who may need to install LLVM toolchains.
+
 ## Quick Start
 
 ### Prerequisites
