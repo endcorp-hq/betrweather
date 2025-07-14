@@ -1,11 +1,10 @@
-import { IconButton, Menu } from "react-native-paper";
 import { Account, useAuthorization } from "../../utils/useAuthorization";
 import { useMobileWallet } from "../../utils/useMobileWallet";
 import { useNavigation } from "@react-navigation/native";
 import { ellipsify } from "../../utils/ellipsify";
 import { useState } from "react";
 import * as Clipboard from "expo-clipboard";
-import { Linking, Text, TouchableOpacity, View } from "react-native";
+import { Linking, Text, TouchableOpacity, View, Modal } from "react-native";
 import { useCluster } from "../cluster/cluster-data-access";
 
 export function TopBarWalletButton({
@@ -32,13 +31,14 @@ export function TopBarWalletButton({
 export function TopBarSettingsButton() {
   const navigation = useNavigation();
   return (
-    <IconButton
-      icon="cog"
-      mode="contained-tonal"
+    <TouchableOpacity
       onPress={() => {
         navigation.navigate("Settings");
       }}
-    />
+      className="rounded-full p-3 bg-gray-200"
+    >
+      <Text className="text-gray-700 text-lg">⚙️</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -68,35 +68,53 @@ export function TopBarWalletMenu() {
   };
 
   return (
-    <Menu
-      visible={visible}
-      onDismiss={closeMenu}
-      anchor={
-        <TopBarWalletButton
-          selectedAccount={selectedAccount}
-          openMenu={openMenu}
-        />
-      }
+    <>
+      <TopBarWalletButton
+        selectedAccount={selectedAccount}
+        openMenu={openMenu}
+      />
       
-    >
-      <Menu.Item
-        onPress={copyAddressToClipboard}
-        title="Copy address"
-        leadingIcon="content-copy"
-      />
-      <Menu.Item
-        onPress={viewExplorer}
-        title="View Explorer"
-        leadingIcon="open-in-new"
-      />
-      <Menu.Item
-        onPress={async () => {
-          await disconnect();
-          closeMenu();
-        }}
-        title="Disconnect"
-        leadingIcon="link-off"
-      />
-    </Menu>
+      <Modal
+        visible={visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeMenu}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          activeOpacity={1}
+          onPress={closeMenu}
+        >
+          <View className="absolute top-20 right-4 bg-white rounded-lg shadow-lg min-w-48">
+            <TouchableOpacity
+              onPress={copyAddressToClipboard}
+              className="flex-row items-center px-4 py-3 border-b border-gray-100"
+            >
+              <Text className="text-lg mr-3">📋</Text>
+              <Text className="text-gray-700 font-medium">Copy address</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={viewExplorer}
+              className="flex-row items-center px-4 py-3 border-b border-gray-100"
+            >
+              <Text className="text-lg mr-3">🔗</Text>
+              <Text className="text-gray-700 font-medium">View Explorer</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={async () => {
+                await disconnect();
+                closeMenu();
+              }}
+              className="flex-row items-center px-4 py-3"
+            >
+              <Text className="text-lg mr-3">❌</Text>
+              <Text className="text-red-600 font-medium">Disconnect</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
   );
 }

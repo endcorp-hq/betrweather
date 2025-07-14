@@ -109,6 +109,7 @@ export function useCreateAndSendTx() {
         // Get latest blockhash
         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
 
+        console.log("this is blockhash", blockhash);
         // Create versioned transaction
         const tx = new VersionedTransaction(
           new TransactionMessage({
@@ -118,8 +119,11 @@ export function useCreateAndSendTx() {
           }).compileToV0Message(addressLookupTableAccounts)
         );
 
+        console.log("this is tx", tx);
+
         if (signatureRequired) {
           // Use signAndSendTransaction from wallet
+          console.log("this is await signAndSendTransaction");
           const signature = await signAndSendTransaction(tx);
           
           // Wait for confirmation

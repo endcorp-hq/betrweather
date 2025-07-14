@@ -46,11 +46,14 @@ export function useMobileWallet() {
       minContextSlot?: number,
     ): Promise<TransactionSignature> => {
       return await transact(async (wallet) => {
+        console.log("this is wallet", wallet);
         await authorizeSession(wallet);
+        console.log("auth complete");
         const signatures = await wallet.signAndSendTransactions({
           transactions: [transaction],
           minContextSlot,
         });
+        console.log("this is signatures", signatures[0]);
         return signatures[0];
       });
     },
@@ -71,36 +74,6 @@ export function useMobileWallet() {
     [authorizeSession]
   );
 
-  const anchorWallet = useMemo(() => {
-    return {
-      signTransaction: async (transaction: Transaction) => {
-        return transact(async (wallet: Web3MobileWallet) => {
-          await wallet.authorize({
-            identity: APP_IDENTITY,
-          });
-          const signedTransactions = await wallet.signTransactions({
-            transactions: [transaction],
-          });
-          return signedTransactions[0];
-        });
-      },
-      signAllTransactions: async (transactions: Transaction[]) => {
-        return transact(async (wallet: Web3MobileWallet) => {
-          await wallet.authorize({
-            identity: APP_IDENTITY,
-          });
-          const signedTransactions = await wallet.signTransactions({
-            transactions: transactions,
-          });
-          return signedTransactions;
-        });
-      },
-      get publicKey() {
-        return userPubKey;
-      },
-    } as unknown as anchor.Wallet;
-  }, []);
-
   return useMemo(
     () => ({
       connect,
@@ -108,8 +81,8 @@ export function useMobileWallet() {
       disconnect,
       signAndSendTransaction,
       signMessage,
-      anchorWallet,
+
     }),
-    [signAndSendTransaction, signMessage, anchorWallet]
+    [signAndSendTransaction, signMessage]
   );
 }

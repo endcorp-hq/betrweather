@@ -1,6 +1,5 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
+import { StyleSheet, View, Text } from "react-native";
 
 export const Section: React.FC<{
   children?: ReactNode;
@@ -10,11 +9,11 @@ export const Section: React.FC<{
   return (
     <View style={styles.sectionContainer}>
       {title ? (
-        <Text style={styles.titleText} variant="headlineMedium">
+        <Text style={styles.titleText}>
           {title}
         </Text>
       ) : null}
-      {description ? <Text variant="bodyMedium">{description}</Text> : null}
+      {description ? <Text>{description}</Text> : null}
       {children}
     </View>
   );
