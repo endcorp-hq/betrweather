@@ -7,13 +7,6 @@ import {
 } from "@solana/web3.js";
 import { useCallback, useMemo } from "react";
 import { SignInPayload } from "@solana-mobile/mobile-wallet-adapter-protocol";
-import * as anchor from "@coral-xyz/anchor";
-import { Web3MobileWallet } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
-
-// TODO: Replace with actual values or get from context/config
-const APP_IDENTITY = { name: "MyApp" };
-// TODO: Set userPubKey to a real PublicKey instance when available
-const userPubKey = undefined;
 
 export function useMobileWallet() {
   const { authorizeSessionWithSignIn, authorizeSession, deauthorizeSession } =
@@ -43,19 +36,39 @@ export function useMobileWallet() {
   const signAndSendTransaction = useCallback(
     async (
       transaction: Transaction | VersionedTransaction,
-      minContextSlot?: number,
-    ): Promise<TransactionSignature> => {
-      return await transact(async (wallet) => {
-        console.log("this is wallet", wallet);
-        await authorizeSession(wallet);
-        console.log("auth complete");
-        const signatures = await wallet.signAndSendTransactions({
-          transactions: [transaction],
-          minContextSlot,
+      minContextSlot?: number
+    ): Promise<TransactionSignature | undefined> => {
+      try {
+        return await transact(async (wallet) => {
+          await authorizeSession(wallet);
+          const signatures = await wallet.signAndSendTransactions({
+            transactions: [transaction],
+            minContextSlot,
+          });
+          return signatures[0];
         });
-        console.log("this is signatures", signatures[0]);
-        return signatures[0];
-      });
+      } catch (e) {
+        console.log("this is error", e);
+      }
+    },
+    [authorizeSession]
+  );
+
+  const signTransaction = useCallback(
+    async (
+      transaction: Transaction | VersionedTransaction,
+    ): Promise<Transaction | VersionedTransaction | undefined> => {
+      try {
+        return await transact(async (wallet) => {
+          await authorizeSession(wallet);
+          const signatures = await wallet.signTransactions({
+            transactions: [transaction],
+          });
+          return signatures[0];
+        });
+      } catch (e) {
+        console.log("this is error", e);
+      }
     },
     [authorizeSession]
   );
@@ -80,8 +93,8 @@ export function useMobileWallet() {
       signIn,
       disconnect,
       signAndSendTransaction,
+      signTransaction,
       signMessage,
-
     }),
     [signAndSendTransaction, signMessage]
   );
