@@ -184,41 +184,41 @@ export function HomeScreen() {
     { enabled: !!MM_FORECAST_URL }
   );
 
-  // Step 3: Only fetch Google API data if no local station forecast available
-  const shouldUseGoogleAPI = hasValidLocation && !nearestGoodStation && !loadingLocalStations;
+  // Step 3: Only fetch Base API data if no local station forecast available
+  const shouldUseBaseAPI = hasValidLocation && !nearestGoodStation && !loadingLocalStations;
 
-  const WEATHER_URL = shouldUseGoogleAPI
+  const WEATHER_URL = shouldUseBaseAPI
     ? `https://weather.googleapis.com/v1/currentConditions:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}`
     : null;
 
-  const HOURLY_FORECAST_URL = shouldUseGoogleAPI
+  const HOURLY_FORECAST_URL = shouldUseBaseAPI
     ? `https://weather.googleapis.com/v1/forecast/hours:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}`
     : null;
 
-  const DAILY_FORECAST_URL = shouldUseGoogleAPI
+  const DAILY_FORECAST_URL = shouldUseBaseAPI
     ? `https://weather.googleapis.com/v1/forecast/days:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}&days=10&pageSize=10`
     : null;
 
-  const { data: googleWeather, isLoading: loadingGoogleWeather, error: errorGoogleWeather } = useAPI<WeatherAPIResponse>(
+  const { data: baseWeather, isLoading: loadingbaseWeather, error: errorbaseWeather } = useAPI<WeatherAPIResponse>(
     WEATHER_URL || "", {}, { enabled: !!WEATHER_URL }
   );
 
-  const { data: googleHourly, isLoading: loadingGoogleHourly } = useAPI<HourlyAPIResponse>(
+  const { data: baseHourly, isLoading: loadingbaseHourly } = useAPI<HourlyAPIResponse>(
     HOURLY_FORECAST_URL || "", {}, { enabled: !!HOURLY_FORECAST_URL }
   );
 
-  const { data: googleDaily, isLoading: loadingGoogleDaily } = useAPI<DailyAPIResponse>(
+  const { data: baseDaily, isLoading: loadingBaseDaily } = useAPI<DailyAPIResponse>(
     DAILY_FORECAST_URL || "", {}, { enabled: !!DAILY_FORECAST_URL }
   );
 
   // Determine which data source to use
   const isUsingLocalStation = !!mmForecastData;
-  const weather = isUsingLocalStation ? null : googleWeather;
-  const hourlyData = isUsingLocalStation ? null : googleHourly;
-  const dailyData = isUsingLocalStation ? null : googleDaily;
+  const weather = isUsingLocalStation ? null : baseWeather;
+  const hourlyData = isUsingLocalStation ? null : baseHourly;
+  const dailyData = isUsingLocalStation ? null : baseDaily;
 
   // Show loading state while getting location or fetching data
-  if (loadingLocation || loadingLocalStations || loadingMMForecast || loadingGoogleWeather || loadingGoogleHourly || loadingGoogleDaily) {
+  if (loadingLocation || loadingLocalStations || loadingMMForecast || loadingbaseWeather || loadingbaseHourly || loadingBaseDaily) {
     return (
       <ScreenWrapper>
         <View className="flex-1 justify-center items-center">
@@ -230,8 +230,8 @@ export function HomeScreen() {
   }
 
   // Show error if any API failed
-  if (errorLocation || errorMMForecast || errorGoogleWeather) {
-    const errorMessage = errorLocation || errorMMForecast?.message || errorGoogleWeather?.message;
+  if (errorLocation || errorMMForecast || errorbaseWeather) {
+    const errorMessage = errorLocation || errorMMForecast?.message || errorbaseWeather?.message;
     return (
       <ScreenWrapper>
         <View className="flex-1 justify-center items-center px-6">
@@ -254,8 +254,8 @@ export function HomeScreen() {
   // Fallbacks for missing data
   const city = detailedLocation?.[0]?.subregion || "Your City";
   
-  // Helper function to get weather icon for Google API
-  const getGoogleWeatherIcon = (weatherCondition?: WeatherCondition) => {
+  // Helper function to get weather icon for Base API
+  const getbaseWeatherIcon = (weatherCondition?: WeatherCondition) => {
     if (!weatherCondition?.iconBaseUri) return "☀️";
     return weatherCondition.iconBaseUri;
   };
@@ -274,7 +274,7 @@ export function HomeScreen() {
     }
   };
 
-  // Use WeatherXM data if available, otherwise fall back to Google data
+  // Use WeatherXM data if available, otherwise fall back to base data
   const temp = isUsingLocalStation 
     ? mmForecastData?.[0]?.hourly?.[0]?.temperature ?? "--"
     : weather?.temperature?.degrees ?? "--";
@@ -380,7 +380,7 @@ export function HomeScreen() {
     : undefined;
 
   // If your API provides wind/humidity icons, use them; otherwise fallback
-  // (Google Weather API does not provide wind/humidity icons, so fallback)
+  // (Base Weather API does not provide wind/humidity icons, so fallback)
   const windIcon = undefined; // or a local asset if you have one
   const humidityIcon = undefined; // or a local asset if you have one
 
@@ -445,7 +445,7 @@ export function HomeScreen() {
           </View>
         </View>
 
-                 {/* Hourly Forecast - Google API */}
+                 {/* Hourly Forecast - Base API */}
          {!isUsingLocalStation && (
            <View className="mt-6 bg-white/50 rounded-xl p-4">
              <Text className="text-black text-lg font-better-regular mb-2">
@@ -529,7 +529,7 @@ export function HomeScreen() {
            </View>
          )}
 
-                 {/* 10 Day Forecast - Google API */}
+                 {/* 10 Day Forecast - Base API */}
          {!isUsingLocalStation && (
            <View className="mt-6 bg-white/50 rounded-xl p-4">
              <Text className="text-black text-lg font-better-regular mb-2">
