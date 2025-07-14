@@ -12,6 +12,7 @@ import {
 import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 import { useAPI } from "../utils/useAPI";
 import { useLocation } from "../utils/useLocation";
+import { getH3Index, getH3Neighbors } from "../utils/h3";
 
 const location = { lat: 13.041155330757062, lon: 77.57709628308064 };
 
@@ -78,7 +79,8 @@ export function HomeScreen() {
 
   // Only create URLs and fetch data if we have valid coordinates
   const hasValidLocation = latitude && longitude && !loadingLocation && !errorLocation;
-
+  console.log("hasValidLocation", hasValidLocation);
+  console.log("detailedLocation", detailedLocation);
   const WEATHER_URL = hasValidLocation 
     ? `https://weather.googleapis.com/v1/currentConditions:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}`
     : null;
@@ -98,6 +100,13 @@ export function HomeScreen() {
     useAPI<HourlyAPIResponse>(HOURLY_FORECAST_URL || "");
   const { data: dailyData, isLoading: loadingDaily } =
     useAPI<DailyAPIResponse>(DAILY_FORECAST_URL || "");
+
+
+  var h3Index = getH3Index(latitude ?? 0, longitude ?? 0);
+  console.log("h3Index", h3Index);
+  var h3Neighbors = getH3Neighbors(h3Index, 1);
+  console.log("h3Neighbors", h3Neighbors);
+
 
   // Show loading state while getting location
   if (loadingLocation) {
@@ -157,7 +166,7 @@ export function HomeScreen() {
   }
 
   // Fallbacks for missing data
-  const city = detailedLocation?.[0]?.city || "Your City";
+  const city = detailedLocation?.[0]?.subregion || "Your City";
   const temp = weather?.temperature?.degrees ?? "--";
   const description = weather?.weatherCondition?.description?.text ?? "--";
   const feelsLike = weather?.feelsLikeTemperature?.degrees ?? "--";
