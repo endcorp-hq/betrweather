@@ -12,105 +12,11 @@ import {
 import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 import { useAPI } from "../utils/useAPI";
 import { useLocation } from "../utils/useLocation";
-import { getH3Index, getH3Neighbors } from "../utils/h3";
 import { getDistance } from "../utils/math"
+import weatherModelAverage from "../utils/weatherModelAverage";
+import { DailyForecast, HourlyForecast, MMForecastResponse, WeatherAPIResponse, HourlyAPIResponse, DailyAPIResponse, LocalStationsAPIResponse, Station, WeatherCondition, MMForecastHourly } from "../types/weather";
 
-// --- Types for API responses ---
-type WeatherCondition = {
-  iconBaseUri?: string;
-  description?: { text?: string };
-};
-
-type HourlyForecast = {
-  displayDateTime?: { hours?: number };
-  weatherCondition?: WeatherCondition;
-  temperature?: { degrees?: number };
-};
-
-type DaytimeNighttimeForecast = {
-  weatherCondition?: WeatherCondition;
-};
-
-type DailyForecast = {
-  displayDate?: { year?: number; month?: number; day?: number };
-  daytimeForecast?: DaytimeNighttimeForecast;
-  nighttimeForecast?: DaytimeNighttimeForecast;
-  maxTemperature?: { degrees?: number };
-  minTemperature?: { degrees?: number };
-  sunEvents?: { sunriseTime?: string; sunsetTime?: string };
-};
-
-type Station = {
-  cellId: string;
-  createdAt: string;
-  id: string;
-  lastDayQod: number;
-  location: {
-    elevation: number;
-    lat: number;
-    lon: number;
-  },
-  name: string;
-}
-
-type WeatherAPIResponse = {
-  temperature?: { degrees?: number };
-  weatherCondition?: WeatherCondition;
-  feelsLikeTemperature?: { degrees?: number };
-  currentConditionsHistory?: {
-    maxTemperature?: { degrees?: number };
-    minTemperature?: { degrees?: number };
-  };
-  wind?: {
-    speed?: { value?: number };
-    direction?: { cardinal?: string };
-  };
-  relativeHumidity?: number;
-  dewPoint?: { degrees?: number };
-  uvIndex?: number;
-  airPressure?: { meanSeaLevelMillibars?: number };
-};
-type MMForecastHourly = {
-  timestamp: string;
-  precipitation: number;
-  precipitation_probability: number;
-  temperature: number;
-  icon: string;
-  wind_speed: number;
-  wind_direction: number;
-  humidity: number;
-  pressure: number;
-  uv_index: number;
-  feels_like: number;
-};
-
-type MMForecastDaily = {
-  temperature_max: number;
-  temperature_min: number;
-  precipitation_probability: number;
-  precipitation_intensity: number;
-  humidity: number;
-  uv_index: number;
-  pressure: number;
-  icon: string;
-  precipitation_type: string;
-  wind_speed: number;
-  wind_direction: number;
-  timestamp: string;
-};
-
-type MMForecastResponse = Array<{
-  tz: string;
-  date: string;
-  hourly: MMForecastHourly[];
-  daily: MMForecastDaily;
-}>;
-
-type HourlyAPIResponse = { forecastHours?: HourlyForecast[] };
-type DailyAPIResponse = { forecastDays?: DailyForecast[] };
-type LocalStationsAPIResponse = { stations?: Station[] };
-
-const WEATHER_XM_RADIUS = 5000;
+const WEATHER_XM_RADIUS = 10000;
 
 // Fallback icons (emoji or local asset)
 const fallbackIcons = {
@@ -149,8 +55,9 @@ export function HomeScreen() {
   const nearestGoodStation = useMemo(() => {
     if (!localStationsData?.stations || !latitude || !longitude) return null;
 
-    const goodStations = localStationsData.stations.filter(station => station.lastDayQod === 1);
+    const goodStations = localStationsData.stations.filter(station => station.lastDayQod === 0);
     if (!goodStations.length) return null;
+
 
     return goodStations.reduce((nearest, station) => {
       const distance = getDistance(
@@ -183,6 +90,10 @@ export function HomeScreen() {
     },
     { enabled: !!MM_FORECAST_URL }
   );
+
+
+  //compute avergaes between all models
+  const results = weatherModelAverage(mmForecastData);
 
   // Step 3: Only fetch Base API data if no local station forecast available
   const shouldUseBaseAPI = hasValidLocation && !nearestGoodStation && !loadingLocalStations;
@@ -274,9 +185,9 @@ export function HomeScreen() {
     }
   };
 
-  // Use WeatherXM data if available, otherwise fall back to base data
+  // Use WeatherXM data averages if available, otherwise fall back to base data
   const temp = isUsingLocalStation 
-    ? mmForecastData?.[0]?.hourly?.[0]?.temperature ?? "--"
+    ? results?.temperature?.toFixed(1) ?? "--"
     : weather?.temperature?.degrees ?? "--";
   
   const description = isUsingLocalStation
@@ -284,38 +195,38 @@ export function HomeScreen() {
     : weather?.weatherCondition?.description?.text ?? "--";
   
   const feelsLike = isUsingLocalStation
-    ? mmForecastData?.[0]?.hourly?.[0]?.feels_like ?? "--"
+    ? results?.feels_like?.toFixed(1) ?? "--"
     : weather?.feelsLikeTemperature?.degrees ?? "--";
   
   const high = isUsingLocalStation
-    ? mmForecastData?.[0]?.daily?.temperature_max ?? "--"
+    ? results?.dailyAverages?.temperature_max?.toFixed(1) ?? "--"
     : weather?.currentConditionsHistory?.maxTemperature?.degrees ?? "--";
   
   const low = isUsingLocalStation
-    ? mmForecastData?.[0]?.daily?.temperature_min ?? "--"
+    ? results?.dailyAverages?.temperature_min?.toFixed(1) ?? "--"
     : weather?.currentConditionsHistory?.minTemperature?.degrees ?? "--";
   
   const windSpeed = isUsingLocalStation
-    ? mmForecastData?.[0]?.hourly?.[0]?.wind_speed ?? "--"
+    ? results?.wind_speed?.toFixed(1) ?? "--"
     : weather?.wind?.speed?.value ?? "--";
   
   const windDesc = isUsingLocalStation
-    ? `${mmForecastData?.[0]?.hourly?.[0]?.wind_speed ?? ""} km/h`
+    ? `${results?.wind_speed?.toFixed(1) ?? "--"} km/h`
     : weather?.wind
       ? `${weather.wind.speed?.value ?? ""} km/h · From ${weather.wind.direction?.cardinal ?? ""}`
       : "--";
   
   const humidity = isUsingLocalStation
-    ? mmForecastData?.[0]?.hourly?.[0]?.humidity ?? "--"
+    ? results?.humidity?.toFixed(1) ?? "--"
     : weather?.relativeHumidity ?? "--";
   
   const dewPoint = weather?.dewPoint?.degrees ?? "--";
   const uv = isUsingLocalStation
-    ? mmForecastData?.[0]?.hourly?.[0]?.uv_index ?? "--"
+    ? results?.uv_index?.toFixed(1) ?? "--"
     : weather?.uvIndex ?? "--";
   
   const pressure = isUsingLocalStation
-    ? mmForecastData?.[0]?.hourly?.[0]?.pressure ?? "--"
+    ? results?.pressure?.toFixed(1) ?? "--"
     : weather?.airPressure?.meanSeaLevelMillibars ?? "--";
 
   // Hourly forecast: show next 10 hours
@@ -425,7 +336,7 @@ export function HomeScreen() {
           <View className="flex flex-col items-end justify-center">
             {isUsingLocalStation ? (
               <Text className="text-4xl mb-2">
-                {getWeatherXMIcon(mmForecastData?.[0]?.hourly?.[0]?.icon)}
+                {getWeatherXMIcon(String(mmForecastData?.[0]?.hourly?.[0]?.icon ?? ""))}
               </Text>
             ) : weatherIcon ? (
               <Image
@@ -494,7 +405,7 @@ export function HomeScreen() {
          )}
 
                  {/* WeatherXM Hourly Forecast */}
-         {isUsingLocalStation && mmForecastData && (
+         {isUsingLocalStation && mmForecastData && results && (
            <View className="mt-6 bg-white/50 rounded-xl p-4">
              <Text className="text-black text-lg font-better-regular mb-2">
                Hourly Forecast
@@ -505,23 +416,25 @@ export function HomeScreen() {
                className="py-2"
                contentContainerStyle={{ paddingHorizontal: 4 }}
              >
-               {mmForecastData[0]?.hourly?.slice(0, 10).map((h: MMForecastHourly, idx) => (
+               {results?.hourlyAverages?.slice(0, 10).map((h, idx) => (
                  <View
                    key={idx}
                    className="flex items-center justify-center mx-2 rounded-full px-4 py-2"
                    style={{ minWidth: 80, minHeight: 120 }}
                  >
                    <Text className="text-black font-better-light text-xs mb-2">
-                     {new Date(h.timestamp).getHours()}:00
+                     {typeof h.timestamp === "string" ? new Date(h.timestamp).getHours() + ":00" : "--:--"}
                    </Text>
                    <Text className="text-black font-better-light text-2xl my-2">
-                     {getWeatherXMIcon(h.icon)}
+                     {getWeatherXMIcon(String(h.icon ?? ""))}
                    </Text>
                    <Text className="text-black font-better-light text-xs mb-2 text-center">
-                     {h.precipitation_probability > 0 ? `${h.precipitation_probability}% rain` : "Clear"}
+                     {typeof h.precipitation_probability === "number" && h.precipitation_probability > 0
+                       ? `${h.precipitation_probability}% rain`
+                       : "Clear"}
                    </Text>
                    <Text className="text-black font-better-light text-lg">
-                     {h.temperature ?? "--"}°
+                     {typeof h.temperature === "number" ? h.temperature.toFixed(1) : "--"}°
                    </Text>
                  </View>
                ))}
@@ -620,7 +533,7 @@ export function HomeScreen() {
               </Text>
             </View>
             <Text className="text-gray-700 text-2xl font-better-bold">
-              {windSpeed} km/h
+              {Number(windSpeed).toFixed(1)} km/h
             </Text>
             <Text className="text-gray-500 text-xs font-better-light">
               {windDesc}
@@ -643,7 +556,7 @@ export function HomeScreen() {
               </Text>
             </View>
             <Text className="text-gray-700 text-2xl font-better-bold">
-              {humidity}%
+              {Number(humidity).toFixed(1)}%
             </Text>
             <Text className="text-gray-500 text-xs font-better-light">
               Dew point {dewPoint}°
@@ -670,7 +583,7 @@ export function HomeScreen() {
               </Text>
             </View>
             <Text className="text-gray-700 text-2xl font-better-bold">
-              {pressure}
+              {Number(pressure).toFixed(1)}
             </Text>
             <Text className="text-gray-500 text-xs font-better-light">
               mBar
