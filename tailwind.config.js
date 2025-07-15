@@ -11,15 +11,16 @@ module.exports = {
         'accent-light': '#FADADD'
       },
       fontFamily: {
-        'better-regular': ['Hanuman-Regular', 'sans-serif'],
-        'better-medium': ['Hanuman-Medium', 'sans-serif'],
-        'better-bold': ['Hanuman-Bold', 'sans-serif'],
-        'better-black': ['Hanuman-Black', 'sans-serif'],
-        'better-light': ['Hanuman-Light', 'sans-serif'],
-        'better-thin': ['Hanuman-Thin', 'sans-serif'],
-        'better-extra-light': ['Hanuman-ExtraLight', 'sans-serif'],
-        'better-extra-bold': ['Hanuman-ExtraBold', 'sans-serif'],
-        'better-semi-bold': ['Hanuman-SemiBold', 'sans-serif'],
+        'better-regular': ['Poppins-Regular'],
+        'better-medium': ['Poppins-Medium'],
+        'better-bold': ['Poppins-Bold'],
+        'better-light': ['Poppins-Light'],
+        'better-thin': ['Poppins-Thin'],
+        'better-extra-light': ['Poppins-ExtraLight'],
+        'better-semi-bold': ['Poppins-SemiBold'],
+        'better-extra-bold': ['Poppins-ExtraBold'],
+        'better-black': ['Poppins-Black'],
+        'better-extra-black': ['Poppins-ExtraBlack'],
       },
       boxShadow: {
         // Custom drop shadow for wallet button

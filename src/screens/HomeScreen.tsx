@@ -418,7 +418,7 @@ export function HomeScreen() {
             <Text className="text-black text-[72px] font-better-light">
               {temp}°
             </Text>
-            <Text className="text-black text-base font-better-light mt-1">
+            <Text className="text-black text-base font-better-regular mt-1">
               High: {high}° - Low: {low}°
             </Text>
           </View>
