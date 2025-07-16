@@ -16,6 +16,7 @@ import { useLocation } from "../utils/useLocation";
 import { getDistance } from "../utils/math"
 import weatherModelAverage from "../utils/weatherModelAverage";
 import { DailyForecast, HourlyForecast, MMForecastResponse, WeatherAPIResponse, HourlyAPIResponse, DailyAPIResponse, LocalStationsAPIResponse, Station, WeatherCondition, MMForecastHourly } from "../types/weather";
+import type { WeatherType } from "../components/ui/ScreenWrapper";
 import MaterialCard from '../components/ui/MaterialCard';
 import GlassyCard from '../components/ui/GlassyCard';
 import theme from '../theme';
@@ -32,6 +33,54 @@ const fallbackIcons = {
   uv: "🌞",
   pressure: "🌡️",
 };
+
+// Helper to map weather data to weatherType for background
+function getWeatherType({ isUsingLocalStation, results, weather }: { isUsingLocalStation: boolean, results: any, weather: any }): string {
+  if (isUsingLocalStation) {
+    // WeatherXM: use icon or description if available
+    const icon = results?.icon || results?.hourlyAverages?.[0]?.icon;
+    const desc = results?.description || '';
+    if (icon && typeof icon === 'string') {
+      if (icon.includes('cloud')) return 'cloudy';
+      if (icon.includes('rain')) return 'rainy';
+      if (icon.includes('storm')) return 'stormy';
+      if (icon.includes('snow')) return 'snowy';
+      if (icon.includes('fog')) return 'foggy';
+      if (icon.includes('wind')) return 'windy';
+      if (icon.includes('partly')) return 'partly_cloudy';
+      if (icon.includes('sun') || icon.includes('clear')) return 'sunny';
+    }
+    if (desc && typeof desc === 'string') {
+      const d = desc.toLowerCase();
+      if (d.includes('cloud')) return 'cloudy';
+      if (d.includes('rain')) return 'rainy';
+      if (d.includes('storm')) return 'stormy';
+      if (d.includes('snow')) return 'snowy';
+      if (d.includes('fog')) return 'foggy';
+      if (d.includes('wind')) return 'windy';
+      if (d.includes('partly')) return 'partly_cloudy';
+      if (d.includes('sun') || d.includes('clear')) return 'sunny';
+    }
+    return 'sunny';
+  } else {
+    // Google Weather API
+    const iconCode = weather?.weatherCondition?.iconCode?.toLowerCase?.() || '';
+    const icon = weather?.weatherCondition?.icon?.toLowerCase?.() || '';
+    const iconBaseUri = weather?.weatherCondition?.iconBaseUri?.toLowerCase?.() || '';
+    const type = weather?.weatherCondition?.type?.toLowerCase?.() || '';
+    const desc = weather?.weatherCondition?.description?.text?.toLowerCase?.() || '';
+    const all = `${iconCode} ${icon} ${iconBaseUri} ${type} ${desc}`;
+    if (all.includes('cloud')) return 'cloudy';
+    if (all.includes('rain')) return 'rainy';
+    if (all.includes('storm')) return 'stormy';
+    if (all.includes('snow')) return 'snowy';
+    if (all.includes('fog')) return 'foggy';
+    if (all.includes('wind')) return 'windy';
+    if (all.includes('partly')) return 'partly_cloudy';
+    if (all.includes('sun') || all.includes('clear')) return 'sunny';
+    return 'sunny';
+  }
+}
 
 export function HomeScreen() {
   const [search, setSearch] = useState("");
@@ -371,8 +420,7 @@ export function HomeScreen() {
 
   return (
     <ScreenWrapper>
-      {/* Force only the sunny background for testing */}
-      <WeatherBackgroundSkia theme={theme} condition="cloudy" />
+      {/* Remove direct WeatherBackgroundSkia here, rely on ScreenWrapper for background */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ backgroundColor: 'transparent' }}
