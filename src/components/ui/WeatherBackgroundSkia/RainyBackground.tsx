@@ -13,14 +13,14 @@ const RAIN_BLUR = 6;
 
 const RainyBackground = ({ theme }: { theme: any }) => {
   const skyGradient = ['#4e5d7a', '#7b8fa3', '#b3c6e0'];
-  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop({ id: i })));
+  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop({ id: i, width, height })));
 
   useAnimationFrame((dt) => {
     setDrops((prev) =>
       prev.map((drop) => {
         let newY = drop.y + drop.speed * dt;
         if (newY > height + drop.length) {
-          return randomRainDrop({ id: drop.id });
+          return randomRainDrop({ id: drop.id, width, height });
         }
         return { ...drop, y: newY };
       })

@@ -372,7 +372,7 @@ export function HomeScreen() {
   return (
     <ScreenWrapper>
       {/* Force only the sunny background for testing */}
-      <WeatherBackgroundSkia theme={theme} condition="partly_cloudy" />
+      <WeatherBackgroundSkia theme={theme} condition="cloudy" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ backgroundColor: 'transparent' }}

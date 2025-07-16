@@ -97,14 +97,14 @@ const StormyBackground = ({ theme }: { theme: any }) => {
   const lightningKey = useRef(0);
 
   // Rain state
-  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop({ id: i, speedRange: [220, 400], lengthRange: [30.8, 70.4], opacityRange: [0.22, 0.54] })));
+  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop({ id: i, speedRange: [220, 400], lengthRange: [30.8, 70.4], opacityRange: [0.22, 0.54], width, height })));
 
   useAnimationFrame((dt) => {
     setDrops((prev) =>
       prev.map((drop) => {
         let newY = drop.y + drop.speed * dt;
         if (newY > height + drop.length) {
-          return randomRainDrop({ id: drop.id, speedRange: [220, 400], lengthRange: [30.8, 70.4], opacityRange: [0.22, 0.54] });
+          return randomRainDrop({ id: drop.id, speedRange: [220, 400], lengthRange: [30.8, 70.4], opacityRange: [0.22, 0.54], width, height });
         }
         return { ...drop, y: newY };
       })
