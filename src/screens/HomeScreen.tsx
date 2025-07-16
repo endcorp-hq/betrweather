@@ -17,10 +17,13 @@ import { getDistance } from "../utils/math"
 import weatherModelAverage from "../utils/weatherModelAverage";
 import { DailyForecast, HourlyForecast, MMForecastResponse, WeatherAPIResponse, HourlyAPIResponse, DailyAPIResponse, LocalStationsAPIResponse, Station, WeatherCondition, MMForecastHourly } from "../types/weather";
 import MaterialCard from '../components/ui/MaterialCard';
+import GlassyCard from '../components/ui/GlassyCard';
 import theme from '../theme';
 import { WeatherBackgroundSkia } from '../components/ui/WeatherBackgroundSkia';
+import { useAuthorization } from "../utils/useAuthorization";
+import { ConnectButton } from "../components/sign-in/sign-in-ui";
 
-const WEATHER_XM_RADIUS = 10000;
+const WEATHER_XM_RADIUS = 300;
 
 // Fallback icons (emoji or local asset)
 const fallbackIcons = {
@@ -36,6 +39,8 @@ export function HomeScreen() {
 
   const { latitude, longitude, detailedLocation, isLoading: loadingLocation, error: errorLocation } =
     useLocation();
+
+  const { selectedAccount } = useAuthorization();
 
   // Only create URLs and fetch data if we have valid coordinates
   const hasValidLocation = latitude && longitude && !loadingLocation && !errorLocation;
@@ -353,6 +358,17 @@ export function HomeScreen() {
   const windIcon = undefined; // or a local asset if you have one
   const humidityIcon = undefined; // or a local asset if you have one
 
+  // For compact glassy items, define a quick GlassyItemCard wrapper (or use GlassyCard with a compact style)
+  const glassyItemStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    padding: 8,
+    minWidth: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 2,
+  } as const;
+
   return (
     <ScreenWrapper>
       {/* Animated Skia Weather Background for sunny */}
@@ -386,7 +402,7 @@ export function HomeScreen() {
         </MaterialCard>
 
         {/* Weather Info */}
-        <MaterialCard elevation="level2" style={styles.weatherInfoCard}>
+        <GlassyCard style={styles.weatherInfoCard}>
           <View style={styles.weatherInfoRow}>
             <View style={styles.weatherInfoLeft}>
               <Text style={styles.cityText}>{city}</Text>
@@ -402,7 +418,7 @@ export function HomeScreen() {
                 <Image
                   source={{ uri: weatherIcon }}
                   style={styles.weatherImage}
-                  resizeMode="contain"
+                  resizeMode="center"
                 />
               ) : (
                 <Text style={styles.weatherIcon}>☀️</Text>
@@ -411,10 +427,10 @@ export function HomeScreen() {
               <Text style={styles.feelsLikeText}>Feels like {feelsLike}°</Text>
             </View>
           </View>
-        </MaterialCard>
+        </GlassyCard>
 
         {/* Hourly Forecast */}
-        <MaterialCard elevation="level1" style={styles.hourlyCard}>
+        <GlassyCard style={styles.hourlyCard}>
           <Text style={styles.sectionTitle}>Hourly Forecast</Text>
           <ScrollView
             horizontal
@@ -423,7 +439,7 @@ export function HomeScreen() {
           >
             {isUsingLocalStation && mmForecastData && results
               ? results?.hourlyAverages?.slice(0, 10).map((h, idx) => (
-                  <View key={idx} style={styles.hourlyItem}>
+                  <GlassyCard key={idx} style={glassyItemStyle} intensity={30} shimmer={false}>
                     <Text style={styles.hourlyTime}>
                       {typeof h.timestamp === "string" ? new Date(h.timestamp).getHours() + ":00" : "--:--"}
                     </Text>
@@ -436,10 +452,10 @@ export function HomeScreen() {
                     <Text style={styles.hourlyTemp}>
                       {typeof h.temperature === "number" ? h.temperature.toFixed(1) : "--"}°
                     </Text>
-                  </View>
+                  </GlassyCard>
                 ))
               : hourly.map((h: HourlyForecast, idx) => (
-                  <View key={idx} style={styles.hourlyItem}>
+                  <GlassyCard key={idx} style={glassyItemStyle} intensity={30} shimmer={false}>
                     <Text style={styles.hourlyTime}>
                       {h.displayDateTime?.hours !== undefined
                         ? `${h.displayDateTime.hours}:00`
@@ -462,13 +478,13 @@ export function HomeScreen() {
                         ? `${h.temperature.degrees}°`
                         : "--"}
                     </Text>
-                  </View>
+                  </GlassyCard>
                 ))}
           </ScrollView>
-        </MaterialCard>
+        </GlassyCard>
 
         {/* Daily Forecast */}
-        <MaterialCard elevation="level1" style={styles.dailyCard}>
+        <GlassyCard style={styles.dailyCard}>
           <Text style={styles.sectionTitle}>{isUsingLocalStation ? "7 Day Forecast" : "10 Day Forecast"}</Text>
           <ScrollView
             horizontal
@@ -479,24 +495,24 @@ export function HomeScreen() {
               ? mmForecastData.slice(0, 7).map((d, idx) => {
                   const dailyData = d?.daily;
                   return (
-                    <TouchableOpacity
+                    <GlassyCard
                       key={idx}
-                      style={styles.dailyItem}
-                      onPress={() => {}}
-                      activeOpacity={0.8}
+                      style={glassyItemStyle}
+                      intensity={30}
+                      shimmer={false}
                     >
                       <Text style={styles.dailyTime}>{new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' })}</Text>
                       <Text style={styles.dailyWeatherIcon}>{getWeatherXMIcon(dailyData?.icon)}</Text>
                       <Text style={styles.dailyTemp}>{dailyData?.temperature_max ?? "--"}° / {dailyData?.temperature_min ?? "--"}°</Text>
-                    </TouchableOpacity>
+                    </GlassyCard>
                   );
                 })
               : daily.slice(0, 10).map((d: DailyForecast, idx) => (
-                  <TouchableOpacity
+                  <GlassyCard
                     key={idx}
-                    style={styles.dailyItem}
-                    onPress={() => setSelectedDay(d)}
-                    activeOpacity={0.8}
+                    style={glassyItemStyle}
+                    intensity={30}
+                    shimmer={false}
                   >
                     <Text style={styles.dailyTime}>{formatDate(d.displayDate)}</Text>
                     {d.daytimeForecast?.weatherCondition?.iconBaseUri ? (
@@ -515,10 +531,10 @@ export function HomeScreen() {
                         ? `${d.minTemperature.degrees}°`
                         : "--"}
                     </Text>
-                  </TouchableOpacity>
+                  </GlassyCard>
                 )))}
           </ScrollView>
-        </MaterialCard>
+        </GlassyCard>
 
         {/* Current Conditions */}
         <Text style={styles.sectionTitle}>Current conditions</Text>
@@ -560,7 +576,12 @@ export function HomeScreen() {
           </MaterialCard>
         </View>
       </ScrollView>
-
+      {/* Floating Connect Wallet Button */}
+      {!selectedAccount && (
+        <View style={styles.fabContainer} pointerEvents="box-none">
+          <ConnectButton />
+        </View>
+      )}
       {/* Modal for selected day */}
       <Modal
         visible={!!selectedDay}
@@ -708,6 +729,7 @@ const styles = StyleSheet.create({
   hourlyItem: {
     alignItems: 'center',
     justifyContent: 'center',
+    textAlign: 'center',
     marginHorizontal: theme.spacing.sm,
     minWidth: 80,
     minHeight: 120,
@@ -718,15 +740,22 @@ const styles = StyleSheet.create({
     color: theme.colors.onSurfaceVariant,
     fontSize: 12,
     marginBottom: theme.spacing.xs,
+    textAlign: 'center',
   },
   hourlyWeatherIcon: {
     fontSize: 28,
     marginVertical: theme.spacing.xs,
+    alignSelf: 'center',
+    marginHorizontal: 'auto',
   },
   hourlyWeatherImage: {
     width: 36,
     height: 36,
     marginVertical: theme.spacing.xs,
+    alignSelf: 'center',
+    paddingHorizontal: 'auto',
+    textAlign: 'center',
+
   },
   hourlyDesc: {
     color: theme.colors.onSurfaceVariant,
@@ -738,6 +767,7 @@ const styles = StyleSheet.create({
     color: theme.colors.onSurface,
     fontSize: 18,
     fontWeight: '500',
+    textAlign: 'center',
   },
   dailyCard: {
     marginTop: theme.spacing.lg,
@@ -754,21 +784,20 @@ const styles = StyleSheet.create({
   dailyDate: {
     color: theme.colors.onSurface,
     fontSize: 16,
-    width: 90,
+    textAlign: 'center',
   },
   dailyWeatherIcon: {
     fontSize: 28,
-    width: 40,
     textAlign: 'center',
   },
   dailyWeatherImage: {
     width: 36,
     height: 36,
+    alignSelf: 'center',
   },
   dailyTemp: {
     color: theme.colors.onSurface,
     fontSize: 16,
-    width: 80,
     textAlign: 'center',
   },
   currentConditionsRow: {
@@ -902,8 +931,15 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceContainer,
   },
   dailyTime: {
-    color: theme.colors.onSurfaceVariant,
+    color: theme.colors.onSurface,
     fontSize: 14,
-    marginBottom: theme.spacing.xs,
+    textAlign: 'center',
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: 32,
+    right: 24,
+    zIndex: 100,
+    elevation: 10,
   },
 });

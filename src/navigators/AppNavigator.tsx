@@ -40,39 +40,28 @@ declare global {
   }
 }
 
-const RouteGuard = ({ children }: { children: React.ReactNode }) => {
-  const { selectedAccount } = useAuthorization();
-  if (!selectedAccount) {
-    return <LoginScreen />;
-  }
-  return children;
-};
-
-// Documentation: https://reactnavigation.org/docs/stack-navigator/
 const Stack = createNativeStackNavigator();
 
+// Remove RouteGuard and just return the Stack.Navigator directly
 const AppStack = () => {
   return (
-    <RouteGuard>
-      <Stack.Navigator initialRouteName={"HomeStack"}>
-        <Stack.Screen
-          name="HomeStack"
-          component={HomeNavigator}
-          options={{ headerShown: false }}
-          initialParams={{ screen: "Markets" }}
-        />
-        <Stack.Screen
-          name="Settings"
-          component={Screens.SettingsScreen}
-          options={{ headerShown: true, header: () => <TopBar /> }}
-        />
-        <Stack.Screen
-          name="MarketDetail"
-          component={MarketDetailScreen}
-          options={{ headerShown: true, header: () => <TopBar /> }}
-        />
-      </Stack.Navigator>
-    </RouteGuard>
+    <Stack.Navigator initialRouteName={"HomeStack"}>
+      <Stack.Screen
+        name="HomeStack"
+        component={HomeNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={Screens.SettingsScreen}
+        options={{ headerShown: true, header: () => <TopBar /> }}
+      />
+      <Stack.Screen
+        name="MarketDetail"
+        component={MarketDetailScreen}
+        options={{ headerShown: true, header: () => <TopBar /> }}
+      />
+    </Stack.Navigator>
   );
 };
 

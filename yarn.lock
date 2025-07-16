@@ -5636,6 +5636,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-sensors@npm:~14.0.2":
+  version: 14.0.2
+  resolution: "expo-sensors@npm:14.0.2"
+  dependencies:
+    invariant: "npm:^2.2.4"
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+  checksum: 10c0/089ff531482dd1a906a9bb652d99b790b9ca49a09ae110d2de7ca8e1fb5448f54a1c01e65a9aa70e911df6600e6eafa594809d177ef959219e30663d92695ab7
+  languageName: node
+  linkType: hard
+
 "expo-status-bar@npm:~2.0.1":
   version: 2.0.1
   resolution: "expo-status-bar@npm:2.0.1"
@@ -10185,6 +10197,7 @@ __metadata:
     expo-dev-client: "npm:~5.0.19"
     expo-linear-gradient: "npm:~14.0.2"
     expo-location: "npm:~18.0.10"
+    expo-sensors: "npm:~14.0.2"
     expo-status-bar: "npm:~2.0.1"
     expo-system-ui: "npm:~4.0.9"
     h3-reactnative: "https://github.com/endcorp-hq/h3-reactnative.git"

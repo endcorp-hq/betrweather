@@ -43,6 +43,7 @@
     "expo-dev-client": "~5.0.19",
     "expo-linear-gradient": "~14.0.2",
     "expo-location": "~18.0.10",
+    "expo-sensors": "~14.0.2",
     "expo-status-bar": "~2.0.1",
     "expo-system-ui": "~4.0.9",
     "h3-reactnative": "https://github.com/endcorp-hq/h3-reactnative.git",
