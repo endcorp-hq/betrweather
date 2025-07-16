@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useAuthorization } from "../utils/useAuthorization";
 import { useMobileWallet } from "../utils/useMobileWallet";
 import { NftMetadata, useNftMetadata } from "../solana/useNft";
 import { ScreenWrapper } from "../components/ui/ScreenWrapper";
+import GlassyCard from '../components/ui/GlassyCard';
+import theme from '../theme';
 
 export default function ProfileScreen() {
   const { selectedAccount } = useAuthorization();
@@ -67,57 +69,37 @@ export default function ProfileScreen() {
 
   return (
     <ScreenWrapper>
-      <View>
+      <View style={styles.container}>
         {/* Trades */}
-        <Text className="text-white text-xl font-better-bold mb-5 mt-10">
-          User Trades
-        </Text>
-        <ScrollView className="pb-10">
+        <Text style={styles.title}>User Trades</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {trades.map((trade, idx) => (
             <TouchableOpacity
               key={idx}
-              className="bg-white rounded-lg px-3 pt-3 pb-2 mb-4 shadow flex flex-col gap-y-6"
               onPress={() => handleCardPress(trade.marketId)}
-              activeOpacity={0.85}
+              activeOpacity={0.92}
+              style={styles.cardTouchable}
             >
-              <View className="flex-row justify-between items-start mb-2">
-                <Text className="flex-1 font-better-regular text-lg text-black mr-2">
-                  {trade.question}
-                </Text>
-                <View
-                  className={`rounded-sm px-2 py-1 ${
-                    trade.direction === "Yes" ? "bg-emerald-200" : "bg-red-200"
-                  }`}
-                >
-                  <Text
-                    className={`font-better-regular ${
-                      trade.direction === "Yes"
-                        ? "text-green-700"
-                        : "text-red-700"
-                    }`}
-                  >
-                    {trade.direction}
-                  </Text>
+              <GlassyCard style={styles.glassyCard} intensity={36} shimmer={false}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.questionText}>{trade.question}</Text>
+                  <View style={[styles.directionBadge, trade.direction === "Yes" ? styles.yesBadge : styles.noBadge]}>
+                    <Text style={[styles.directionText, trade.direction === "Yes" ? styles.yesText : styles.noText]}>
+                      {trade.direction}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <View className="flex-row justify-between items-center mt-2">
-                <View>
-                  <Text className="text-gray-500 font-better-light text-xs">
-                    Bet Amount
-                  </Text>
-                  <Text className="font-better-semi-bold text-black">
-                    ${trade.amount.toFixed(2)}
-                  </Text>
+                <View style={styles.cardBottomRow}>
+                  <View>
+                    <Text style={styles.label}>Bet Amount</Text>
+                    <Text style={styles.amount}>${trade.amount.toFixed(2)}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.label}>Expected Payout</Text>
+                    <Text style={styles.payout}>${trade.expectedPayout.toFixed(2)}</Text>
+                  </View>
                 </View>
-                <View className="items-end">
-                  <Text className="text-gray-500 font-better-light text-xs">
-                    Expected Payout
-                  </Text>
-                  <Text className="font-better-semi-bold text-green-700">
-                    ${trade.expectedPayout.toFixed(2)}
-                  </Text>
-                </View>
-              </View>
+              </GlassyCard>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -125,3 +107,88 @@ export default function ProfileScreen() {
     </ScreenWrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 24,
+    paddingHorizontal: 0,
+  },
+  title: {
+    color: theme.colors.onSurface,
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 18,
+    marginLeft: 16,
+    marginTop: 8,
+  },
+  scrollContent: {
+    paddingHorizontal: 8,
+    paddingBottom: 32,
+  },
+  cardTouchable: {
+    marginBottom: 16,
+  },
+  glassyCard: {
+    borderRadius: 18,
+    padding: 18,
+    marginHorizontal: 4,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  questionText: {
+    flex: 1,
+    color: theme.colors.onSurface,
+    fontSize: 16,
+    fontWeight: '500',
+    marginRight: 10,
+  },
+  directionBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  yesBadge: {
+    backgroundColor: 'rgba(34,197,94,0.18)',
+  },
+  noBadge: {
+    backgroundColor: 'rgba(239,68,68,0.18)',
+  },
+  directionText: {
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  yesText: {
+    color: '#22c55e',
+  },
+  noText: {
+    color: '#ef4444',
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: 8,
+  },
+  label: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: '400',
+    marginBottom: 2,
+  },
+  amount: {
+    color: theme.colors.onSurface,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  payout: {
+    color: '#22c55e',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

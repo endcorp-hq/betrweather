@@ -5,6 +5,7 @@ import { formatMarket } from "../../utils/formatMarket";
 import { useNavigation } from "@react-navigation/native";
 import { Market, MarketType } from "shortx-sdk";
 import { formatMarketDuration } from "../market/format-market-duration";
+import GlassyCard from './GlassyCard';
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
   if (!endTimestamp) return "market ended";
@@ -97,67 +98,65 @@ export function MarketCard({ market }: { market: any }) {
   return (
     <Pressable
       onPress={handlePress}
-      style={[
-        styles.card,
-        isResolved && {
-          borderLeftWidth: 5,
-          borderLeftColor: borderColor,
-        },
-      ]}
+      style={styles.cardTouchable}
     >
-      <View style={styles.headerRow}>
-        <Text style={styles.question}>{market.question}</Text>
-        {isResolved && (
-          <View style={[styles.badge, { backgroundColor: badgeColor }]}> 
-            <Text style={styles.badgeText}>{badgeText}</Text>
+      <GlassyCard style={[styles.card, isResolved && { borderLeftWidth: 5, borderLeftColor: borderColor }]} intensity={36} shimmer={false}>
+        <View style={styles.headerRow}>
+          <Text style={styles.question}>{market.question}</Text>
+          {isResolved && (
+            <View style={[styles.badge, { backgroundColor: badgeColor }]}> 
+              <Text style={styles.badgeText}>{badgeText}</Text>
+            </View>
+          )}
+        </View>
+
+        {!isLive && (
+          <View style={styles.metaRow}>
+            <Text style={styles.metaText}>
+              {formatMarketDuration(formatted.marketStart, formatted.marketEnd)}
+            </Text>
+            <Text style={styles.metaTextSecondary}>
+              {formatDate(formatted.marketStart)}
+            </Text>
           </View>
         )}
-      </View>
 
-      {!isLive && (
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>
-            {formatMarketDuration(formatted.marketStart, formatted.marketEnd)}
+        {/* Probability */}
+        <View style={styles.probabilityRow}>
+          <Text style={styles.probabilityText}>{probabilityPercent}%</Text>
+          <View style={styles.probabilityBarBg}>
+            <View style={[styles.probabilityBarFill, { width: `${probabilityPercent}%` }]} />
+          </View>
+        </View>
+
+        {/* Bottom row: Volume and State */}
+        <View style={styles.bottomRow}>
+          <Text style={styles.bottomText}>
+            ${parseFloat(formatted.volume || "0").toFixed(1)} Vol.
           </Text>
-          <Text style={styles.metaTextSecondary}>
-            {formatDate(formatted.marketStart)}
+          <Text style={styles.bottomText}>
+            {isLive 
+              ? getTimeLeft(formatted.marketEnd)
+              : getBettingTimeLeft(formatted.marketStart)
+            }
           </Text>
         </View>
-      )}
-
-      {/* Probability */}
-      <View style={styles.probabilityRow}>
-        <Text style={styles.probabilityText}>{probabilityPercent}%</Text>
-        <View style={styles.probabilityBarBg}>
-          <View style={[styles.probabilityBarFill, { width: `${probabilityPercent}%` }]} />
-        </View>
-      </View>
-
-      {/* Bottom row: Volume and State */}
-      <View style={styles.bottomRow}>
-        <Text style={styles.bottomText}>
-          ${parseFloat(formatted.volume || "0").toFixed(1)} Vol.
-        </Text>
-        <Text style={styles.bottomText}>
-          {isLive 
-            ? getTimeLeft(formatted.marketEnd)
-            : getBettingTimeLeft(formatted.marketStart)
-          }
-        </Text>
-      </View>
+      </GlassyCard>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  cardTouchable: {
+    marginVertical: 8,
+    marginHorizontal: 4,
+  },
   card: {
-    backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
-    marginVertical: theme.spacing.sm,
     marginHorizontal: 0,
     borderLeftWidth: 0,
-    // Remove shadow and overlays for simplicity
+    // Remove old backgroundColor and shadow
   },
   headerRow: {
     flexDirection: 'row',
