@@ -13,6 +13,7 @@ import { TopBar } from "../components/top-bar/top-bar-feature";
 import LoginScreen from "../screens/LoginScreen";
 import { useAuthorization } from "../utils/useAuthorization";
 import { Toaster } from "sonner-native";
+import theme from '../theme';
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -79,7 +80,7 @@ export const AppNavigator = (props: NavigationProps) => {
 
   return (
     <NavigationContainer theme={MyTheme} {...props}>
-      <StatusBar style="dark" backgroundColor="#fff" />
+      <StatusBar style="light" backgroundColor={theme.colors.background} />
       <AppStack />
     </NavigationContainer>
   );
