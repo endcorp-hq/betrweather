@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Dimensions } from 'react-native';
 import { Canvas, Group, Path, LinearGradient, vec, BlurMask } from '@shopify/react-native-skia';
 import Animated, { useSharedValue, withTiming, useAnimatedStyle, Easing, runOnJS } from 'react-native-reanimated';
+import { randomCloudConfig, useAnimationFrame } from './utils';
 
 const { width, height } = Dimensions.get('window');
 
@@ -11,15 +12,6 @@ const abstractCloudPaths = [
   'M320 60 Q330 55 350 65 Q360 60 375 70 Q380 80 370 90 Q360 100 340 95 Q325 100 320 90 Q315 80 320 60 Z',
   'M80 200 Q90 195 110 200 Q120 195 130 205 Q135 215 125 220 Q120 225 100 220 Q85 225 80 215 Q75 210 80 200 Z',
 ];
-
-const randomCloudConfig = (id: number) => {
-  const y = height * (0.1 + 0.7 * Math.random());
-  const scale = 1 + Math.random();
-  const speed = 10 + Math.random() * 10;
-  const opacity = 0.2 + Math.random() * 0.4;
-  const pathIndex = Math.floor(Math.random() * abstractCloudPaths.length);
-  return { id, y, scale, speed, opacity, pathIndex };
-};
 
 const AnimatedCloud = ({
   y,
@@ -53,7 +45,6 @@ const AnimatedCloud = ({
     );
   }, []);
 
-  // Use useAnimatedStyle to move the cloud on the UI thread
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: x.value },
@@ -65,7 +56,6 @@ const AnimatedCloud = ({
 
   const path = abstractCloudPaths[pathIndex % abstractCloudPaths.length];
 
-  // Render Skia cloud inside Animated.View for UI-thread movement
   return (
     <Animated.View style={[{ position: 'absolute', width: cloudWidth * scale, height: 120 * scale, left: 0, top: 0 }, animatedStyle]} pointerEvents="none">
       <Canvas style={{ width: cloudWidth * scale, height: 120 * scale }} pointerEvents="none">
@@ -81,11 +71,11 @@ const AnimatedCloud = ({
 
 const CloudyBackground = ({ theme }: { theme: any }) => {
   const skyGradient = ['#4e54c8', '#8f94fb', '#cfd9ff'];
-  const [clouds, setClouds] = useState(Array.from({ length: 7 }, (_, i) => randomCloudConfig(i)));
+  const [clouds, setClouds] = useState(Array.from({ length: 7 }, (_, i) => randomCloudConfig({ id: i, pathCount: abstractCloudPaths.length })));
   const nextId = useRef(7);
 
   const handleCloudEnd = (id: number) => {
-    setClouds((prev) => prev.filter((c) => c.id !== id).concat(randomCloudConfig(nextId.current++)));
+    setClouds((prev) => prev.filter((c) => c.id !== id).concat(randomCloudConfig({ id: nextId.current++, pathCount: abstractCloudPaths.length })));
   };
 
   return (

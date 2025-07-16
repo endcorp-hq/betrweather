@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Dimensions } from 'react-native';
 import { Canvas, Group, Path, LinearGradient, vec, BlurMask, Circle, RadialGradient } from '@shopify/react-native-skia';
 import Animated, { useSharedValue, withTiming, useAnimatedStyle, Easing, runOnJS } from 'react-native-reanimated';
+import { randomCloudConfig, useAnimationFrame } from './utils';
 
 const { width, height } = Dimensions.get('window');
 
@@ -17,15 +18,6 @@ const cloudPaths = [
   'M60 80 Q80 60 120 80 Q140 60 180 90 Q200 120 170 130 Q160 150 120 140 Q80 150 60 130 Q30 120 40 100 Q50 90 60 80 Z',
   'M200 180 Q220 170 250 180 Q270 170 300 190 Q320 210 290 220 Q270 230 240 220 Q210 230 200 210 Q190 200 200 180 Z',
 ];
-
-const randomCloudConfig = (id: number) => {
-  const y = height * (0.13 + 0.3 * Math.random());
-  const scale = 0.7 + Math.random() * 0.7;
-  const speed = 12 + Math.random() * 8;
-  const opacity = 0.18 + Math.random() * 0.18;
-  const pathIndex = Math.floor(Math.random() * cloudPaths.length);
-  return { id, y, scale, speed, opacity, pathIndex };
-};
 
 const AnimatedCloud = ({
   y, scale, speed, opacity, color, pathIndex, onEnd,
@@ -79,11 +71,11 @@ const AnimatedCloud = ({
 
 const PartlyCloudyBackground = ({ theme }: { theme: any }) => {
   const skyGradient = ['#b3c6e0', '#e0eafc', '#fafdff'];
-  const [clouds, setClouds] = useState(Array.from({ length: 2 }, (_, i) => randomCloudConfig(i)));
+  const [clouds, setClouds] = useState(Array.from({ length: 2 }, (_, i) => randomCloudConfig({ id: i, yRange: [0.13, 0.43], scaleRange: [0.7, 1.4], speedRange: [12, 20], opacityRange: [0.18, 0.36], pathCount: cloudPaths.length })));
   const nextId = useRef(2);
 
   const handleCloudEnd = (id: number) => {
-    setClouds((prev) => prev.filter((c) => c.id !== id).concat(randomCloudConfig(nextId.current++)));
+    setClouds((prev) => prev.filter((c) => c.id !== id).concat(randomCloudConfig({ id: nextId.current++, yRange: [0.13, 0.43], scaleRange: [0.7, 1.4], speedRange: [12, 20], opacityRange: [0.18, 0.36], pathCount: cloudPaths.length })));
   };
 
   // Sun rays as paths

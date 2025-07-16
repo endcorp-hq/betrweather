@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Dimensions } from 'react-native';
 import { Canvas, Group, Path, LinearGradient, vec, BlurMask } from '@shopify/react-native-skia';
 import Animated, { useSharedValue, withTiming, useAnimatedStyle, Easing, runOnJS } from 'react-native-reanimated';
+import { randomCloudConfig, randomRainDrop, useAnimationFrame } from './utils';
 
 const { width, height } = Dimensions.get('window');
 
@@ -11,15 +12,6 @@ const stormCloudPaths = [
   'M320 60 Q330 55 350 65 Q360 60 375 70 Q380 80 370 90 Q360 100 340 95 Q325 100 320 90 Q315 80 320 60 Z',
   'M80 200 Q90 195 110 200 Q120 195 130 205 Q135 215 125 220 Q120 225 100 220 Q85 225 80 215 Q75 210 80 200 Z',
 ];
-
-const randomStormCloudConfig = (id: number) => {
-  const y = height * (0.15 + 0.6 * Math.random());
-  const scale = 1.1 + Math.random() * 1.2;
-  const speed = 12 + Math.random() * 8;
-  const opacity = 0.35 + Math.random() * 0.3;
-  const pathIndex = Math.floor(Math.random() * stormCloudPaths.length);
-  return { id, y, scale, speed, opacity, pathIndex };
-};
 
 const AnimatedStormCloud = ({
   y, scale, speed, opacity, color, pathIndex, onEnd,
@@ -95,20 +87,9 @@ const RAIN_WIDTH = 2.2;
 const RAIN_COLOR = '#b3d0f7';
 const RAIN_BLUR = 6;
 
-function randomRainDrop(i: number) {
-  return {
-    id: i,
-    x: Math.random() * width,
-    y: Math.random() * height,
-    speed: 220 + Math.random() * 180, // px/sec
-    length: RAIN_LENGTH * (0.7 + Math.random() * 0.6),
-    opacity: 0.22 + Math.random() * 0.32,
-  };
-}
-
 const StormyBackground = ({ theme }: { theme: any }) => {
   const skyGradient = ['#23243a', '#3a3a5a', '#4e4376', '#232526']; // dark, stormy
-  const [clouds, setClouds] = useState(Array.from({ length: 4 }, (_, i) => randomStormCloudConfig(i)));
+  const [clouds, setClouds] = useState(Array.from({ length: 4 }, (_, i) => randomCloudConfig({ id: i, yRange: [0.15, 0.75], scaleRange: [1.1, 2.3], speedRange: [12, 20], opacityRange: [0.35, 0.65], pathCount: stormCloudPaths.length })));
   const nextId = useRef(4);
 
   // Lightning state
@@ -116,33 +97,19 @@ const StormyBackground = ({ theme }: { theme: any }) => {
   const lightningKey = useRef(0);
 
   // Rain state
-  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop(i)));
+  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop({ id: i, speedRange: [220, 400], lengthRange: [30.8, 70.4], opacityRange: [0.22, 0.54] })));
 
-  // Animate rain (throttled to ~30fps)
-  useEffect(() => {
-    let running = true;
-    let last = Date.now();
-    function animate() {
-      const now = Date.now();
-      const dt = (now - last) / 1000;
-      last = now;
-      setDrops((prev) =>
-        prev.map((drop) => {
-          let newY = drop.y + drop.speed * dt;
-          if (newY > height + drop.length) {
-            // Reset to top
-            return randomRainDrop(drop.id);
-          }
-          return { ...drop, y: newY };
-        })
-      );
-      if (running) setTimeout(animate, 33); // ~30fps
-    }
-    animate();
-    return () => {
-      running = false;
-    };
-  }, []);
+  useAnimationFrame((dt) => {
+    setDrops((prev) =>
+      prev.map((drop) => {
+        let newY = drop.y + drop.speed * dt;
+        if (newY > height + drop.length) {
+          return randomRainDrop({ id: drop.id, speedRange: [220, 400], lengthRange: [30.8, 70.4], opacityRange: [0.22, 0.54] });
+        }
+        return { ...drop, y: newY };
+      })
+    );
+  });
 
   // Lightning logic (less frequent)
   useEffect(() => {
@@ -161,7 +128,7 @@ const StormyBackground = ({ theme }: { theme: any }) => {
   }, []);
 
   const handleCloudEnd = (id: number) => {
-    setClouds((prev) => prev.filter((c) => c.id !== id).concat(randomStormCloudConfig(nextId.current++)));
+    setClouds((prev) => prev.filter((c) => c.id !== id).concat(randomCloudConfig({ id: nextId.current++, yRange: [0.15, 0.75], scaleRange: [1.1, 2.3], speedRange: [12, 20], opacityRange: [0.35, 0.65], pathCount: stormCloudPaths.length })));
   };
 
   return (

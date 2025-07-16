@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Dimensions } from 'react-native';
 import { Canvas, Path, LinearGradient, vec, Group, BlurMask } from '@shopify/react-native-skia';
+import { randomFogLayer, useAnimationFrame } from './utils';
 
 const { width, height } = Dimensions.get('window');
 
@@ -12,45 +13,20 @@ const FOG_COLORS = [
   'rgba(210,220,230,0.16)',
 ];
 
-function randomFogLayer(i: number) {
-  return {
-    id: i,
-    y: height * (0.15 + 0.18 * i + Math.random() * 0.08),
-    speed: 8 + Math.random() * 8,
-    opacity: 0.13 + Math.random() * 0.13,
-    widthScale: 1.1 + Math.random() * 0.3,
-    x: Math.random() * width,
-    direction: Math.random() > 0.5 ? 1 : -1,
-  };
-}
-
 const FoggyBackground = ({ theme }: { theme: any }) => {
   const skyGradient = ['#bfc7d1', '#e0eafc', '#fafdff'];
-  const [layers, setLayers] = useState(() => Array.from({ length: FOG_LAYER_COUNT }, (_, i) => randomFogLayer(i)));
+  const [layers, setLayers] = useState(() => Array.from({ length: FOG_LAYER_COUNT }, (_, i) => randomFogLayer({ id: i })));
 
-  // Animate fog
-  useEffect(() => {
-    let running = true;
-    let last = Date.now();
-    function animate() {
-      const now = Date.now();
-      const dt = (now - last) / 1000;
-      last = now;
-      setLayers((prev) =>
-        prev.map((layer, i) => {
-          let newX = layer.x + layer.direction * layer.speed * dt;
-          if (newX > width * 1.2) newX = -width * 0.2;
-          if (newX < -width * 0.2) newX = width * 1.2;
-          return { ...layer, x: newX };
-        })
-      );
-      if (running) requestAnimationFrame(animate);
-    }
-    animate();
-    return () => {
-      running = false;
-    };
-  }, []);
+  useAnimationFrame((dt) => {
+    setLayers((prev) =>
+      prev.map((layer, i) => {
+        let newX = layer.x + layer.direction * layer.speed * dt;
+        if (newX > width * 1.2) newX = -width * 0.2;
+        if (newX < -width * 0.2) newX = width * 1.2;
+        return { ...layer, x: newX };
+      })
+    );
+  });
 
   return (
     <>
