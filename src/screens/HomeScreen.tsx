@@ -23,7 +23,7 @@ import { WeatherBackgroundSkia } from '../components/ui/WeatherBackgroundSkia';
 import { useAuthorization } from "../utils/useAuthorization";
 import { ConnectButton } from "../components/sign-in/sign-in-ui";
 
-const WEATHER_XM_RADIUS = 300;
+const WEATHER_XM_RADIUS = 500;
 
 // Fallback icons (emoji or local asset)
 const fallbackIcons = {
@@ -371,10 +371,8 @@ export function HomeScreen() {
 
   return (
     <ScreenWrapper>
-      {/* Animated Skia Weather Background for sunny */}
-      {(description && (description.toLowerCase().includes('sun') || description.toLowerCase().includes('clear'))) && (
-        <WeatherBackgroundSkia theme={theme} condition="sunny" />
-      )}
+      {/* Force only the sunny background for testing */}
+      <WeatherBackgroundSkia theme={theme} condition="partly_cloudy" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ backgroundColor: 'transparent' }}
