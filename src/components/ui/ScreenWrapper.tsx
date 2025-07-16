@@ -82,7 +82,7 @@ export function ScreenWrapper({ children }: { children: React.ReactNode }) {
   // Use a dark gradient background as the default/fallback
   const backgroundType = (!weatherType || isLoading) ? "dark_gradient" : weatherType;
   return (
-    <View style={{ flex: 1, backgroundColor: 'transparent', paddingHorizontal: 10 }}>
+    <View style={{ flex: 1, backgroundColor: 'transparent', paddingHorizontal: 0 }}>
       <WeatherBackgroundSkia theme={theme} condition={backgroundType} />
       {children}
     </View>

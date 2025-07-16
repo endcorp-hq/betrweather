@@ -15,7 +15,7 @@ const theme = {
     onSurface: '#E6E1E5',
     surfaceVariant: '#49454F',
     onSurfaceVariant: '#CAC4D0',
-    background: '#1C1B1F',
+    background: '#292430',
     onBackground: '#E6E1E5',
     error: '#F2B8B5',
     onError: '#601410',
