@@ -41,6 +41,7 @@
           "locationAlwaysAndWhenInUsePermission": "Allow BetterWeather to use your location."
         }
       ]
-    ]
+    ],
+    "jsEngine": "hermes"
   }
 }

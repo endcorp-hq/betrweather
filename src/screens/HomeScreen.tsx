@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Modal,
   Image,
+  StyleSheet,
 } from "react-native";
 import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 import { useAPI } from "../utils/useAPI";
@@ -15,6 +16,9 @@ import { useLocation } from "../utils/useLocation";
 import { getDistance } from "../utils/math"
 import weatherModelAverage from "../utils/weatherModelAverage";
 import { DailyForecast, HourlyForecast, MMForecastResponse, WeatherAPIResponse, HourlyAPIResponse, DailyAPIResponse, LocalStationsAPIResponse, Station, WeatherCondition, MMForecastHourly } from "../types/weather";
+import MaterialCard from '../components/ui/MaterialCard';
+import theme from '../theme';
+import { WeatherBackgroundSkia } from '../components/ui/WeatherBackgroundSkia';
 
 const WEATHER_XM_RADIUS = 10000;
 
@@ -41,6 +45,10 @@ export function HomeScreen() {
     ? `https://pro.weatherxm.com/api/v1/stations/near?lat=${latitude}&lon=${longitude}&radius=${WEATHER_XM_RADIUS}`
     : null;
 
+  if (LOCAL_STATIONS_URL) {
+    console.log("[API] Fetching local stations:", LOCAL_STATIONS_URL);
+  }
+
   const { data: localStationsData, isLoading: loadingLocalStations } = useAPI<LocalStationsAPIResponse>(
     LOCAL_STATIONS_URL || "", {
       headers: {
@@ -51,6 +59,12 @@ export function HomeScreen() {
     }
   );
 
+  React.useEffect(() => {
+    if (localStationsData) {
+      console.log("[API] Local stations response:", localStationsData);
+    }
+  }, [localStationsData]);
+
   // Find nearest good station
   const nearestGoodStation = useMemo(() => {
     if (!localStationsData?.stations || !latitude || !longitude) return null;
@@ -58,27 +72,30 @@ export function HomeScreen() {
     const goodStations = localStationsData.stations.filter(station => station.lastDayQod === 0);
     if (!goodStations.length) return null;
 
-
-    return goodStations.reduce((nearest, station) => {
+    const result = goodStations.reduce((nearest, station) => {
       const distance = getDistance(
         latitude,
         longitude,
         station.location.lat,
         station.location.lon
       );
-      
       if (!nearest || distance < nearest.distance) {
         return { station, distance };
       }
-      
       return nearest;
     }, null as { station: Station; distance: number } | null);
+    console.log("[LOGIC] Nearest good station:", result);
+    return result;
   }, [localStationsData, latitude, longitude]);
 
   // Step 2: Fetch WeatherXM forecast if we have a good station
   const MM_FORECAST_URL = nearestGoodStation?.station?.cellId
     ? `https://pro.weatherxm.com/api/v1/cells/${nearestGoodStation.station.cellId}/mm/forecast`
     : null;
+
+  if (MM_FORECAST_URL) {
+    console.log("[API] Fetching WeatherXM forecast:", MM_FORECAST_URL);
+  }
 
   const { data: mmForecastData, isLoading: loadingMMForecast, error: errorMMForecast } = useAPI<MMForecastResponse>(
     MM_FORECAST_URL || "", {
@@ -91,9 +108,22 @@ export function HomeScreen() {
     { enabled: !!MM_FORECAST_URL }
   );
 
+  React.useEffect(() => {
+    if (mmForecastData) {
+      console.log("[API] WeatherXM forecast response:", mmForecastData);
+    }
+    if (errorMMForecast) {
+      console.log("[API] WeatherXM forecast error:", errorMMForecast);
+    }
+  }, [mmForecastData, errorMMForecast]);
 
   //compute avergaes between all models
   const results = weatherModelAverage(mmForecastData);
+  React.useEffect(() => {
+    if (results) {
+      console.log("[LOGIC] Weather model averages:", results);
+    }
+  }, [results]);
 
   // Step 3: Only fetch Base API data if no local station forecast available
   const shouldUseBaseAPI = hasValidLocation && !nearestGoodStation && !loadingLocalStations;
@@ -110,6 +140,16 @@ export function HomeScreen() {
     ? `https://weather.googleapis.com/v1/forecast/days:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}&days=10&pageSize=10`
     : null;
 
+  if (WEATHER_URL) {
+    console.log("[API] Fetching Google Weather current conditions:", WEATHER_URL);
+  }
+  if (HOURLY_FORECAST_URL) {
+    console.log("[API] Fetching Google Weather hourly forecast:", HOURLY_FORECAST_URL);
+  }
+  if (DAILY_FORECAST_URL) {
+    console.log("[API] Fetching Google Weather daily forecast:", DAILY_FORECAST_URL);
+  }
+
   const { data: baseWeather, isLoading: loadingbaseWeather, error: errorbaseWeather } = useAPI<WeatherAPIResponse>(
     WEATHER_URL || "", {}, { enabled: !!WEATHER_URL }
   );
@@ -122,8 +162,26 @@ export function HomeScreen() {
     DAILY_FORECAST_URL || "", {}, { enabled: !!DAILY_FORECAST_URL }
   );
 
+  React.useEffect(() => {
+    if (baseWeather) {
+      console.log("[API] Google Weather current conditions response:", baseWeather);
+    }
+    if (baseHourly) {
+      console.log("[API] Google Weather hourly forecast response:", baseHourly);
+    }
+    if (baseDaily) {
+      console.log("[API] Google Weather daily forecast response:", baseDaily);
+    }
+    if (errorbaseWeather) {
+      console.log("[API] Google Weather error:", errorbaseWeather);
+    }
+  }, [baseWeather, baseHourly, baseDaily, errorbaseWeather]);
+
   // Determine which data source to use
   const isUsingLocalStation = !!mmForecastData;
+  React.useEffect(() => {
+    console.log("[LOGIC] Data source:", isUsingLocalStation ? "WeatherXM (local station)" : "Google Weather API");
+  }, [isUsingLocalStation]);
   const weather = isUsingLocalStation ? null : baseWeather;
   const hourlyData = isUsingLocalStation ? null : baseHourly;
   const dailyData = isUsingLocalStation ? null : baseDaily;
@@ -132,9 +190,9 @@ export function HomeScreen() {
   if (loadingLocation || loadingLocalStations || loadingMMForecast || loadingbaseWeather || loadingbaseHourly || loadingBaseDaily) {
     return (
       <ScreenWrapper>
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#78a646" />
-          <Text className="mt-4 text-gray-700">Loading weather...</Text>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Loading weather...</Text>
         </View>
       </ScreenWrapper>
     );
@@ -145,17 +203,17 @@ export function HomeScreen() {
     const errorMessage = errorLocation || errorMMForecast?.message || errorbaseWeather?.message;
     return (
       <ScreenWrapper>
-        <View className="flex-1 justify-center items-center px-6">
-          <Text className="text-red-500 text-lg font-better-bold mb-2">Error</Text>
-          <Text className="text-gray-700 text-center">{errorMessage}</Text>
+        <View style={styles.centered}>
+          <Text style={styles.errorTitle}>Error</Text>
+          <Text style={styles.errorMessage}>{errorMessage}</Text>
           <TouchableOpacity 
-            className="mt-4 bg-accent-green px-6 py-3 rounded-full"
+            style={styles.retryButton}
             onPress={() => {
               // You might want to add a retry function to your useLocation hook
               // or reload the component
             }}
           >
-            <Text className="text-white font-better-bold">Try Again</Text>
+            <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
       </ScreenWrapper>
@@ -297,298 +355,209 @@ export function HomeScreen() {
 
   return (
     <ScreenWrapper>
+      {/* Animated Skia Weather Background for sunny */}
+      {(description && (description.toLowerCase().includes('sun') || description.toLowerCase().includes('clear'))) && (
+        <WeatherBackgroundSkia theme={theme} condition="sunny" />
+      )}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        className="bg-transparent"
+        style={{ backgroundColor: 'transparent' }}
+        contentContainerStyle={styles.scrollContent}
       >
         {/* Search Bar */}
-        <View className="pt-4">
+        {/*
+        <View style={styles.searchBarContainer}>
           <TextInput
-            className="bg-white/50 rounded-full px-5 py-3 text-white font-better-regular"
+            style={styles.searchBar}
             placeholder="Search location"
-            placeholderTextColor="#888"
+            placeholderTextColor={theme.colors.onSurfaceVariant}
             value={search}
             onChangeText={setSearch}
           />
         </View>
+        */}
 
-                 {/* Data Source Indicator */}
-         <View className="mt-4 bg-white/30 rounded-lg p-2">
-           <Text className="text-white text-sm font-better-regular text-center">
-             {isUsingLocalStation ? "🌤️ Local Station Forecast" : "☁️ Google Forecast"}
-             {nearestGoodStation?.distance && ` (${nearestGoodStation.distance.toFixed(1)}km away)`}
-           </Text>
-         </View>
+        {/* Data Source Indicator */}
+        <MaterialCard variant="filled" style={styles.dataSourceCard}>
+          <Text style={styles.dataSourceText}>
+            {isUsingLocalStation ? "🌤️ Local Station Forecast" : "☁️ Google Forecast"}
+            {nearestGoodStation?.distance && ` (${nearestGoodStation.distance.toFixed(1)}km away)`}
+          </Text>
+        </MaterialCard>
 
-        {/* Weather Info (add icon here if you want) */}
-        <View className="mt-6 bg-white/50 rounded-xl p-4 flex flex-row items-center justify-between">
-          <View className="flex-1">
-            <Text className="text-black text-[18px] font-better-regular">
-              {city}
-            </Text>
-            <Text className="text-black text-[72px] font-better-light">
-              {temp}°
-            </Text>
-            <Text className="text-black text-base font-better-regular mt-1">
-              High: {high}° - Low: {low}°
-            </Text>
+        {/* Weather Info */}
+        <MaterialCard elevation="level2" style={styles.weatherInfoCard}>
+          <View style={styles.weatherInfoRow}>
+            <View style={styles.weatherInfoLeft}>
+              <Text style={styles.cityText}>{city}</Text>
+              <Text style={styles.tempText}>{temp}°</Text>
+              <Text style={styles.highLowText}>High: {high}° - Low: {low}°</Text>
+            </View>
+            <View style={styles.weatherInfoRight}>
+              {isUsingLocalStation ? (
+                <Text style={styles.weatherIcon}>
+                  {getWeatherXMIcon(String(mmForecastData?.[0]?.hourly?.[0]?.icon ?? ""))}
+                </Text>
+              ) : weatherIcon ? (
+                <Image
+                  source={{ uri: weatherIcon }}
+                  style={styles.weatherImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text style={styles.weatherIcon}>☀️</Text>
+              )}
+              <Text style={styles.descriptionText}>{description}</Text>
+              <Text style={styles.feelsLikeText}>Feels like {feelsLike}°</Text>
+            </View>
           </View>
-          <View className="flex flex-col items-end justify-center">
-            {isUsingLocalStation ? (
-              <Text className="text-4xl mb-2">
-                {getWeatherXMIcon(String(mmForecastData?.[0]?.hourly?.[0]?.icon ?? ""))}
-              </Text>
-            ) : weatherIcon ? (
-              <Image
-                source={{ uri: weatherIcon }}
-                style={{ width: 48, height: 48, marginBottom: 4 }}
-                resizeMode="contain"
-              />
-            ) : (
-              <Text className="text-4xl mb-2">☀️</Text>
-            )}
-            <Text className="text-black text-lg font-better-regular">
-              {description}
-            </Text>
-            <Text className="text-black text-sm font-better-regular">
-              Feels like {feelsLike}°
-            </Text>
-          </View>
-        </View>
+        </MaterialCard>
 
-                 {/* Hourly Forecast - Base API */}
-         {!isUsingLocalStation && (
-           <View className="mt-6 bg-white/50 rounded-xl p-4">
-             <Text className="text-black text-lg font-better-regular mb-2">
-               Hourly Forecast
-             </Text>
-             <ScrollView
-               horizontal
-               showsHorizontalScrollIndicator={false}
-               className="py-2"
-               contentContainerStyle={{ paddingHorizontal: 4 }}
-             >
-               {hourly.map((h: HourlyForecast, idx) => (
-                 <View
-                   key={idx}
-                   className="flex items-center justify-center mx-2 rounded-full px-4 py-2"
-                   style={{ minWidth: 80, minHeight: 120 }}
-                 >
-                   <Text className="text-black font-better-light text-xs mb-2">
-                     {h.displayDateTime?.hours !== undefined
-                       ? `${h.displayDateTime.hours}:00`
-                       : "--:--"}
-                   </Text>
-                   {h.weatherCondition?.iconBaseUri ? (
-                     <Image
-                       source={{ uri: `${h.weatherCondition.iconBaseUri}.png` }}
-                       style={{ width: 36, height: 36, marginVertical: 4 }}
-                       resizeMode="contain"
-                     />
-                   ) : (
-                     <Text className="text-black font-better-light text-2xl my-2">
-                       ☀️
-                     </Text>
-                   )}
-                   <Text className="text-black font-better-light text-xs mb-2 text-center">
-                     {h.weatherCondition?.description?.text ?? "Clear"}
-                   </Text>
-                   <Text className="text-black font-better-light text-lg">
-                     {h.temperature?.degrees !== undefined
-                       ? `${h.temperature.degrees}°`
-                       : "--"}
-                   </Text>
-                 </View>
-               ))}
-             </ScrollView>
-           </View>
-         )}
+        {/* Hourly Forecast */}
+        <MaterialCard elevation="level1" style={styles.hourlyCard}>
+          <Text style={styles.sectionTitle}>Hourly Forecast</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hourlyScroll}
+          >
+            {isUsingLocalStation && mmForecastData && results
+              ? results?.hourlyAverages?.slice(0, 10).map((h, idx) => (
+                  <View key={idx} style={styles.hourlyItem}>
+                    <Text style={styles.hourlyTime}>
+                      {typeof h.timestamp === "string" ? new Date(h.timestamp).getHours() + ":00" : "--:--"}
+                    </Text>
+                    <Text style={styles.hourlyWeatherIcon}>{getWeatherXMIcon(String(h.icon ?? ""))}</Text>
+                    <Text style={styles.hourlyDesc}>
+                      {typeof h.precipitation_probability === "number" && h.precipitation_probability > 0
+                        ? `${h.precipitation_probability}% rain`
+                        : "Clear"}
+                    </Text>
+                    <Text style={styles.hourlyTemp}>
+                      {typeof h.temperature === "number" ? h.temperature.toFixed(1) : "--"}°
+                    </Text>
+                  </View>
+                ))
+              : hourly.map((h: HourlyForecast, idx) => (
+                  <View key={idx} style={styles.hourlyItem}>
+                    <Text style={styles.hourlyTime}>
+                      {h.displayDateTime?.hours !== undefined
+                        ? `${h.displayDateTime.hours}:00`
+                        : "--:--"}
+                    </Text>
+                    {h.weatherCondition?.iconBaseUri ? (
+                      <Image
+                        source={{ uri: `${h.weatherCondition.iconBaseUri}.png` }}
+                        style={styles.hourlyWeatherImage}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Text style={styles.hourlyWeatherIcon}>☀️</Text>
+                    )}
+                    <Text style={styles.hourlyDesc}>
+                      {h.weatherCondition?.description?.text ?? "Clear"}
+                    </Text>
+                    <Text style={styles.hourlyTemp}>
+                      {h.temperature?.degrees !== undefined
+                        ? `${h.temperature.degrees}°`
+                        : "--"}
+                    </Text>
+                  </View>
+                ))}
+          </ScrollView>
+        </MaterialCard>
 
-                 {/* WeatherXM Hourly Forecast */}
-         {isUsingLocalStation && mmForecastData && results && (
-           <View className="mt-6 bg-white/50 rounded-xl p-4">
-             <Text className="text-black text-lg font-better-regular mb-2">
-               Hourly Forecast
-             </Text>
-             <ScrollView
-               horizontal
-               showsHorizontalScrollIndicator={false}
-               className="py-2"
-               contentContainerStyle={{ paddingHorizontal: 4 }}
-             >
-               {results?.hourlyAverages?.slice(0, 10).map((h, idx) => (
-                 <View
-                   key={idx}
-                   className="flex items-center justify-center mx-2 rounded-full px-4 py-2"
-                   style={{ minWidth: 80, minHeight: 120 }}
-                 >
-                   <Text className="text-black font-better-light text-xs mb-2">
-                     {typeof h.timestamp === "string" ? new Date(h.timestamp).getHours() + ":00" : "--:--"}
-                   </Text>
-                   <Text className="text-black font-better-light text-2xl my-2">
-                     {getWeatherXMIcon(String(h.icon ?? ""))}
-                   </Text>
-                   <Text className="text-black font-better-light text-xs mb-2 text-center">
-                     {typeof h.precipitation_probability === "number" && h.precipitation_probability > 0
-                       ? `${h.precipitation_probability}% rain`
-                       : "Clear"}
-                   </Text>
-                   <Text className="text-black font-better-light text-lg">
-                     {typeof h.temperature === "number" ? h.temperature.toFixed(1) : "--"}°
-                   </Text>
-                 </View>
-               ))}
-             </ScrollView>
-           </View>
-         )}
-
-                 {/* 10 Day Forecast - Base API */}
-         {!isUsingLocalStation && (
-           <View className="mt-6 bg-white/50 rounded-xl p-4">
-             <Text className="text-black text-lg font-better-regular mb-2">
-               10 Day Forecast
-             </Text>
-             {daily.slice(0, 10).map((d: DailyForecast, idx) => (
-               <TouchableOpacity
-                 key={idx}
-                 className="flex-row items-center justify-between py-3 border-b border-gray-200 last:border-b-0"
-                 onPress={() => setSelectedDay(d)}
-               >
-                 <Text className="text-black font-better-regular text-base w-24">
-                   {formatDate(d.displayDate)}
-                 </Text>
-                 {d.daytimeForecast?.weatherCondition?.iconBaseUri ? (
-                   <Image
-                     source={{
-                       uri: `${d.daytimeForecast.weatherCondition.iconBaseUri}.png`,
-                     }}
-                     style={{ width: 36, height: 36 }}
-                     resizeMode="contain"
-                   />
-                 ) : (
-                   <Text className="text-2xl w-10 text-center">☀️</Text>
-                 )}
-                 <Text className="text-black font-better-regular text-base w-20 text-center">
-                   {d.maxTemperature?.degrees !== undefined
-                     ? `${d.maxTemperature.degrees}°`
-                     : "--"}{" "}
-                   /{" "}
-                   {d.minTemperature?.degrees !== undefined
-                     ? `${d.minTemperature.degrees}°`
-                     : "--"}
-                 </Text>
-               </TouchableOpacity>
-             ))}
-           </View>
-         )}
-
-                 {/* WeatherXM Daily Forecast */}
-         {isUsingLocalStation && mmForecastData && (
-           <View className="mt-6 bg-white/50 rounded-xl p-4">
-             <Text className="text-black text-lg font-better-regular mb-2">
-               7 Day Forecast
-             </Text>
-             {mmForecastData.slice(0, 7).map((d, idx) => {
-               const dailyData = d?.daily;
-               
-               return (
-                 <View
-                   key={idx}
-                   className="flex-row items-center justify-between py-3 border-b border-gray-200 last:border-b-0"
-                 >
-                   <Text className="text-black font-better-regular text-base w-24">
-                     {new Date(d.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                   </Text>
-                   <Text className="text-2xl w-10 text-center">
-                     {getWeatherXMIcon(dailyData?.icon)}
-                   </Text>
-                   <Text className="text-black font-better-regular text-base w-20 text-center">
-                     {dailyData?.temperature_max ?? "--"}° / {dailyData?.temperature_min ?? "--"}°
-                   </Text>
-                 </View>
-               );
-             })}
-           </View>
-         )}
+        {/* Daily Forecast */}
+        <MaterialCard elevation="level1" style={styles.dailyCard}>
+          <Text style={styles.sectionTitle}>{isUsingLocalStation ? "7 Day Forecast" : "10 Day Forecast"}</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dailyScroll}
+          >
+            {(isUsingLocalStation && mmForecastData
+              ? mmForecastData.slice(0, 7).map((d, idx) => {
+                  const dailyData = d?.daily;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={styles.dailyItem}
+                      onPress={() => {}}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.dailyTime}>{new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' })}</Text>
+                      <Text style={styles.dailyWeatherIcon}>{getWeatherXMIcon(dailyData?.icon)}</Text>
+                      <Text style={styles.dailyTemp}>{dailyData?.temperature_max ?? "--"}° / {dailyData?.temperature_min ?? "--"}°</Text>
+                    </TouchableOpacity>
+                  );
+                })
+              : daily.slice(0, 10).map((d: DailyForecast, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.dailyItem}
+                    onPress={() => setSelectedDay(d)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.dailyTime}>{formatDate(d.displayDate)}</Text>
+                    {d.daytimeForecast?.weatherCondition?.iconBaseUri ? (
+                      <Image
+                        source={{ uri: `${d.daytimeForecast.weatherCondition.iconBaseUri}.png` }}
+                        style={styles.dailyWeatherImage}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Text style={styles.dailyWeatherIcon}>☀️</Text>
+                    )}
+                    <Text style={styles.dailyTemp}>
+                      {d.maxTemperature?.degrees !== undefined
+                        ? `${d.maxTemperature.degrees}°`
+                        : "--"} / {d.minTemperature?.degrees !== undefined
+                        ? `${d.minTemperature.degrees}°`
+                        : "--"}
+                    </Text>
+                  </TouchableOpacity>
+                )))}
+          </ScrollView>
+        </MaterialCard>
 
         {/* Current Conditions */}
-        <Text className="text-black text-lg font-better-regular mt-8 mb-2">
-          Current conditions
-        </Text>
-        <View className="flex-row flex-wrap justify-between">
+        <Text style={styles.sectionTitle}>Current conditions</Text>
+        <View style={styles.currentConditionsRow}>
           {/* Wind */}
-          <View className="w-[49%] h-[120px] flex flex-col justify-between bg-white/50 rounded-xl p-4 mb-2">
-            <View className="flex-row items-center mb-1">
-              {windIcon ? (
-                <Image
-                  source={{ uri: windIcon }}
-                  style={{ width: 20, height: 20, marginRight: 6 }}
-                  resizeMode="contain"
-                />
-              ) : (
-                <Text className="text-lg mr-2">{fallbackIcons.wind}</Text>
-              )}
-              <Text className="text-gray-500 text-xs font-better-light">
-                Wind
-              </Text>
+          <MaterialCard style={styles.currentConditionCard}>
+            <View style={styles.conditionHeader}>
+              <Text style={styles.conditionIcon}>{fallbackIcons.wind}</Text>
+              <Text style={styles.conditionLabel}>Wind</Text>
             </View>
-            <Text className="text-gray-700 text-2xl font-better-bold">
-              {Number(windSpeed).toFixed(1)} km/h
-            </Text>
-            <Text className="text-gray-500 text-xs font-better-light">
-              {windDesc}
-            </Text>
-          </View>
+            <Text style={styles.conditionValue}>{Number(windSpeed).toFixed(1)} km/h</Text>
+            <Text style={styles.conditionSub}>{windDesc}</Text>
+          </MaterialCard>
           {/* Humidity */}
-          <View className="w-[49%] h-[120px] flex flex-col justify-between bg-white/50 rounded-xl p-4 mb-2">
-            <View className="flex-row items-center mb-1">
-              {humidityIcon ? (
-                <Image
-                  source={{ uri: humidityIcon }}
-                  style={{ width: 20, height: 20, marginRight: 6 }}
-                  resizeMode="contain"
-                />
-              ) : (
-                <Text className="text-lg mr-2">{fallbackIcons.humidity}</Text>
-              )}
-              <Text className="text-gray-500 text-xs font-better-light">
-                Humidity
-              </Text>
+          <MaterialCard style={styles.currentConditionCard}>
+            <View style={styles.conditionHeader}>
+              <Text style={styles.conditionIcon}>{fallbackIcons.humidity}</Text>
+              <Text style={styles.conditionLabel}>Humidity</Text>
             </View>
-            <Text className="text-gray-700 text-2xl font-better-bold">
-              {Number(humidity).toFixed(1)}%
-            </Text>
-            <Text className="text-gray-500 text-xs font-better-light">
-              Dew point {dewPoint}°
-            </Text>
-          </View>
+            <Text style={styles.conditionValue}>{Number(humidity).toFixed(1)}%</Text>
+            <Text style={styles.conditionSub}>Dew point {dewPoint}°</Text>
+          </MaterialCard>
           {/* UV Index */}
-          <View className="w-[49%] h-[120px] flex flex-col justify-between bg-white/50 rounded-xl p-4 mb-2">
-            <View className="flex-row items-center mb-1">
-              <Text className="text-lg mr-2">{fallbackIcons.uv}</Text>
-              <Text className="text-gray-500 text-xs font-better-light">
-                UV Index
-              </Text>
+          <MaterialCard style={styles.currentConditionCard}>
+            <View style={styles.conditionHeader}>
+              <Text style={styles.conditionIcon}>{fallbackIcons.uv}</Text>
+              <Text style={styles.conditionLabel}>UV Index</Text>
             </View>
-            <Text className="text-gray-700 text-2xl font-better-bold">
-              {uv}
-            </Text>
-          </View>
+            <Text style={styles.conditionValue}>{uv}</Text>
+          </MaterialCard>
           {/* Pressure */}
-          <View className="w-[49%] h-[120px] flex flex-col justify-between bg-white/50 rounded-xl p-4 mb-2">
-            <View className="flex-row items-center mb-1">
-              <Text className="text-lg mr-2">{fallbackIcons.pressure}</Text>
-              <Text className="text-gray-500 text-xs font-better-light">
-                Pressure
-              </Text>
+          <MaterialCard style={styles.currentConditionCard}>
+            <View style={styles.conditionHeader}>
+              <Text style={styles.conditionIcon}>{fallbackIcons.pressure}</Text>
+              <Text style={styles.conditionLabel}>Pressure</Text>
             </View>
-            <Text className="text-gray-700 text-2xl font-better-bold">
-              {Number(pressure).toFixed(1)}
-            </Text>
-            <Text className="text-gray-500 text-xs font-better-light">
-              mBar
-            </Text>
-          </View>
+            <Text style={styles.conditionValue}>{Number(pressure).toFixed(1)}</Text>
+            <Text style={styles.conditionSub}>mBar</Text>
+          </MaterialCard>
         </View>
       </ScrollView>
 
@@ -599,9 +568,9 @@ export function HomeScreen() {
         animationType="slide"
         onRequestClose={() => setSelectedDay(null)}
       >
-        <View className="flex-1 justify-center items-center bg-black/60">
-          <View className="bg-white rounded-xl p-6 w-11/12 max-w-xl">
-            <Text className="text-black text-lg font-bold mb-4">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
               {selectedDay ? formatDate(selectedDay.displayDate) : ""}
             </Text>
             {selectedDay?.daytimeForecast?.weatherCondition?.iconBaseUri && (
@@ -609,48 +578,33 @@ export function HomeScreen() {
                 source={{
                   uri: `${selectedDay.daytimeForecast.weatherCondition.iconBaseUri}.png`,
                 }}
-                style={{
-                  width: 48,
-                  height: 48,
-                  alignSelf: "center",
-                  marginBottom: 8,
-                }}
+                style={styles.modalWeatherImage}
                 resizeMode="contain"
               />
             )}
-            <Text className="mb-2">
-              Day:{" "}
-              {selectedDay?.daytimeForecast?.weatherCondition?.description
-                ?.text ?? "--"}
+            <Text style={styles.modalText}>
+              Day: {selectedDay?.daytimeForecast?.weatherCondition?.description?.text ?? "--"}
             </Text>
-            <Text className="mb-2">
-              Night:{" "}
-              {selectedDay?.nighttimeForecast?.weatherCondition?.description
-                ?.text ?? "--"}
+            <Text style={styles.modalText}>
+              Night: {selectedDay?.nighttimeForecast?.weatherCondition?.description?.text ?? "--"}
             </Text>
-            <Text className="mb-2">
-              Max Temp:{" "}
-              {selectedDay?.maxTemperature?.degrees !== undefined
-                ? `${selectedDay.maxTemperature.degrees}°`
-                : "--"}
+            <Text style={styles.modalText}>
+              Max Temp: {selectedDay?.maxTemperature?.degrees !== undefined ? `${selectedDay.maxTemperature.degrees}°` : "--"}
             </Text>
-            <Text className="mb-2">
-              Min Temp:{" "}
-              {selectedDay?.minTemperature?.degrees !== undefined
-                ? `${selectedDay.minTemperature.degrees}°`
-                : "--"}
+            <Text style={styles.modalText}>
+              Min Temp: {selectedDay?.minTemperature?.degrees !== undefined ? `${selectedDay.minTemperature.degrees}°` : "--"}
             </Text>
-            <Text className="mb-2">
+            <Text style={styles.modalText}>
               Sunrise: {selectedDay?.sunEvents?.sunriseTime ?? "--"}
             </Text>
-            <Text className="mb-2">
+            <Text style={styles.modalText}>
               Sunset: {selectedDay?.sunEvents?.sunsetTime ?? "--"}
             </Text>
             <TouchableOpacity
-              className="mt-4 bg-blue-200 rounded px-4 py-2"
+              style={styles.modalCloseButton}
               onPress={() => setSelectedDay(null)}
             >
-              <Text className="text-blue-900 font-bold text-center">Close</Text>
+              <Text style={styles.modalCloseButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -658,3 +612,298 @@ export function HomeScreen() {
     </ScreenWrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    padding: theme.spacing.lg,
+    backgroundColor: 'transparent',
+  },
+  searchBarContainer: {
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.sm,
+  },
+  searchBar: {
+    backgroundColor: theme.colors.surfaceContainer,
+    borderRadius: theme.borderRadius.xl,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    color: theme.colors.onSurface,
+    fontSize: 16,
+  },
+  dataSourceCard: {
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    alignItems: 'center',
+    padding: theme.spacing.sm,
+  },
+  dataSourceText: {
+    color: theme.colors.onSurface,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  weatherInfoCard: {
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  weatherInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  weatherInfoLeft: {
+    flex: 1,
+  },
+  cityText: {
+    color: theme.colors.onSurface,
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  tempText: {
+    color: theme.colors.onSurface,
+    fontSize: 72,
+    fontWeight: '200',
+  },
+  highLowText: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 16,
+    marginTop: theme.spacing.xs,
+  },
+  weatherInfoRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  weatherIcon: {
+    fontSize: 40,
+    marginBottom: theme.spacing.sm,
+  },
+  weatherImage: {
+    width: 48,
+    height: 48,
+    marginBottom: theme.spacing.sm,
+  },
+  descriptionText: {
+    color: theme.colors.onSurface,
+    fontSize: 18,
+    fontWeight: '400',
+  },
+  feelsLikeText: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 14,
+    marginTop: theme.spacing.xs,
+  },
+  hourlyCard: {
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  sectionTitle: {
+    color: theme.colors.onSurface,
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: theme.spacing.sm,
+    marginTop: theme.spacing.lg,
+  },
+  hourlyScroll: {
+    paddingHorizontal: theme.spacing.sm,
+  },
+  hourlyItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: theme.spacing.sm,
+    minWidth: 80,
+    minHeight: 120,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+  },
+  hourlyTime: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  hourlyWeatherIcon: {
+    fontSize: 28,
+    marginVertical: theme.spacing.xs,
+  },
+  hourlyWeatherImage: {
+    width: 36,
+    height: 36,
+    marginVertical: theme.spacing.xs,
+  },
+  hourlyDesc: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  hourlyTemp: {
+    color: theme.colors.onSurface,
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  dailyCard: {
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  dailyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.surfaceContainerHigh,
+  },
+  dailyDate: {
+    color: theme.colors.onSurface,
+    fontSize: 16,
+    width: 90,
+  },
+  dailyWeatherIcon: {
+    fontSize: 28,
+    width: 40,
+    textAlign: 'center',
+  },
+  dailyWeatherImage: {
+    width: 36,
+    height: 36,
+  },
+  dailyTemp: {
+    color: theme.colors.onSurface,
+    fontSize: 16,
+    width: 80,
+    textAlign: 'center',
+  },
+  currentConditionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+  },
+  currentConditionCard: {
+    width: '48%',
+    minHeight: 120,
+    marginBottom: theme.spacing.md,
+    justifyContent: 'space-between',
+    padding: theme.spacing.md,
+  },
+  conditionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  conditionIcon: {
+    fontSize: 20,
+    marginRight: theme.spacing.xs,
+  },
+  conditionLabel: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: '400',
+  },
+  conditionValue: {
+    color: theme.colors.onSurface,
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  conditionSub: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: '400',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 16,
+  },
+  errorTitle: {
+    color: theme.colors.error,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: theme.spacing.sm,
+  },
+  errorMessage: {
+    color: theme.colors.onSurface,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: theme.spacing.lg,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.xxl,
+  },
+  retryButtonText: {
+    color: theme.colors.onPrimary,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.xl,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    color: theme.colors.onSurface,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+  },
+  modalWeatherImage: {
+    width: 48,
+    height: 48,
+    alignSelf: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  modalText: {
+    color: theme.colors.onSurface,
+    fontSize: 16,
+    marginBottom: theme.spacing.xs,
+  },
+  modalCloseButton: {
+    marginTop: theme.spacing.lg,
+    backgroundColor: theme.colors.primaryContainer,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    alignSelf: 'center',
+  },
+  modalCloseButtonText: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  dailyScroll: {
+    paddingHorizontal: theme.spacing.sm,
+  },
+  dailyItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: theme.spacing.sm,
+    minWidth: 90,
+    minHeight: 120,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.surfaceContainer,
+  },
+  dailyTime: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 14,
+    marginBottom: theme.spacing.xs,
+  },
+});

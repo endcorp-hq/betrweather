@@ -4,7 +4,7 @@ import { View } from "react-native";
 
 export function ScreenWrapper({ children }: { children: React.ReactNode }) {
   return (
-    <View className="flex-1 px-4">
+    <View style={{ flex: 1, backgroundColor: 'transparent', paddingHorizontal: 10 }}>
       {children}
     </View>
   );
