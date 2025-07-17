@@ -13,6 +13,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { View } from "react-native";
 import { ConnectButton } from "../components/sign-in/sign-in-ui";
+import LeaderboardScreen from '../screens/LeaderboardScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -87,12 +88,14 @@ export function HomeNavigator() {
       screenOptions={({ route }) => ({
         header: () =>
           route.name === "Markets" ||
+          route.name === "Leaderboard" ||
           route.name === "Profile" ||
           route.name === "MarketDetail" ? (
             <TopBar />
           ) : null,
         headerShown:
           route.name === "Markets" ||
+          route.name === "Leaderboard" ||
           route.name === "Profile" ||
           route.name === "MarketDetail",
         tabBarIcon: ({ focused, color, size }) => {
@@ -111,6 +114,7 @@ export function HomeNavigator() {
     >
       <Tab.Screen name="Weather" component={HomeScreen} />
       <Tab.Screen name="Markets" component={MarketsGuarded} />
+      <Tab.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Tab.Screen name="Profile" component={ProfileGuarded} />
     </Tab.Navigator>
   );
