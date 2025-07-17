@@ -18,9 +18,22 @@ export function TopBarWalletButton({
 }) {
   const { connect } = useMobileWallet();
   return (
-    <TouchableOpacity onPress={selectedAccount ? openMenu : connect}>
-      <View className="rounded-full px-6 py-2 shadow-wallet-button-shadow bg-accent-light border">
-        <Text className="text-black font-better-semibold text-lg text-center">
+    <TouchableOpacity onPress={selectedAccount ? openMenu : connect} activeOpacity={0.92}>
+      <View
+        style={{
+          borderRadius: 999,
+          paddingHorizontal: 28,
+          paddingVertical: 12,
+          shadowColor: '#2F6EFF',
+          shadowOpacity: 0.32,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 12,
+          overflow: 'hidden',
+        }}
+        className="bg-wallet-button-bg shadow-wallet-button-shadow"
+      >
+        <Text className="text-white font-better-bold text-lg text-center">
           {selectedAccount
             ? ellipsify(selectedAccount.publicKey.toBase58())
             : "Connect"}
