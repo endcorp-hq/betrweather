@@ -1,4 +1,4 @@
-import { View, ScrollView, TouchableOpacity, TextInput, StyleSheet, Modal, ActivityIndicator, Switch } from "react-native";
+import { View, ScrollView, TouchableOpacity, StyleSheet, Modal, ActivityIndicator, Switch } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useShortx } from "../solana/useContract";
 import React, { useEffect, useRef, useState } from "react";
@@ -36,10 +36,17 @@ function SwipeableBetCard({ market, onSelect }: { market: any, onSelect: (dir: '
   const [swiping, setSwiping] = useState(false);
   const [swipeDir, setSwipeDir] = useState<'yes'|'no'|null>(null);
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { bottom: 24 };
-
-  // Show YES/NO overlay as user swipes
-  const yesOpacity = pan.x.interpolate({ inputRange: [0, 120], outputRange: [0, 1], extrapolate: 'clamp' });
-  const noOpacity = pan.x.interpolate({ inputRange: [-120, 0], outputRange: [1, 0], extrapolate: 'clamp' });
+  // Opacity for each overlay
+  const yesOverlayOpacity = pan.x.interpolate({
+    inputRange: [0, 80, 200],
+    outputRange: [0, 0.5, 1],
+    extrapolate: 'clamp',
+  });
+  const noOverlayOpacity = pan.x.interpolate({
+    inputRange: [-200, -80, 0],
+    outputRange: [1, 0.5, 0],
+    extrapolate: 'clamp',
+  });
 
   // Wobble animation on mount
   useEffect(() => {
@@ -78,16 +85,10 @@ function SwipeableBetCard({ market, onSelect }: { market: any, onSelect: (dir: '
           width: '92%',
           minHeight: 420,
           maxHeight: '98%',
-          backgroundColor: styles.swipeCard.backgroundColor,
-          borderRadius: styles.swipeCard.borderRadius,
-          borderWidth: styles.swipeCard.borderWidth,
-          borderColor: styles.swipeCard.borderColor,
+          borderRadius: theme.borderRadius.xl,
           overflow: 'hidden',
-          elevation: styles.swipeCard.elevation,
-          shadowColor: styles.swipeCard.shadowColor,
-          shadowOpacity: styles.swipeCard.shadowOpacity,
-          shadowRadius: styles.swipeCard.shadowRadius,
-          shadowOffset: styles.swipeCard.shadowOffset,
+          ...theme.elevation.level4,
+          backgroundColor: 'transparent',
           transform: [
             { translateX: pan.x },
             { translateY: pan.y },
@@ -113,25 +114,48 @@ function SwipeableBetCard({ market, onSelect }: { market: any, onSelect: (dir: '
           }).panHandlers,
         }}
       >
-        <View style={styles.swipeCardInner}>
-          <Text style={styles.swipeInstruction}>
-            Swipe <Text style={{ color: '#22c55e', fontWeight: '700' }}>right</Text> for <Text style={{ color: '#22c55e', fontWeight: '700' }}>YES</Text>, <Text style={{ color: '#ef4444', fontWeight: '700' }}>left</Text> for <Text style={{ color: '#ef4444', fontWeight: '700' }}>NO</Text>
-          </Text>
-          {/* YES/NO overlays */}
-          <Animated.View style={[styles.swipeOverlay, styles.swipeYes, { opacity: yesOpacity }]}> 
-            <Text style={styles.swipeYesText}>YES</Text>
-          </Animated.View>
-          <Animated.View style={[styles.swipeOverlay, styles.swipeNo, { opacity: noOpacity }]}> 
-            <Text style={styles.swipeNoText}>NO</Text>
-          </Animated.View>
-          {/* Market Info */}
-          <Text style={styles.swipeCardQuestion}>{market.question}</Text>
-          <View style={{ marginTop: 12 }}>
-            <Text style={styles.swipeCardMeta}>Resolution Time: <Text style={styles.swipeCardMetaValue}>{formatMarketDuration(market.marketStart, market.marketEnd)}</Text></Text>
-            <Text style={styles.swipeCardMeta}>Betting Ends: <Text style={styles.swipeCardMetaValue}>{formatDate(market.marketEnd)}</Text></Text>
-            <Text style={styles.swipeCardMeta}>Volume: <Text style={styles.swipeCardMetaValue}>${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(1)}</Text></Text>
+        {/* Two overlays: green for right, red for left */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: theme.swipe.yesOverlay,
+            opacity: yesOverlayOpacity,
+            borderRadius: theme.borderRadius.xl,
+            zIndex: 2,
+          }}
+        />
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: theme.swipe.noOverlay,
+            opacity: noOverlayOpacity,
+            borderRadius: theme.borderRadius.xl,
+            zIndex: 2,
+          }}
+        />
+        <GlassyCard style={{ flex: 1, minHeight: 420, justifyContent: 'center', alignItems: 'center' }} intensity={0} shimmer={false}>
+          <View style={[styles.swipeCardInner, { backgroundColor: 'transparent' }]}>
+            <Text style={styles.swipeInstruction}>
+              Swipe <Text style={{ color: theme.swipe.yesText, fontWeight: "bold" }}>right</Text> for <Text style={{ color: theme.swipe.yesText, fontWeight: "bold" }}>YES</Text>, <Text style={{ color: theme.swipe.noText, fontWeight: "bold" }}>left</Text> for <Text style={{ color: theme.swipe.noText, fontWeight: "bold" }}>NO</Text>
+            </Text>
+            {/* YES/NO overlays */}
+            <Animated.View style={[styles.swipeOverlay, { backgroundColor: 'transparent', opacity: yesOverlayOpacity }]}>
+              <Text style={[styles.swipeYesText, { color: theme.swipe.yesText }]}>YES</Text>
+            </Animated.View>
+            <Animated.View style={[styles.swipeOverlay, { backgroundColor: 'transparent', opacity: noOverlayOpacity }]}>
+              <Text style={[styles.swipeNoText, { color: theme.swipe.noText }]}>NO</Text>
+            </Animated.View>
+            {/* Market Info */}
+            <Text style={styles.swipeCardQuestion}>{market.question}</Text>
+            <View style={{ marginTop: 12, backgroundColor: 'transparent' }}>
+              <Text style={styles.swipeCardMeta}>Resolution Time: <Text style={styles.swipeCardMetaValue}>{formatMarketDuration(market.marketStart, market.marketEnd)}</Text></Text>
+              <Text style={styles.swipeCardMeta}>Betting Ends: <Text style={styles.swipeCardMetaValue}>{formatDate(market.marketEnd)}</Text></Text>
+              <Text style={styles.swipeCardMeta}>Volume: <Text style={styles.swipeCardMetaValue}>${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(1)}</Text></Text>
+            </View>
           </View>
-        </View>
+        </GlassyCard>
       </Animated.View>
     </View>
   );

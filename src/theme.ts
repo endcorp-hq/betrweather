@@ -46,6 +46,36 @@ const theme = {
     lg: 12,
     xl: 16,
     xxl: 20,
+    round: 999,
+    modal: 16,
+    card: 14,
+    topSheet: 18,
+  },
+  fonts: {
+    regular: 'Poppins-Regular',
+    bold: 'Poppins-Bold',
+    semiBold: 'Poppins-SemiBold',
+    extraBold: 'Poppins-ExtraBold',
+  },
+  fontWeights: {
+    regular: '400',
+    medium: '500',
+    semiBold: '600',
+    bold: '700',
+    extraBold: '900',
+  },
+  swipe: {
+    yesBg: 'rgba(34,197,94,0.18)', // brighter green, lower opacity
+    yesOverlay: 'rgba(34,197,94,0.38)', // brighter green, higher opacity
+    yesText: '#22c55e',
+    noBg: 'rgba(239,68,68,0.18)', // brighter red, lower opacity
+    noOverlay: 'rgba(239,68,68,0.38)', // brighter red, higher opacity
+    noText: '#ef4444',
+  },
+  overlay: {
+    modal: 'rgba(0,0,0,0.5)',
+    fullScreen: 'rgba(0,0,0,0.82)',
+    status: 'rgba(0,0,0,0.7)',
   },
   elevation: {
     level0: {
