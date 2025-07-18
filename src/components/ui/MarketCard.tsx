@@ -1,11 +1,11 @@
 import React from "react";
 import { Pressable, View, Text, StyleSheet, Image } from "react-native";
-import theme from '../../theme';
+import theme from "../../theme";
 import { formatMarket } from "../../utils/formatMarket";
 import { useNavigation } from "@react-navigation/native";
 import { Market, MarketType, WinningDirection } from "shortx-sdk";
 import { formatMarketDuration } from "../market/format-market-duration";
-import GlassyCard from './GlassyCard';
+import GlassyCard from "./GlassyCard";
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
   if (!endTimestamp) return "market ended";
@@ -36,10 +36,10 @@ function getBettingTimeLeft(startTimestamp: string | number | undefined) {
 function formatDate(timestamp: string | number | undefined) {
   if (!timestamp) return "";
   const date = new Date(Number(timestamp) * 1000);
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric',
-    year: 'numeric'
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
@@ -48,37 +48,37 @@ function isLiveMarket(market: Market) {
 }
 
 export function MarketCard({ market }: { market: Market }) {
-
   const navigation = useNavigation();
 
   // Determine if this is a live or future market
   const isLive = isLiveMarket(market);
 
   // Determine if resolved
-  const isResolved = market.marketState === 'resolved';
-  const winningDirection = market.winningDirection?.toLowerCase?.() || 'none';
+  const winningDirection = market.winningDirection?.toLowerCase?.() || "none";
+  // Check if market is resolved
+  const isResolved = market.winningDirection !== WinningDirection.NONE;
 
   // Color for left border and badge
-  let borderColor = 'transparent';
+  let borderColor = "transparent";
   let badgeColor = theme.colors.onSurfaceVariant;
-  let badgeText = '';
+  let badgeText = "";
   if (isResolved) {
-    if (winningDirection === 'yes') {
+    if (winningDirection === "yes") {
       borderColor = theme.colors.success;
       badgeColor = theme.colors.success;
-      badgeText = 'Yes Won';
-    } else if (winningDirection === 'no') {
+      badgeText = "Yes Won";
+    } else if (winningDirection === "no") {
       borderColor = theme.colors.error;
       badgeColor = theme.colors.error;
-      badgeText = 'No Won';
-    } else if (winningDirection === 'draw') {
+      badgeText = "No Won";
+    } else if (winningDirection === "draw") {
       borderColor = theme.colors.onSurfaceVariant;
       badgeColor = theme.colors.onSurfaceVariant;
-      badgeText = 'Draw';
+      badgeText = "Draw";
     } else {
       borderColor = theme.colors.surfaceContainerHigh;
       badgeColor = theme.colors.onSurfaceVariant;
-      badgeText = 'Resolved';
+      badgeText = "Resolved";
     }
   }
 
@@ -91,24 +91,30 @@ export function MarketCard({ market }: { market: Market }) {
   }
   const probabilityPercent = Math.round(probability * 100);
 
-  // Check if market is resolved
-  const isResolved = market.winningDirection !== WinningDirection.NONE;
-  const resolvedDirection = isResolved ? (market.winningDirection === WinningDirection.YES ? "YES" : "NO") : null;
+  const resolvedDirection = isResolved
+    ? market.winningDirection === WinningDirection.YES
+      ? "YES"
+      : "NO"
+    : null;
 
   const handlePress = () => {
     navigation.navigate("MarketDetail", { id: market.marketId });
   };
 
   return (
-    <Pressable
-      onPress={handlePress}
-      style={styles.cardTouchable}
-    >
-      <GlassyCard style={[styles.card, isResolved && { borderLeftWidth: 5, borderLeftColor: borderColor }]} intensity={36} shimmer={false}>
+    <Pressable onPress={handlePress} style={styles.cardTouchable}>
+      <GlassyCard
+        style={[
+          styles.card,
+          isResolved && { borderLeftWidth: 5, borderLeftColor: borderColor },
+        ]}
+        intensity={36}
+        shimmer={false}
+      >
         <View style={styles.headerRow}>
           <Text style={styles.question}>{market.question}</Text>
           {isResolved && (
-            <View style={[styles.badge, { backgroundColor: badgeColor }]}> 
+            <View style={[styles.badge, { backgroundColor: badgeColor }]}>
               <Text style={styles.badgeText}>{badgeText}</Text>
             </View>
           )}
@@ -117,10 +123,10 @@ export function MarketCard({ market }: { market: Market }) {
         {!isLive && (
           <View style={styles.metaRow}>
             <Text style={styles.metaText}>
-              {formatMarketDuration(formatted.marketStart, formatted.marketEnd)}
+              {formatMarketDuration(market.marketStart, market.marketEnd)}
             </Text>
             <Text style={styles.metaTextSecondary}>
-              {formatDate(formatted.marketStart)}
+              {formatDate(market.marketStart)}
             </Text>
           </View>
         )}
@@ -129,20 +135,24 @@ export function MarketCard({ market }: { market: Market }) {
         <View style={styles.probabilityRow}>
           <Text style={styles.probabilityText}>{probabilityPercent}%</Text>
           <View style={styles.probabilityBarBg}>
-            <View style={[styles.probabilityBarFill, { width: `${probabilityPercent}%` }]} />
+            <View
+              style={[
+                styles.probabilityBarFill,
+                { width: `${probabilityPercent}%` },
+              ]}
+            />
           </View>
         </View>
 
         {/* Bottom row: Volume and State */}
         <View style={styles.bottomRow}>
           <Text style={styles.bottomText}>
-            ${parseFloat(formatted.volume || "0").toFixed(1)} Vol.
+            ${parseFloat(market.volume || "0").toFixed(1)} Vol.
           </Text>
           <Text style={styles.bottomText}>
-            {isLive 
-              ? getTimeLeft(formatted.marketEnd)
-              : getBettingTimeLeft(formatted.marketStart)
-            }
+            {isLive
+              ? getTimeLeft(market.marketEnd)
+              : getBettingTimeLeft(market.marketStart)}
           </Text>
         </View>
       </GlassyCard>
@@ -163,15 +173,15 @@ const styles = StyleSheet.create({
     // Remove old backgroundColor and shadow
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: theme.spacing.sm,
   },
   question: {
     color: theme.colors.onSurface,
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: "500",
     flex: 1,
     marginRight: theme.spacing.md,
   },
@@ -179,16 +189,16 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   badgeText: {
     color: theme.colors.onPrimary,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 12,
   },
   metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: theme.spacing.sm,
   },
   metaText: {
@@ -201,14 +211,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   probabilityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: theme.spacing.sm,
   },
   probabilityText: {
     color: theme.colors.onSurface,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginRight: theme.spacing.md,
   },
   probabilityBarBg: {
@@ -216,7 +226,7 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: theme.colors.surfaceContainer,
     borderRadius: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   probabilityBarFill: {
     height: 8,
@@ -224,9 +234,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   bottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: theme.spacing.sm,
   },
   bottomText: {
