@@ -5,6 +5,7 @@ import { MarketCard } from "../components/ui/MarketCard";
 import { useFilters } from "../components/ui/useFilters";
 import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+import { WinningDirection } from "shortx-sdk";
 
 export default function MarketScreen() {
   const { markets, error, loadingMarkets, isInitialized } = useShortx();
@@ -45,13 +46,14 @@ export default function MarketScreen() {
         // Betting period: current time is before market start
         matchesStatus = now < marketStart;
         break;
-      case "active":
-        // Active period: current time is between start and end
-        matchesStatus = now >= marketStart && now < marketEnd;
-        break;
       case "resolved":
-        // Resolved: current time is after market end
-        matchesStatus = now >= marketEnd;
+        // Resolved: market has a winningDirection
+        matchesStatus = market.winningDirection !== WinningDirection.NONE;
+        break;
+      case "active":
+        // Active: everything else (between start and end, or ended but not resolved)
+        matchesStatus = !(now < marketStart) && 
+                       (market.winningDirection === WinningDirection.NONE);
         break;
       default:
         matchesStatus = true;

@@ -1,9 +1,9 @@
 import React from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, Image } from "react-native";
 import { Text } from "react-native";
 import { formatMarket } from "../../utils/formatMarket";
 import { useNavigation } from "@react-navigation/native";
-import { Market, MarketType } from "shortx-sdk";
+import { Market, MarketType, WinningDirection } from "shortx-sdk";
 import { formatMarketDuration } from "../market/format-market-duration";
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
@@ -46,24 +46,28 @@ function isLiveMarket(market: Market) {
   return market.marketType === MarketType.LIVE;
 }
 
-export function MarketCard({ market }: { market: any }) {
-  const formatted = formatMarket(market);
+export function MarketCard({ market }: { market: Market }) {
+
   const navigation = useNavigation();
 
   // Determine if this is a live or future market
   const isLive = isLiveMarket(market);
 
   // Calculate probability from yesLiquidity and noLiquidity
-  const yes = Number(formatted.yesLiquidity || 0);
-  const no = Number(formatted.noLiquidity || 0);
+  const yes = Number(market.yesLiquidity || 0);
+  const no = Number(market.noLiquidity || 0);
   let probability = 0.5;
   if (yes + no > 0) {
     probability = yes / (yes + no);
   }
   const probabilityPercent = Math.round(probability * 100);
 
+  // Check if market is resolved
+  const isResolved = market.winningDirection !== WinningDirection.NONE;
+  const resolvedDirection = isResolved ? (market.winningDirection === WinningDirection.YES ? "YES" : "NO") : null;
+
   const handlePress = () => {
-    navigation.navigate("MarketDetail", { id: formatted.marketId });
+    navigation.navigate("MarketDetail", { id: market.marketId });
   };
 
   return (
@@ -77,29 +81,29 @@ export function MarketCard({ market }: { market: any }) {
       }}
     >
       {/* Question */}
-      <Text className="text-black font-better-regular text-xl mb-4">
-        {formatted.question}
+      <Text className="text-black font-better-regular text-xl mb-2" numberOfLines={2}>
+        {market.question}
       </Text>
 
       {!isLive && (
-        <View className="mb-4">
+        <View className="mb-2">
           <Text className="text-black font-better-regular text-sm">
-            {formatMarketDuration(formatted.marketStart, formatted.marketEnd)}
+            {formatMarketDuration(market.marketStart, market.marketEnd)}
           </Text>
           <Text className="text-gray-600 font-better-light text-xs mt-1">
-            {formatDate(formatted.marketStart)}
+            {formatDate(market.marketStart)}
           </Text>
         </View>
       )}
 
       {/* Probability */}
-      <View>
+      <View className="flex-1 justify-center">
         <View className="flex-row items-center mb-1">
           <Text className="text-black font-better-medium text-base">
             {probabilityPercent}%
           </Text>
         </View>
-        <View className="w-full h-2 bg-sky-blue border rounded mb-4 overflow-hidden">
+        <View className="w-full h-2 bg-sky-blue border rounded overflow-hidden">
           <View
             className="h-2 bg-accent-light rounded"
             style={{ width: `${probabilityPercent}%` }}
@@ -110,14 +114,41 @@ export function MarketCard({ market }: { market: any }) {
       {/* Bottom row: Volume and State */}
       <View className="flex-row justify-between items-center mt-2">
         <Text className="text-[#7a7a8c] text-xs font-better-light">
-          ${parseFloat(formatted.volume || "0").toFixed(1)} Vol.
+          ${parseFloat(String(Number(market.volume) / 10 ** 6) || "0").toFixed(1)} Vol.
         </Text>
-        <Text className="text-[#7a7a8c] text-xs font-better-light">
-          {isLive 
-            ? getTimeLeft(formatted.marketEnd) // Live market: show when market ends
-            : getBettingTimeLeft(formatted.marketStart) // Future market: show when betting ends
-          }
-        </Text>
+        
+        {isResolved ? (
+          <View className="flex-row items-center rounded-full px-2 py-1">
+            <Text className="text-gray-700 text-xs font-better-light mr-1">
+              Market Resolved to {resolvedDirection} by WeatherXM
+            </Text>
+            <Image 
+              source={require('../../../assets/wxmlogo.png')}
+              style={{ width: 30, height: 30 }}
+              resizeMode="contain"
+            />
+          </View>
+        ) : (
+          <Text className="text-[#7a7a8c] text-xs font-better-light text-right flex-1 ml-2">
+            {(() => {
+              const now = Date.now();
+              const marketStart = Number(market.marketStart) * 1000;
+              const marketEnd = Number(market.marketEnd) * 1000;
+              
+              if (isLive) {
+                return getTimeLeft(market.marketEnd);
+              } else {
+                if (now < marketStart) {
+                  return getBettingTimeLeft(market.marketStart);
+                } else if (now >= marketStart && now < marketEnd) {
+                  return "betting ended, market in progress";
+                } else {
+                  return "market ended, resolution pending";
+                }
+              }
+            })()}
+          </Text>
+        )}
       </View>
     </Pressable>
   );
