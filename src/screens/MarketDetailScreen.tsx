@@ -1,8 +1,8 @@
 import { View, ScrollView, TouchableOpacity, StyleSheet, Modal, ActivityIndicator, Switch } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useShortx } from "../solana/useContract";
-import React, { useEffect, useRef, useState } from "react";
-import { Animated, Text } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Text } from "react-native";
 import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 import { formatMarketDuration } from "../components/market/format-market-duration";
 import { WinningDirection } from "shortx-sdk";
@@ -191,30 +191,13 @@ const SlotMachineScreen = () => {
     if (id) fetchMarket();
   }, [id]);
 
-  // Animate status text when betStatus changes to success or error
-  useEffect(() => {
-    if (betStatus === 'success' || betStatus === 'error') {
-      statusScale.setValue(0.8);
-      Animated.sequence([
-        Animated.timing(statusScale, {
-          toValue: 1.15,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(statusScale, {
-          toValue: 1.0,
-          friction: 4,
-          useNativeDriver: true,
-        })
-      ]).start();
-    }
-  }, [betStatus]);
-
   const reelAnimations = [
     useRef(new Animated.Value(0)).current,
     useRef(new Animated.Value(0)).current,
     useRef(new Animated.Value(0)).current,
   ];
+
+  console.log("this is selectedAccount", selectedAccount?.publicKey);
 
   const handleBet = async (bet: string) => {
     if (!selectedAccount || !selectedAccount.publicKey) {
@@ -232,7 +215,7 @@ const SlotMachineScreen = () => {
         direction: bet === "yes" ? WinningDirection.YES : WinningDirection.NO,
       };
       const response = await axios.post(
-        "http://192.168.1.20:8001/nft/create",
+        "http://192.168.1.16:8001/nft/create",
         metadata,
         {
           headers: {
@@ -996,4 +979,506 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SlotMachineScreen;
+const styles = StyleSheet.create({
+  scrollContent: {
+    padding: theme.spacing.lg,
+    backgroundColor: 'transparent',
+    paddingBottom: 32,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    maxWidth: 120,
+  },
+  backButtonText: {
+    color: theme.colors.onSurface,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 120,
+  },
+  loadingText: {
+    color: theme.colors.onSurface,
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  errorCard: {
+    marginVertical: 18,
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  errorTitle: {
+    color: theme.colors.error,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  errorMessage: {
+    color: theme.colors.onSurface,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  marketInfoCard: {
+    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.lg,
+  },
+  marketInfoHeader: {
+    marginBottom: 4,
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  marketInfoDate: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 13,
+    fontFamily: 'Poppins-Regular',
+  },
+  marketInfoQuestion: {
+    color: theme.colors.onSurface,
+    fontSize: 22,
+    fontWeight: '600',
+    marginBottom: 12,
+    fontFamily: 'Poppins-Bold',
+  },
+  marketInfoMeta: {
+    marginTop: 2,
+    gap: 2,
+  },
+  marketInfoMetaLabel: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+  },
+  marketInfoMetaValue: {
+    color: theme.colors.onSurface,
+    fontWeight: '500',
+    fontFamily: 'Poppins-Bold',
+  },
+  slotMachineCard: {
+    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.md,
+    alignItems: 'center',
+  },
+  slotMachineRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    padding: 8,
+  },
+  reelWrapper: {
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  reelLabel: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 13,
+    fontFamily: 'Poppins-Regular',
+    marginBottom: 4,
+  },
+  reelContainer: {
+    width: 100,
+    height: 100,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 16,
+  },
+  reelItem: {
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reelIcon: {
+    fontSize: 48,
+    textAlign: 'center',
+  },
+  aggregatedCard: {
+    marginBottom: theme.spacing.lg,
+    alignItems: 'center',
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.primaryContainer,
+    borderRadius: 14,
+  },
+  aggregatedText: {
+    color: theme.colors.onSurface,
+    fontSize: 18,
+    fontWeight: '500',
+    fontFamily: 'Poppins-Regular',
+  },
+  inputCard: {
+    marginBottom: theme.spacing.lg,
+    padding: 0,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 16,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  betButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingVertical: 18,
+    marginHorizontal: 4,
+    backgroundColor: theme.colors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    elevation: 2,
+  },
+  yesButton: {
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderColor: '#10b981',
+  },
+  noButton: {
+    backgroundColor: 'rgba(244,63,94,0.18)',
+    borderColor: '#f43f5e',
+  },
+  betButtonText: {
+    color: theme.colors.onSurface,
+    fontSize: 20,
+    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
+  },
+  fixedBetBox: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    paddingBottom: 0,
+  },
+  fixedBetCard: {
+    width: '100%',
+    alignSelf: 'center',
+    marginBottom: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 0,
+    borderRadius: 0,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    backgroundColor: theme.colors.surfaceContainerHigh,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 8,
+    minHeight: 90,
+    justifyContent: 'center',
+  },
+  betLabel: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 2,
+    textAlign: 'center',
+    fontFamily: 'Poppins-Regular',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  compactInput: {
+    height: 60,
+    minHeight: 40,
+    maxHeight: 60,
+    borderRadius: 12,
+    fontSize: 32,
+    paddingVertical: 0,
+    marginVertical: 0,
+  },
+  suggestedRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 2,
+    gap: 6,
+  },
+  suggestedButton: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginHorizontal: 2,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    minWidth: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suggestedButtonText: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+    fontSize: 15,
+    fontFamily: 'Poppins-Bold',
+  },
+  swipeCard: {
+    width: '90%',
+    height: 150,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  swipeCardInner: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  swipeCardQuestion: {
+    color: theme.colors.onSurface,
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    fontFamily: 'Poppins-Bold',
+  },
+  swipeOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  swipeYes: {
+    backgroundColor: 'rgba(16,185,129,0.2)',
+  },
+  swipeNo: {
+    backgroundColor: 'rgba(244,63,94,0.2)',
+  },
+  swipeYesText: {
+    color: '#10b981',
+    fontSize: 30,
+    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
+  },
+  swipeNoText: {
+    color: '#ef4444',
+    fontSize: 30,
+    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
+  },
+  swipeInstruction: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 12,
+    textAlign: 'center',
+    fontFamily: 'Poppins-Regular',
+  },
+  swipeCardMeta: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+  },
+  swipeCardMetaValue: {
+    color: theme.colors.onSurface,
+    fontWeight: '500',
+    fontFamily: 'Poppins-Bold',
+  },
+  betModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  betModalCard: {
+    width: '90%',
+    backgroundColor: theme.colors.surfaceContainerHigh,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+  },
+  betModalDirection: {
+    color: theme.colors.onSurface,
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 12,
+    fontFamily: 'Poppins-Bold',
+  },
+  betModalLabel: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 12,
+    fontFamily: 'Poppins-Regular',
+  },
+  betModalLabelBig: {
+    color: theme.colors.onSurface,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+    fontFamily: 'Poppins-Bold',
+  },
+  suggestedRowBig: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 2,
+    gap: 6,
+  },
+  suggestedButtonBig: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginHorizontal: 2,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    minWidth: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suggestedButtonBigSelected: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  suggestedButtonTextBig: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+    fontSize: 15,
+    fontFamily: 'Poppins-Bold',
+  },
+  suggestedButtonTextBigSelected: {
+    color: theme.colors.onPrimary,
+    fontWeight: '700',
+    fontSize: 15,
+    fontFamily: 'Poppins-Bold',
+  },
+  placeBetButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 12,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeBetButtonText: {
+    color: theme.colors.onPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
+  },
+  placeBetButtonBig: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 12,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeBetButtonTextBig: {
+    color: theme.colors.onPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
+  },
+  betStatusOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    zIndex: 1000,
+  },
+  fullScreenStatusOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0,0,0,0.82)',
+    zIndex: 1000,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenStatusText: {
+    fontSize: 38,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 1.2,
+    fontFamily: 'Poppins-Bold',
+    textShadowColor: 'rgba(0,0,0,0.22)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  },
+  betStatusCard: {
+    backgroundColor: theme.colors.surfaceContainerHigh,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.outlineVariant,
+  },
+  betStatusText: {
+    color: theme.colors.onSurface,
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 12,
+    fontFamily: 'Poppins-Bold',
+  },
+  manualToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 12,
+    width: '100%',
+  },
+  manualToggleLabel: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: 'Poppins-Regular',
+  },
+});
+
+export default MarketDetailScreen;

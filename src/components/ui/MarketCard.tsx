@@ -1,9 +1,9 @@
 import React from "react";
-import { Pressable, View, Text, StyleSheet } from "react-native";
+import { Pressable, View, Text, StyleSheet, Image } from "react-native";
 import theme from '../../theme';
 import { formatMarket } from "../../utils/formatMarket";
 import { useNavigation } from "@react-navigation/native";
-import { Market, MarketType } from "shortx-sdk";
+import { Market, MarketType, WinningDirection } from "shortx-sdk";
 import { formatMarketDuration } from "../market/format-market-duration";
 import GlassyCard from './GlassyCard';
 
@@ -47,8 +47,8 @@ function isLiveMarket(market: Market) {
   return market.marketType === MarketType.LIVE;
 }
 
-export function MarketCard({ market }: { market: any }) {
-  const formatted = formatMarket(market);
+export function MarketCard({ market }: { market: Market }) {
+
   const navigation = useNavigation();
 
   // Determine if this is a live or future market
@@ -83,16 +83,20 @@ export function MarketCard({ market }: { market: any }) {
   }
 
   // Calculate probability from yesLiquidity and noLiquidity
-  const yes = Number(formatted.yesLiquidity || 0);
-  const no = Number(formatted.noLiquidity || 0);
+  const yes = Number(market.yesLiquidity || 0);
+  const no = Number(market.noLiquidity || 0);
   let probability = 0.5;
   if (yes + no > 0) {
     probability = yes / (yes + no);
   }
   const probabilityPercent = Math.round(probability * 100);
 
+  // Check if market is resolved
+  const isResolved = market.winningDirection !== WinningDirection.NONE;
+  const resolvedDirection = isResolved ? (market.winningDirection === WinningDirection.YES ? "YES" : "NO") : null;
+
   const handlePress = () => {
-    navigation.navigate("MarketDetail", { id: formatted.marketId });
+    navigation.navigate("MarketDetail", { id: market.marketId });
   };
 
   return (
