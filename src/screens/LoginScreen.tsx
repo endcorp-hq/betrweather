@@ -23,7 +23,7 @@ export default function LoginScreen() {
     <View className="flex-1 items-center justify-center">
       <View className="flex-col items-center justify-center">
         <Text className="text-white font-better-extra-bold text-[50px]">
-          BetterWeather
+          BetrWeather
         </Text>
         <Text className="text-white font-better-regular text-lg">
           Bringing weather to the markets

@@ -1,20 +1,21 @@
 import React, { useEffect } from "react";
-import { Animated, ScrollView, Text, View } from "react-native";
+import { Animated, ScrollView, Text, View, StyleSheet } from "react-native";
 import { useShortx } from "../solana/useContract";
 import { MarketCard } from "../components/ui/MarketCard";
 import { useFilters } from "../components/ui/useFilters";
 import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+import MaterialCard from '../components/ui/MaterialCard';
+import theme from '../theme';
 import { WinningDirection } from "shortx-sdk";
 
 export default function MarketScreen() {
   const { markets, error, loadingMarkets, isInitialized } = useShortx();
 
-  console.log("this is markets", markets, isInitialized, error);
-
   useEffect(() => {
     if (isInitialized) {
-      console.log("this is markets", markets);
+      // For debugging
+      // console.log("Markets:", markets);
     }
   }, [isInitialized]);
 
@@ -64,8 +65,7 @@ export default function MarketScreen() {
     // Time filtering
     const marketStartDate = new Date(marketStart);
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-
+    today.setHours(0, 0, 0, 0);
     let matchesTime = false;
     switch (timeFilter) {
       case "daily":
@@ -74,7 +74,6 @@ export default function MarketScreen() {
         marketStartDay.setHours(0, 0, 0, 0);
         matchesTime = marketStartDay.getTime() === today.getTime();
         break;
-
       case "weekly":
         // Within the current week (Monday to Sunday)
         const startOfWeek = new Date(today);
@@ -131,46 +130,56 @@ export default function MarketScreen() {
       {loadingMarkets ? (
         <LoadingSpinner message="Loading markets..." />
       ) : (
-        <View className="flex-1 pt-10">
-          <Text className="text-white text-xl font-better-bold mb-2">
-            Climate Prediction Markets
-          </Text>
-
-          {/* Time Filters */}
-          <TimeFilterBar />
-
-          <Text className="font-better-bold text-xl text-white flex items-center justify-center text-center w-full">
-            ⦿
-          </Text>
-
-          {/* Status Filters */}
-          <StatusFilterBar />
-
-          <View className="border-b border-gray-200 h-1 mt-5 w-1/2 mx-auto rounded-full" />
-
-          {error && <Text style={{ color: "red" }}>{error.message}</Text>}
-          {!loadingMarkets && !error && filteredMarkets.length === 0 && (
-            <Text className="text-white text-center mt-8 font-better-regular text-lg">
-              No markets found for the selected filters.
-            </Text>
+        <ScrollView style={{ backgroundColor: 'transparent' }} contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.sectionTitle}>Markets</Text>
+          <MaterialCard elevation="level1" style={styles.filterCard}>
+            <TimeFilterBar />
+            <StatusFilterBar />
+          </MaterialCard>
+          {error && (
+            <Text style={styles.errorText}>{error.message}</Text>
           )}
-          
-          {/* Scrollable content area */}
-          <ScrollView 
-            className="flex-1 mt-4"
-            showsVerticalScrollIndicator={false}
-          >
-            {!loadingMarkets &&
-              !error &&
-              filteredMarkets.map((market, idx) => (
-                <MarketCard
-                  key={market.address?.toString?.() || idx}
-                  market={market}
-                />
-              ))}
-          </ScrollView>
-        </View>
+          {!loadingMarkets && !error && filteredMarkets.length === 0 && (
+            <Text style={styles.emptyText}>No markets found for the selected filters.</Text>
+          )}
+          {filteredMarkets.map((market, idx) => (
+            <MarketCard
+              key={market.address?.toString?.() || idx}
+              market={market}
+            />
+          ))}
+        </ScrollView>
       )}
     </ScreenWrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    padding: theme.spacing.lg,
+    backgroundColor: 'transparent',
+  },
+  sectionTitle: {
+    color: theme.colors.onSurface,
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: theme.spacing.lg,
+  },
+  filterCard: {
+    marginBottom: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: theme.colors.error,
+    fontSize: 16,
+    marginVertical: theme.spacing.md,
+    textAlign: 'center',
+  },
+  emptyText: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 16,
+    marginVertical: theme.spacing.lg,
+    textAlign: 'center',
+  },
+});

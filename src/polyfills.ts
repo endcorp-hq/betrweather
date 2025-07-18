@@ -3,7 +3,6 @@ import { Buffer } from "buffer";
 import 'assert';
 import structuredClone from "@ungap/structured-clone";
 import 'react-native-gesture-handler';
-import 'react-native-reanimated';
 
 // import moduleAlias from 'module-alias';
 

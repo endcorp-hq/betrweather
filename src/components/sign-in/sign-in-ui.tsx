@@ -29,7 +29,7 @@ export function ConnectButton() {
       mode="contained"
       disabled={authorizationInProgress}
       onPress={handleConnectPress}
-      style={{ flex: 1 }}
+      // No flex: 1, keep button natural size
     >
       Connect
     </Button>

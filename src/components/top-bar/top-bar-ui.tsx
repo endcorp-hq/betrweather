@@ -6,6 +6,8 @@ import { useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Linking, Text, TouchableOpacity, View, Modal } from "react-native";
 import { useCluster } from "../cluster/cluster-data-access";
+import Feather from 'react-native-vector-icons/Feather';
+import theme from '../../theme';
 
 export function TopBarWalletButton({
   selectedAccount,
@@ -16,9 +18,22 @@ export function TopBarWalletButton({
 }) {
   const { connect } = useMobileWallet();
   return (
-    <TouchableOpacity onPress={selectedAccount ? openMenu : connect}>
-      <View className="rounded-full px-6 py-2 shadow-wallet-button-shadow bg-accent-light border">
-        <Text className="text-black font-better-semibold text-lg text-center">
+    <TouchableOpacity onPress={selectedAccount ? openMenu : connect} activeOpacity={0.92}>
+      <View
+        style={{
+          borderRadius: 999,
+          paddingHorizontal: 28,
+          paddingVertical: 12,
+          shadowColor: '#2F6EFF',
+          shadowOpacity: 0.32,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 12,
+          overflow: 'hidden',
+        }}
+        className="bg-wallet-button-bg shadow-wallet-button-shadow"
+      >
+        <Text className="text-white font-better-bold text-lg text-center">
           {selectedAccount
             ? ellipsify(selectedAccount.publicKey.toBase58())
             : "Connect"}
@@ -73,47 +88,98 @@ export function TopBarWalletMenu() {
         selectedAccount={selectedAccount}
         openMenu={openMenu}
       />
-      
       <Modal
         visible={visible}
         transparent={true}
         animationType="fade"
         onRequestClose={closeMenu}
       >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-          activeOpacity={1}
-          onPress={closeMenu}
-        >
-          <View className="absolute top-20 right-4 bg-white rounded-lg shadow-lg min-w-48">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{
+            backgroundColor: theme.colors.surfaceContainerHigh,
+            borderRadius: theme.borderRadius.xxl,
+            padding: theme.spacing.xl,
+            minWidth: 320,
+            alignItems: 'center',
+            ...theme.elevation.level4,
+          }}>
+            <Text style={{ color: theme.colors.onSurface, fontSize: 18, fontWeight: '700', marginBottom: theme.spacing.lg, fontFamily: 'Poppins-Bold' }}>
+              Wallet
+            </Text>
+            {selectedAccount && (
+              <View style={{ marginBottom: theme.spacing.lg, alignItems: 'center' }}>
+                <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14, fontFamily: 'Poppins-Regular' }}>Address</Text>
+                <Text style={{ color: theme.colors.onSurface, fontSize: 16, fontFamily: 'Poppins-Bold', marginTop: 2, textAlign: 'center' }}>
+                  {ellipsify(selectedAccount.publicKey.toBase58(), 8)}
+                </Text>
+              </View>
+            )}
             <TouchableOpacity
               onPress={copyAddressToClipboard}
-              className="flex-row items-center px-4 py-3 border-b border-gray-100"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: theme.colors.surfaceContainer,
+                borderRadius: theme.borderRadius.lg,
+                paddingVertical: theme.spacing.md,
+                paddingHorizontal: theme.spacing.xl,
+                marginBottom: theme.spacing.md,
+                width: 220,
+                justifyContent: 'center',
+              }}
+              activeOpacity={0.85}
             >
-              <Text className="text-lg mr-3">📋</Text>
-              <Text className="text-gray-700 font-medium">Copy address</Text>
+              <Feather name="copy" size={22} color={theme.colors.primary} style={{ marginRight: 14 }} />
+              <Text style={{ color: theme.colors.onSurface, fontSize: 16, fontFamily: 'Poppins-SemiBold' }}>Copy address</Text>
             </TouchableOpacity>
-            
             <TouchableOpacity
               onPress={viewExplorer}
-              className="flex-row items-center px-4 py-3 border-b border-gray-100"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: theme.colors.surfaceContainer,
+                borderRadius: theme.borderRadius.lg,
+                paddingVertical: theme.spacing.md,
+                paddingHorizontal: theme.spacing.xl,
+                marginBottom: theme.spacing.md,
+                width: 220,
+                justifyContent: 'center',
+              }}
+              activeOpacity={0.85}
             >
-              <Text className="text-lg mr-3">🔗</Text>
-              <Text className="text-gray-700 font-medium">View Explorer</Text>
+              <Feather name="external-link" size={22} color={theme.colors.info} style={{ marginRight: 14 }} />
+              <Text style={{ color: theme.colors.onSurface, fontSize: 16, fontFamily: 'Poppins-SemiBold' }}>View Explorer</Text>
             </TouchableOpacity>
-            
             <TouchableOpacity
               onPress={async () => {
                 await disconnect();
                 closeMenu();
               }}
-              className="flex-row items-center px-4 py-3"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: theme.colors.surfaceContainer,
+                borderRadius: theme.borderRadius.lg,
+                paddingVertical: theme.spacing.md,
+                paddingHorizontal: theme.spacing.xl,
+                marginBottom: theme.spacing.md,
+                width: 220,
+                justifyContent: 'center',
+              }}
+              activeOpacity={0.85}
             >
-              <Text className="text-lg mr-3">❌</Text>
-              <Text className="text-red-600 font-medium">Disconnect</Text>
+              <Feather name="log-out" size={22} color={theme.colors.error} style={{ marginRight: 14 }} />
+              <Text style={{ color: theme.colors.error, fontSize: 16, fontFamily: 'Poppins-SemiBold' }}>Disconnect</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={closeMenu}
+              style={{ marginTop: theme.spacing.md }}
+              activeOpacity={0.85}
+            >
+              <Text style={{ color: theme.colors.primary, fontSize: 16, fontFamily: 'Poppins-SemiBold' }}>Close</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </>
   );
