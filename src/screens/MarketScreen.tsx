@@ -1,23 +1,16 @@
-import React, { useEffect } from "react";
-import { Animated, ScrollView, Text, View, StyleSheet } from "react-native";
+import React from "react";
+import { ScrollView, Text, StyleSheet } from "react-native";
 import { useShortx } from "../solana/useContract";
 import { MarketCard } from "../components/ui/MarketCard";
 import { useFilters } from "../components/ui/useFilters";
 import { ScreenWrapper } from "../components/ui/ScreenWrapper";
-import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+import { LogoLoader as LoadingSpinner } from "../components/ui/LoadingSpinner";
 import MaterialCard from '../components/ui/MaterialCard';
 import theme from '../theme';
 import { WinningDirection } from "shortx-sdk";
 
 export default function MarketScreen() {
-  const { markets, error, loadingMarkets, isInitialized } = useShortx();
-
-  useEffect(() => {
-    if (isInitialized) {
-      // For debugging
-      // console.log("Markets:", markets);
-    }
-  }, [isInitialized]);
+  const { markets, error, loadingMarkets } = useShortx();
 
   // Use the filter hook for time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([
@@ -128,7 +121,7 @@ export default function MarketScreen() {
   return (
     <ScreenWrapper>
       {loadingMarkets ? (
-        <LoadingSpinner message="Loading markets..." />
+        <LoadingSpinner message="Loading markets" />
       ) : (
         <ScrollView style={{ backgroundColor: 'transparent' }} contentContainerStyle={styles.scrollContent}>
           <Text style={styles.sectionTitle}>Markets</Text>

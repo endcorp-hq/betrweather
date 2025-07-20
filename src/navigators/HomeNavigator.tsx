@@ -2,7 +2,6 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import React from "react";
 import { TopBar } from "../components/top-bar/top-bar-feature";
 import { HomeScreen } from "../screens/HomeScreen";
-import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
 import ProfileScreen from "../screens/ProfileScreen";
 import MarketScreen from "../screens/MarketScreen";
 import { CustomTabBar } from "../components/ui/CustomTabBar";
@@ -14,6 +13,7 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { View } from "react-native";
 import { ConnectButton } from "../components/sign-in/sign-in-ui";
 import LeaderboardScreen from '../screens/LeaderboardScreen';
+import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 
 const Tab = createBottomTabNavigator();
 
@@ -54,6 +54,7 @@ function GuardedScreen({ children }: { children: React.ReactNode }) {
   if (selectedAccount) return <>{children}</>;
   // Add message above the connect button, both centered
   return (
+    <ScreenWrapper>
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' }}>
       <View style={{ alignItems: 'center' }}>
         <Text style={{ color: require('../theme').default.colors.onSurface, fontSize: 20, fontWeight: '600', marginBottom: 16 }}>
@@ -62,6 +63,7 @@ function GuardedScreen({ children }: { children: React.ReactNode }) {
         <ConnectButton />
       </View>
     </View>
+    </ScreenWrapper>
   );
 }
 

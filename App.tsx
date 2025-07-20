@@ -11,10 +11,8 @@ import { ShortxProvider } from "./src/solana/useContract";
 import "./global.css";
 import { Toaster } from "sonner-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { WeatherBackgroundSkia } from "./src/components/ui/WeatherBackgroundSkia";
-import theme from "./src/theme";
 import { View } from "react-native";
-import { WeatherProvider } from "./src/components/ui/ScreenWrapper";
+import { ScreenWrapper, WeatherProvider } from "./src/components/ui/ScreenWrapper";
 
 const queryClient = new QueryClient();
 
@@ -31,8 +29,10 @@ export default function App() {
                 <GestureHandlerRootView style={{ flex: 1 }}>
                   <SafeAreaProvider>
                     <SafeAreaView className="flex-1 bg-transparent">
+                      <ScreenWrapper>
                       <AppNavigator />
                       <Toaster richColors />
+                      </ScreenWrapper>
                     </SafeAreaView>
                   </SafeAreaProvider>
                 </GestureHandlerRootView>

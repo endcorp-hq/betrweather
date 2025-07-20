@@ -27,12 +27,14 @@ export function CustomTabBar({
 }: BottomTabBarProps) {
   return (
     <View
-      className={`absolute left-4 right-4 bottom-6 z-50 shadow-lg bg-white flex-1 flex-row justify-center items-center  self-center shadow-black/20 rounded-[40px] px-3 py-3`}
+      className={`absolute left-4 right-4 bottom-4 z-50 shadow-lg bg-white flex-1 flex-row justify-center items-center  self-center shadow-black/20 rounded-[40px] px-3 py-3`}
       style={{
         height: TAB_BAR_HEIGHT,
         paddingBottom: Platform.OS === "ios" ? 18 : 8,
-        shadowOffset: { width: 0, height: -2 },
+        shadowOffset: { width: 0, height: 2 },
         shadowRadius: 18,
+        shadowColor: theme.colors.primary,
+        elevation: theme.elevation.level2.elevation,
       }}
     >
 
