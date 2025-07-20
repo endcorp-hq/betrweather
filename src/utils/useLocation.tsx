@@ -29,6 +29,7 @@ export const useLocation = () => {
       });
       setDetailedLocation(response);
     } catch (error) {
+      console.error('Error getting location', error);
       setError("Error getting location");
     }
   };

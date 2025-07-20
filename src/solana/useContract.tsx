@@ -197,7 +197,7 @@ import React, {
             !process.env.EXPO_PUBLIC_ADMIN_KEY ||
             !process.env.EXPO_PUBLIC_USDC_MINT
           ) {
-            console.log("this is missing nvironment variables", process.env.EXPO_PUBLIC_ADMIN_KEY, process.env.EXPO_PUBLIC_FEE_VAULT, process.env.EXPO_PUBLIC_USDC_MINT);
+           
             throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing environment variables");
           }
           const shortxClient = new ShortXClient(
@@ -225,7 +225,6 @@ import React, {
         if (client) {
           console.log("this is client", client);
           const m = await client.trade.getAllMarkets();
-          console.log("this is m", m);
           setMarkets(m || []);
         }
       } catch (err: unknown) {

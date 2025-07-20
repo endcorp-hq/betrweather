@@ -5,7 +5,7 @@ interface LoadingSpinnerProps {
   message?: string;
 }
 
-export function LoadingSpinner({ message = "Loading..." }: LoadingSpinnerProps) {
+export function LogoLoader({ message = "Loading..." }: LoadingSpinnerProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function LoadingSpinner({ message = "Loading..." }: LoadingSpinnerProps) 
 
   return (
     <View className="flex-1 justify-center items-center">
-      <Text className="text-white text-3xl font-better-bold mb-8">
+      <Text className="text-white text-3xl font-better-bold mb-4">
         betterWeather
       </Text>
       

@@ -1,21 +1,55 @@
 import React from "react";
-import { TouchableOpacity, View, StyleSheet, Platform, Animated } from "react-native";
+import { TouchableOpacity, View, Platform } from "react-native";
 import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import theme from '../../theme';
+import theme from "../../theme";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
+
+const AnimatedTouchableOpacity =
+  Animated.createAnimatedComponent(TouchableOpacity);
 
 const TAB_BAR_HEIGHT = 62;
 const ICON_SIZE = 24;
-const ACTIVE_ICON_SCALE = 1.10;
+const ACTIVE_ICON_SCALE = 0.7;
 
-export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+const SECONDARY_COLOR = "#130057";
+const PRIMARY_COLOR = "#fff";
+
+export function CustomTabBar({
+  state,
+  descriptors,
+  navigation,
+}: BottomTabBarProps) {
   return (
-    <View style={styles.outerWrapper}>
-      <View style={styles.solidBg} />
-      <View style={styles.tabRow}>
+    <View
+      className={`absolute left-4 right-4 bottom-6 z-50 shadow-lg bg-white flex-1 flex-row justify-center items-center  self-center shadow-black/20 rounded-[40px] px-3 py-3`}
+      style={{
+        height: TAB_BAR_HEIGHT,
+        paddingBottom: Platform.OS === "ios" ? 18 : 8,
+        shadowOffset: { width: 0, height: -2 },
+        shadowRadius: 18,
+      }}
+    >
+
+      {/* Tab row */}
+      <View
+        className="flex-1 flex-row items-center justify-between rounded-t-[22px] overflow-hidden z-30"
+        style={{ height: TAB_BAR_HEIGHT }}
+      >
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
+          const label =
+          options.tabBarLabel !== undefined
+            ? options.tabBarLabel
+            : options.title !== undefined
+            ? options.title
+            : route.name;
 
           const onPress = () => {
             const event = navigation.emit({
@@ -31,23 +65,28 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
           let iconName: any = "circle";
           let activeColor = theme.colors.primary;
           if (route.name === "Weather") {
-            iconName = "weather-partly-cloudy";
-            activeColor = '#87CEFA'; // sky-blue
+            iconName = "cloud";
+            activeColor = "#78a646"; // sky-blue
           }
           if (route.name === "Markets") {
             iconName = "finance";
-            activeColor = '#78a646'; // accent-green
+            activeColor = "#78a646"; // accent-green
           }
           if (route.name === "Profile") {
-            iconName = isFocused ? "account" : "account-outline";
-            activeColor = theme.colors.primary;
+            iconName = "face-man";
+            activeColor = "#78a646";
+          }
+          if (route.name === "AI Models") {
+            iconName = "robot-excited";
+            activeColor = "#78a646"; // accent-green
           }
 
           // Animate icon scale on focus
           const scale = isFocused ? ACTIVE_ICON_SCALE : 1;
 
           return (
-            <TouchableOpacity
+            <AnimatedTouchableOpacity
+              layout={LinearTransition.springify().mass(0.5)}
               key={route.key}
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
@@ -55,16 +94,38 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
               testID={options.tabBarTestID}
               onPress={onPress}
               activeOpacity={0.85}
-              style={styles.tabButton}
+              className={`flex-1 flex-row gap-x-1 items-center justify-center rounded-[30px]`}
+              style={{ height: TAB_BAR_HEIGHT / 1.5, backgroundColor: isFocused ? SECONDARY_COLOR : "transparent" }}
             >
               <Animated.View style={{ transform: [{ scale }] }}>
-                <MaterialCommunityIcon
-                  name={iconName}
-                  size={ICON_SIZE}
-                  color={isFocused ? activeColor : theme.colors.onSurfaceVariant}
-                />
+                {route.name === "Weather" ? (
+                  <MaterialIcons
+                    name={iconName}
+                    size={ICON_SIZE}
+                    color={
+                      isFocused ? activeColor : theme.colors.onSurfaceVariant
+                    }
+                  />
+                ) : (
+                  <MaterialCommunityIcon
+                    name={iconName}
+                    size={ICON_SIZE}
+                    color={
+                      isFocused ? activeColor : theme.colors.onSurfaceVariant
+                    }
+                  />
+                )}
               </Animated.View>
-            </TouchableOpacity>
+              {isFocused && (
+              <Animated.Text
+                entering={FadeIn.duration(200)}
+                exiting={FadeOut.duration(200)}
+                className="text-white text-xs font-better-regular"
+              >
+                {label as string}
+              </Animated.Text>
+            )}
+            </AnimatedTouchableOpacity>
           );
         })}
       </View>
@@ -72,47 +133,3 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
   );
 }
 
-const styles = StyleSheet.create({
-  outerWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: TAB_BAR_HEIGHT,
-    zIndex: 100,
-    paddingHorizontal: 0,
-    paddingBottom: Platform.OS === 'ios' ? 18 : 8,
-    // Shadow for floating effect
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -2 },
-    elevation: 16,
-  },
-  solidBg: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    overflow: 'hidden',
-  },
-  tabRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: TAB_BAR_HEIGHT,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    overflow: 'hidden',
-    zIndex: 3,
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: TAB_BAR_HEIGHT,
-  },
-});

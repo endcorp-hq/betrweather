@@ -1629,6 +1629,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hugeicons/core-free-icons@npm:^1.0.14":
+  version: 1.0.14
+  resolution: "@hugeicons/core-free-icons@npm:1.0.14"
+  checksum: 10c0/25c1bada2492bfc0d6f7becb908c95e3c392d013170e64f618577f1d46c1df2a0f2dad11f7ddfa6354b5bae0d3020dbf7cd1d5fd08ac09befd4ac32524cf21f4
+  languageName: node
+  linkType: hard
+
+"@hugeicons/react-native@npm:^1.0.7":
+  version: 1.0.7
+  resolution: "@hugeicons/react-native@npm:1.0.7"
+  peerDependencies:
+    react: ">=16.0.0"
+    react-native: ">=0.60.0"
+    react-native-svg: ">=12.0.0"
+  checksum: 10c0/717bbd5c94eefeccaf1bdae72cd6060bd755a9da92e0e129e396524430fd7ed249c8c35b752ce87ebdc724d568cf25602d0924e2b86a62dfeeb41347f659bb10
+  languageName: node
+  linkType: hard
+
 "@isaacs/cliui@npm:^8.0.2":
   version: 8.0.2
   resolution: "@isaacs/cliui@npm:8.0.2"
@@ -10166,6 +10184,8 @@ __metadata:
   dependencies:
     "@babel/core": "npm:^7.20.0"
     "@coral-xyz/anchor": "npm:^0.31.1"
+    "@hugeicons/core-free-icons": "npm:^1.0.14"
+    "@hugeicons/react-native": "npm:^1.0.7"
     "@metaplex-foundation/mpl-core": "npm:^1.4.1"
     "@metaplex-foundation/umi": "npm:^1.2.0"
     "@metaplex-foundation/umi-bundle-defaults": "npm:^1.2.0"

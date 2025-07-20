@@ -7,12 +7,14 @@ interface MaterialCardProps {
   elevation?: keyof typeof theme.elevation;
   style?: StyleProp<ViewStyle>;
   variant?: 'elevated' | 'filled' | 'outlined';
+  className?: string;
 }
 
 const MaterialCard: React.FC<MaterialCardProps> = ({
   children,
   elevation = 'level1',
   style,
+  className,
   variant = 'elevated',
 }) => {
   const getCardBackground = () => {
@@ -46,6 +48,7 @@ const MaterialCard: React.FC<MaterialCardProps> = ({
         getBorder(),
         style,
       ]}
+      className={className}
     >
       {children}
     </View>

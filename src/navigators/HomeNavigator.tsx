@@ -88,33 +88,21 @@ export function HomeNavigator() {
       screenOptions={({ route }) => ({
         header: () =>
           route.name === "Markets" ||
-          route.name === "Leaderboard" ||
+          route.name === "AI Models" ||
           route.name === "Profile" ||
           route.name === "MarketDetail" ? (
             <TopBar />
           ) : null,
         headerShown:
           route.name === "Markets" ||
-          route.name === "Leaderboard" ||
+          route.name === "AI Models" ||
           route.name === "Profile" ||
           route.name === "MarketDetail",
-        tabBarIcon: ({ focused, color, size }) => {
-          switch (route.name) {
-            case "Home":
-              return (
-                <MaterialCommunityIcon
-                  name={focused ? "home" : "home-outline"}
-                  size={size}
-                  color={color}
-                />
-              );
-          }
-        },
       })}
     >
       <Tab.Screen name="Weather" component={HomeScreen} />
       <Tab.Screen name="Markets" component={MarketsGuarded} />
-      <Tab.Screen name="Leaderboard" component={LeaderboardScreen} />
+      <Tab.Screen name="AI Models" component={LeaderboardScreen} />
       <Tab.Screen name="Profile" component={ProfileGuarded} />
     </Tab.Navigator>
   );

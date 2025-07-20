@@ -4,7 +4,7 @@ import theme from '../../theme';
 
 export function TopBar() {
   return (
-    <View style={{
+    <View className="" style={{
       backgroundColor: theme.colors.surfaceContainerHigh,
       height: 80,
       flexDirection: 'row',
@@ -19,7 +19,7 @@ export function TopBar() {
       shadowOffset: { width: 0, height: 0 },
       elevation: 8,
     }}>
-      <Text className="text-white text-[24px] font-better-extra-bold">BetrWeather</Text>
+      <Text className="text-white text-[24px] font-better-bold">BetrWeather</Text>
       <TopBarWalletMenu />
     </View>
   );

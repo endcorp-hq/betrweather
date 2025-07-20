@@ -30,7 +30,6 @@ export function useWeather() {
 
 function mapApiToWeatherType(apiData: any): WeatherType {
   if (!apiData) return null;
-  console.log('Weather API data:', apiData); // Debug log
   let iconCode = apiData.weatherCondition?.iconCode;
   let icon = apiData.weatherCondition?.icon;
   let iconBaseUri = apiData.weatherCondition?.iconBaseUri;
@@ -52,7 +51,6 @@ function mapApiToWeatherType(apiData: any): WeatherType {
   else if (all.includes("partly")) result = "partly_cloudy";
   else if (all.includes("sun") || all.includes("clear")) result = "sunny";
   else result = null;
-  console.log('Mapped weatherType:', result); // Debug log
   return result;
 }
 
@@ -64,7 +62,6 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
     ? `https://weather.googleapis.com/v1/currentConditions:lookup?key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}&location.latitude=${latitude}&location.longitude=${longitude}`
     : null;
   const { data, isLoading, error } = useAPI<any>(WEATHER_URL || "", {}, { enabled: !!WEATHER_URL });
-
   useEffect(() => {
     if (!data) return;
     setWeatherType(mapApiToWeatherType(data));
