@@ -1,26 +1,61 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { Dimensions } from 'react-native';
-import { Canvas, Group, Path, LinearGradient, vec, BlurMask } from '@shopify/react-native-skia';
-import Animated, { useSharedValue, withTiming, useAnimatedStyle, Easing, runOnJS } from 'react-native-reanimated';
-import { randomCloudConfig, useAnimationFrame } from './utils';
+import { Canvas, Group, Path, LinearGradient, vec, Circle } from '@shopify/react-native-skia';
+import Animated, { useSharedValue, withTiming, useAnimatedStyle, Easing, withRepeat, withSequence } from 'react-native-reanimated';  
 
 const { width, height } = Dimensions.get('window');
 
-const abstractCloudPaths = [
-  'M60 80 Q80 60 120 80 Q140 60 180 90 Q200 120 170 130 Q160 150 120 140 Q80 150 60 130 Q30 120 40 100 Q50 90 60 80 Z',
-  'M200 180 Q220 170 250 180 Q270 170 300 190 Q320 210 290 220 Q270 230 240 220 Q210 230 200 210 Q190 200 200 180 Z',
-  'M320 60 Q330 55 350 65 Q360 60 375 70 Q380 80 370 90 Q360 100 340 95 Q325 100 320 90 Q315 80 320 60 Z',
-  'M80 200 Q90 195 110 200 Q120 195 130 205 Q135 215 125 220 Q120 225 100 220 Q85 225 80 215 Q75 210 80 200 Z',
-];
+// Simple anime-style cloud shapes - solid, no fading
+const createAnimeCloud = (baseX: number, baseY: number, scale: number) => {
+  const circles = [
+    { cx: baseX + 60 * scale, cy: baseY + 30 * scale, r: 40 * scale },
+    { cx: baseX + 100 * scale, cy: baseY + 25 * scale, r: 50 * scale },
+    { cx: baseX + 140 * scale, cy: baseY + 30 * scale, r: 40 * scale },
+    { cx: baseX + 80 * scale, cy: baseY + 60 * scale, r: 35 * scale },
+    { cx: baseX + 120 * scale, cy: baseY + 65 * scale, r: 38 * scale },
+    { cx: baseX + 50 * scale, cy: baseY + 45 * scale, r: 25 * scale },
+    { cx: baseX + 150 * scale, cy: baseY + 45 * scale, r: 25 * scale },
+  ];
+  return circles;
+};
+
+const createSmallAnimeCloud = (baseX: number, baseY: number, scale: number) => {
+  const circles = [
+    { cx: baseX + 40 * scale, cy: baseY + 25 * scale, r: 25 * scale },
+    { cx: baseX + 70 * scale, cy: baseY + 20 * scale, r: 30 * scale },
+    { cx: baseX + 100 * scale, cy: baseY + 25 * scale, r: 25 * scale },
+    { cx: baseX + 55 * scale, cy: baseY + 50 * scale, r: 20 * scale },
+    { cx: baseX + 85 * scale, cy: baseY + 55 * scale, r: 22 * scale },
+  ];
+  return circles;
+};
+
+const createLargeAnimeCloud = (baseX: number, baseY: number, scale: number) => {
+  const circles = [
+    { cx: baseX + 80 * scale, cy: baseY + 40 * scale, r: 55 * scale },
+    { cx: baseX + 130 * scale, cy: baseY + 35 * scale, r: 65 * scale },
+    { cx: baseX + 180 * scale, cy: baseY + 40 * scale, r: 55 * scale },
+    { cx: baseX + 105 * scale, cy: baseY + 80 * scale, r: 45 * scale },
+    { cx: baseX + 155 * scale, cy: baseY + 85 * scale, r: 48 * scale },
+    { cx: baseX + 60 * scale, cy: baseY + 60 * scale, r: 35 * scale },
+    { cx: baseX + 200 * scale, cy: baseY + 60 * scale, r: 35 * scale },
+  ];
+  return circles;
+};
+
+type CloudConfig = {
+  id: number;
+  y: number;
+  scale: number;
+  speed: number;
+  opacity: number;
+  pathIndex: number;
+  cloudType?: 'small' | 'medium' | 'large';
+  x: number; // Added x position
+};
 
 const AnimatedCloud = ({
-  y,
-  scale,
-  speed,
-  opacity,
-  color,
-  pathIndex,
-  onEnd,
+  y, scale, speed, opacity, color, pathIndex, onEnd, cloudType = 'medium', x,
 }: {
   y: number;
   scale: number;
@@ -29,66 +64,147 @@ const AnimatedCloud = ({
   color: string;
   pathIndex: number;
   onEnd: () => void;
+  cloudType?: 'small' | 'medium' | 'large';
+  x: number;
 }) => {
-  const cloudWidth = 300;
-  const startX = -cloudWidth * scale;
-  const endX = width + cloudWidth * scale;
-  const x = useSharedValue(startX);
+  const cloudWidth = cloudType === 'large' ? 450 : cloudType === 'medium' ? 350 : 250;
+  const cloudHeight = cloudType === 'large' ? 180 : cloudType === 'medium' ? 140 : 100;
+  const xOffset = useSharedValue(0);
+  const yOffset = useSharedValue(0);
 
   React.useEffect(() => {
-    x.value = withTiming(
-      endX,
-      { duration: speed * 1000, easing: Easing.linear },
-      (finished) => {
-        if (finished) runOnJS(onEnd)();
-      }
+    // Subtle hovering movement
+    yOffset.value = withRepeat(
+      withSequence(
+        withTiming(5, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-5, { duration: 3000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
     );
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: x.value },
-      { translateY: y },
+      { translateX: xOffset.value },
+      { translateY: y + yOffset.value },
       { scale: scale },
     ],
     opacity: opacity,
   }));
 
-  const path = abstractCloudPaths[pathIndex % abstractCloudPaths.length];
+  // Generate cloud circles based on type
+  const getCloudCircles = () => {
+    const baseX = 0;
+    const baseY = 0;
+    
+    switch (cloudType) {
+      case 'small':
+        return createSmallAnimeCloud(baseX, baseY, 1);
+      case 'large':
+        return createLargeAnimeCloud(baseX, baseY, 1);
+      default:
+        return createAnimeCloud(baseX, baseY, 1);
+    }
+  };
+
+  const cloudCircles = getCloudCircles();
 
   return (
-    <Animated.View style={[{ position: 'absolute', width: cloudWidth * scale, height: 120 * scale, left: 0, top: 0 }, animatedStyle]} pointerEvents="none">
-      <Canvas style={{ width: cloudWidth * scale, height: 120 * scale }} pointerEvents="none">
+    <Animated.View style={[{ position: 'absolute', width: cloudWidth * scale, height: cloudHeight * scale, left: x, top: 0 }, animatedStyle]} pointerEvents="none">
+      <Canvas style={{ width: cloudWidth * scale, height: cloudHeight * scale }} pointerEvents="none">
         <Group>
-          <Path path={path} color={color} opacity={opacity} style="fill">
-            <BlurMask blur={20} style="normal" />
-          </Path>
+          {cloudCircles.map((circle, index) => (
+            <Circle
+              key={index}
+              cx={circle.cx}
+              cy={circle.cy}
+              r={circle.r}
+              color={color}
+              opacity={opacity}
+            />
+          ))}
         </Group>
       </Canvas>
     </Animated.View>
   );
 };
 
-const CloudyBackground = ({ theme }: { theme: any }) => {
-  const skyGradient = ['#4e54c8', '#8f94fb', '#cfd9ff'];
-  const [clouds, setClouds] = useState(Array.from({ length: 7 }, (_, i) => randomCloudConfig({ id: i, pathCount: abstractCloudPaths.length })));
-  const nextId = useRef(7);
+const CloudyBackground = ({ theme, transparent = false }: { theme: any; transparent?: boolean }) => {
+  const skyGradient = ['#87CEEB', '#B0E0E6', '#E0F6FF']; // Lighter, more cloudy sky
+  const [clouds, setClouds] = useState<CloudConfig[]>(() => {
+    // Create 3 clouds in a row covering full width
+    return [
+      {
+        id: 0,
+        y: height * 0.05, // Fixed Y position for all clouds
+        scale: 1.2,
+        speed: 30,
+        opacity: 0.95,
+        pathIndex: 0,
+        cloudType: 'large',
+        x: -50, // Left cloud, starts slightly off-screen
+      },
+      {
+        id: 1,
+        y: height * 0.05, // Same Y position
+        scale: 1.0,
+        speed: 30,
+        opacity: 0.95,
+        pathIndex: 0,
+        cloudType: 'medium',
+        x: width * 0.3, // Middle cloud
+      },
+      {
+        id: 2,
+        y: height * 0.05, // Same Y position
+        scale: 0.9,
+        speed: 30,
+        opacity: 0.95,
+        pathIndex: 0,
+        cloudType: 'small',
+        x: width * 0.65, // Right cloud
+      }
+    ];
+  });
+  const nextId = useRef(3);
 
-  const handleCloudEnd = (id: number) => {
-    setClouds((prev) => prev.filter((c) => c.id !== id).concat(randomCloudConfig({ id: nextId.current++, pathCount: abstractCloudPaths.length })));
-  };
+  const handleCloudEnd = useCallback((id: number) => {
+    const cloudTypes = ['small', 'medium', 'large'] as const;
+    const cloudType = cloudTypes[Math.floor(Math.random() * cloudTypes.length)];
+    
+    setClouds((prev) => prev.filter((c) => c.id !== id).concat({
+      id: nextId.current++,
+      y: height * 0.05,
+      scale: 0.8 + Math.random() * 0.4,
+      speed: 30,
+      opacity: 0.95,
+      pathIndex: 0,
+      cloudType,
+      x: Math.random() * width,
+    }));
+  }, []);
 
   return (
     <>
-      {/* Sky gradient background */}
-      <Canvas style={{ position: 'absolute', width, height }} pointerEvents="none">
-        <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
-          <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
-        </Path>
-      </Canvas>
+      {/* Sky gradient background - only show if not transparent */}
+      {!transparent && (
+        <Canvas style={{ position: 'absolute', width, height }} pointerEvents="none">
+          <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
+            <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
+          </Path>
+        </Canvas>
+      )}
       {/* Animated clouds */}
       {clouds.map((cloud) => (
-        <AnimatedCloud key={cloud.id} {...cloud} color="#ffffff" onEnd={() => handleCloudEnd(cloud.id)} />
+        <AnimatedCloud 
+          key={cloud.id} 
+          {...cloud} 
+          color="#e8f4fd" 
+          onEnd={() => handleCloudEnd(cloud.id)}
+          cloudType={cloud.cloudType || 'medium'}
+          x={cloud.x} // Pass x prop
+        />
       ))}
     </>
   );

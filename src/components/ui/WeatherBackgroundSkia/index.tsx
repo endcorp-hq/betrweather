@@ -17,33 +17,26 @@ export interface WeatherBackgroundSkiaProps {
 
 export function WeatherBackgroundSkia({ condition, theme }: WeatherBackgroundSkiaProps) {
   if (condition === 'dark_gradient') {
-    // Render a simple dark gradient background
-    const { width, height } = Dimensions.get('window');
-    return (
-      <Canvas style={{ position: 'absolute', width, height }} pointerEvents="none">
-        <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
-          <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={["#181924", "#23243a", "#181924"]} />
-        </Path>
-      </Canvas>
-    );
+    // Render a transparent background for dark gradient condition
+    return null;
   }
   switch (condition) {
-    case 'cloudy':
-      return <CloudyBackground theme={theme} />;
-    case 'sunny':
-      return <SunnyBackground theme={theme} />;
+    // case 'cloudy':
+    //   return <CloudyBackground theme={theme} transparent={true} />;
+    // case 'sunny':
+    //   return <SunnyBackground theme={theme} transparent={true} />;
     case 'stormy':
-      return <StormyBackground theme={theme} />;
+      return <StormyBackground theme={theme} transparent={true} />;
     case 'rainy':
-      return <RainyBackground theme={theme} />;
+      return <RainyBackground theme={theme} transparent={true} />;
     case 'snowy':
-      return <SnowyBackground theme={theme} />;
-    case 'foggy':
-      return <FoggyBackground theme={theme} />;
-    case 'windy':
-      return <WindyBackground theme={theme} />;
-    case 'partly_cloudy':
-      return <PartlyCloudyBackground theme={theme} />;
+      return <SnowyBackground theme={theme} transparent={true} />;
+    // case 'foggy':
+    //   return <FoggyBackground theme={theme} transparent={true} />;
+    // case 'windy':
+    //   return <WindyBackground theme={theme} transparent={true} />;
+    // case 'partly_cloudy':
+    //   return <PartlyCloudyBackground theme={theme} transparent={true} />;
     default:
       return null;
   }

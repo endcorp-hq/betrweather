@@ -13,7 +13,7 @@ const WIND_COLORS = [
   'rgba(210,240,255,0.16)',
 ];
 
-const WindyBackground = ({ theme }: { theme: any }) => {
+const WindyBackground = ({ theme, transparent = false }: { theme: any; transparent?: boolean }) => {
   const skyGradient = ['#e0f7fa', '#b3e5fc', '#e1f5fe'];
   const [streaks, setStreaks] = useState(() => Array.from({ length: WIND_STREAK_COUNT }, (_, i) => randomWindStreak({ id: i, colorList: WIND_COLORS, colorIndex: i })));
 
@@ -31,9 +31,11 @@ const WindyBackground = ({ theme }: { theme: any }) => {
     <>
       {/* Windy sky gradient */}
       <Canvas style={{ position: 'absolute', width, height }} pointerEvents="none">
-        <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
-          <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
-        </Path>
+        {!transparent && (
+          <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
+            <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
+          </Path>
+        )}
         {/* Wind streaks */}
         <Group>
           {streaks.map((streak) => {

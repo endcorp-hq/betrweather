@@ -1,10 +1,11 @@
 // src/components/ui/ScreenWrapper.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { View } from "react-native";
-import { WeatherBackgroundSkia } from "./WeatherBackgroundSkia";
-import theme from "../../theme";
-import { useAPI } from "../../utils/useAPI";
-import { useLocation } from "../../utils/useLocation";
+import { View, ImageBackground } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { WeatherBackgroundSkia } from "../WeatherBackgroundSkia";
+import theme from "../../../theme";
+import { useAPI } from "../../../utils/useAPI";
+import { useLocation } from "../../../utils/useLocation";
 
 export type WeatherType = "sunny" | "cloudy" | "rainy" | "stormy" | "snowy" | "foggy" | "windy" | "partly_cloudy" | null;
 
@@ -54,6 +55,25 @@ function mapApiToWeatherType(apiData: any): WeatherType {
   return result;
 }
 
+// Function to determine if it's day or night based on current time
+function isDayTime(): boolean {
+  const currentHour = new Date().getHours();
+  // Consider day time from 6 AM to 8 PM
+  return currentHour >= 6 && currentHour < 20;
+}
+
+// Function to get the appropriate background image based on weather and time
+function getBackgroundImage(weatherType: WeatherType): any {
+  const isDay = isDayTime();
+  if (weatherType === "sunny" || weatherType === null) {
+    return isDay ? require("../../../../assets/weather/day-clear.png") : require("../../../../assets/weather/night-clear.png");
+  } else if (weatherType === "cloudy" || weatherType === "partly_cloudy") {
+    return isDay ? require("../../../../assets/weather/morning-cloudy.png") : require("../../../../assets/weather/night-cloudy.png");
+  }
+  // For other weather types, use cloudy backgrounds as fallback
+  return isDay ? require("../../../../assets/weather/morning-cloudy.png") : require("../../../../assets/weather/night-cloudy.png");
+}
+
 export function WeatherProvider({ children }: { children: React.ReactNode }) {
   const { latitude, longitude, isLoading: loadingLocation, error: errorLocation } = useLocation();
   const [weatherType, setWeatherType] = useState<WeatherType>(null);
@@ -74,14 +94,49 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function ScreenWrapper({ children }: { children: React.ReactNode }) {
+export function WeatherBg({ children }: { children: React.ReactNode }) {
   const { weatherType, isLoading } = useWeather();
+  const insets = useSafeAreaInsets();
   // Use a dark gradient background as the default/fallback
   const backgroundType = (!weatherType || isLoading) ? "dark_gradient" : weatherType;
+  const backgroundImage = getBackgroundImage(weatherType);
+  
   return (
-    <View style={{ flex: 1, backgroundColor: 'transparent', paddingHorizontal: 0 }}>
-      <WeatherBackgroundSkia theme={theme} condition={backgroundType} />
-      {children}
-    </View>
+    <ImageBackground 
+      source={backgroundImage}
+      style={{ flex: 1, }}
+      resizeMode="cover"
+      
+    >
+      <View style={{ 
+        flex: 1, 
+        backgroundColor: 'transparent', 
+        paddingHorizontal: 0,
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+        paddingLeft: insets.left,
+        paddingRight: insets.right
+      }}>
+        {/* Weather animations layer - between background and content */}
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1,
+        }}>
+          <WeatherBackgroundSkia theme={theme} condition={backgroundType} />
+        </View>
+        
+        {/* Content layer - above animations */}
+        <View style={{
+          flex: 1,
+          zIndex: 2,
+        }}>
+          {children}
+        </View>
+      </View>
+    </ImageBackground>
   );
 }

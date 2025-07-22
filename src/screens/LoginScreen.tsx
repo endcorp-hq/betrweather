@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { useMobileWallet } from "../utils/useMobileWallet";
 import { useState } from "react";
-import { ScreenWrapper } from "../components/ui/ScreenWrapper";
+import { ScreenWrapper } from "../components/ui/ScreenWrappers/WeatherBg";
 
 export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);

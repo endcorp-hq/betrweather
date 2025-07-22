@@ -1,11 +1,20 @@
-import { View, ScrollView, TouchableOpacity, StyleSheet, Modal, ActivityIndicator, Switch, Animated } from "react-native";
+import {
+  View,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  ActivityIndicator,
+  Switch,
+  Animated,
+  TextInput,
+} from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useShortx } from "../solana/useContract";
 import React, { useEffect, useRef, useState } from "react";
 import { Text } from "react-native";
-import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 import { formatMarketDuration } from "../components/market/format-market-duration";
-import { WinningDirection } from "shortx-sdk";
+import { WinningDirection, MarketType } from "shortx-sdk";
 import { useAuthorization } from "../utils/useAuthorization";
 import axios from "axios";
 import { getMint, formatDate } from "../utils/helpers";
@@ -13,102 +22,163 @@ import { PublicKey } from "@solana/web3.js";
 import { useCreateAndSendTx } from "../utils/useCreateAndSendTx";
 import { DynamicTextInput } from "../components/ui/dynamicTextInput";
 import { toast } from "sonner-native";
-import { useAPI } from "../utils/useAPI";
-import GlassyCard from '../components/ui/GlassyCard';
-import MaterialCard from '../components/ui/MaterialCard';
-import theme from '../theme';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const icons = {
-  rain: "🌧️",
-  sun: "☀️",
-};
-
-const REEL_HEIGHT = 100;
-const REEL_ITEMS = ["rain", "sun", "rain", "sun", "rain"];
-const DUMMY_API_RESPONSE = ["rain", "sun", "rain"];
+import GlassyCard from "../components/ui/GlassyCard";
+import MaterialCard from "../components/ui/MaterialCard";
+import theme from "../theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DefaultBg } from "../components/ui/ScreenWrappers/DefaultBg";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { RefractiveBgCard } from "../components/ui/RefractiveBgCard";
+import { LogoLoader } from "../components/ui/LoadingSpinner";
+import { USDC_ICON } from "../components/ui/svg/usdc";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import SwipeButton from "rn-swipe-button";
 
 const SUGGESTED_BETS = [1, 3, 5, 10];
 
-// Single swipeable card with all info
-function SwipeableBetCard({ market, onSelect }: { market: any, onSelect: (dir: 'yes'|'no') => void }) {
+function SwipeableBetCard({
+  market,
+  onSelect,
+}: {
+  market: any;
+  onSelect: (dir: "yes" | "no") => void;
+}) {
   const pan = useRef(new Animated.ValueXY()).current;
   const [swiping, setSwiping] = useState(false);
-  const [swipeDir, setSwipeDir] = useState<'yes'|'no'|null>(null);
+  const [swipeDir, setSwipeDir] = useState<"yes" | "no" | null>(null);
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { bottom: 24 };
+
   // Opacity for each overlay
   const yesOverlayOpacity = pan.x.interpolate({
     inputRange: [0, 80, 200],
     outputRange: [0, 0.5, 1],
-    extrapolate: 'clamp',
+    extrapolate: "clamp",
   });
   const noOverlayOpacity = pan.x.interpolate({
     inputRange: [-200, -80, 0],
     outputRange: [1, 0.5, 0],
-    extrapolate: 'clamp',
+    extrapolate: "clamp",
   });
 
   // Wobble animation on mount
   useEffect(() => {
     Animated.sequence([
-      Animated.timing(pan.x, { toValue: -20, duration: 120, useNativeDriver: true }),
-      Animated.timing(pan.x, { toValue: 20, duration: 120, useNativeDriver: true }),
-      Animated.timing(pan.x, { toValue: 0, duration: 120, useNativeDriver: true }),
+      Animated.timing(pan.x, {
+        toValue: -20,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pan.x, {
+        toValue: 20,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pan.x, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
   const handleRelease = (_: any, gesture: any) => {
     if (gesture.dx > 80) {
-      setSwipeDir('yes');
-      Animated.timing(pan, { toValue: { x: 500, y: 0 }, duration: 200, useNativeDriver: true }).start(() => {
-        onSelect('yes');
+      setSwipeDir("yes");
+      Animated.timing(pan, {
+        toValue: { x: 500, y: 0 },
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        onSelect("yes");
         pan.setValue({ x: 0, y: 0 });
         setSwipeDir(null);
       });
     } else if (gesture.dx < -80) {
-      setSwipeDir('no');
-      Animated.timing(pan, { toValue: { x: -500, y: 0 }, duration: 200, useNativeDriver: true }).start(() => {
-        onSelect('no');
+      setSwipeDir("no");
+      Animated.timing(pan, {
+        toValue: { x: -500, y: 0 },
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        onSelect("no");
         pan.setValue({ x: 0, y: 0 });
         setSwipeDir(null);
       });
     } else {
-      Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start();
+      Animated.spring(pan, {
+        toValue: { x: 0, y: 0 },
+        useNativeDriver: true,
+      }).start();
       setSwipeDir(null);
     }
   };
 
+  // Get market status for styling
+  const getMarketStatus = () => {
+    const now = Date.now();
+    const marketStart = Number(market.marketStart) * 1000;
+    const marketEnd = Number(market.marketEnd) * 1000;
+
+    if (market.winningDirection !== WinningDirection.NONE) {
+      return { text: "RESOLVED", color: "#8b5cf6", icon: "check-circle" };
+    } else if (market.marketType === MarketType.LIVE) {
+      return { text: "LIVE", color: "#3b82f6", icon: "radio-tower" };
+    } else if (now >= marketStart && now <= marketEnd) {
+      return { text: "ACTIVE", color: "#3b82f6", icon: "play-circle" };
+    } else if (now < marketStart) {
+      return { text: "BETTING", color: "#10b981", icon: "gavel" };
+    } else {
+      return { text: "ACTIVE", color: "#3b82f6", icon: "play-circle" };
+    }
+  };
+
+  const status = getMarketStatus();
+
   return (
-    <View style={{ flex: 1, width: '100%', position: 'absolute', left: 0, right: 0, top: 60, bottom: 0, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: insets.bottom + 16, zIndex: 10 }}>
+    <View
+      style={{
+        flex: 1,
+        width: "100%",
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top: 60,
+        bottom: 0,
+        justifyContent: "flex-end",
+        alignItems: "center",
+        paddingBottom: insets.bottom + 16,
+        zIndex: 10,
+      }}
+    >
       <Animated.View
         style={{
-          width: '92%',
+          width: "100%",
           minHeight: 420,
-          maxHeight: '98%',
-          borderRadius: theme.borderRadius.xl,
-          overflow: 'hidden',
-          ...theme.elevation.level4,
-          backgroundColor: 'transparent',
+          maxHeight: "98%",
+          borderRadius: 20,
+          overflow: "hidden",
+          backgroundColor: "transparent",
           transform: [
             { translateX: pan.x },
             { translateY: pan.y },
             {
               rotate: pan.x.interpolate({
                 inputRange: [-200, 0, 200],
-                outputRange: ['-15deg', '0deg', '15deg'],
-                extrapolate: 'clamp',
-              })
-            }
+                outputRange: ["-15deg", "0deg", "15deg"],
+                extrapolate: "clamp",
+              }),
+            },
           ],
         }}
         {...{
-          ...require('react-native').PanResponder.create({
-            onMoveShouldSetPanResponder: (_: any, g: any) => Math.abs(g.dx) > 10,
+          ...require("react-native").PanResponder.create({
+            onMoveShouldSetPanResponder: (_: any, g: any) =>
+              Math.abs(g.dx) > 10,
             onPanResponderGrant: () => setSwiping(true),
-            onPanResponderMove: Animated.event([
-              null,
-              { dx: pan.x, dy: pan.y },
-            ], { useNativeDriver: false }),
+            onPanResponderMove: Animated.event(
+              [null, { dx: pan.x, dy: pan.y }],
+              { useNativeDriver: false }
+            ),
             onPanResponderRelease: handleRelease,
             onPanResponderTerminate: () => setSwiping(false),
           }).panHandlers,
@@ -119,9 +189,9 @@ function SwipeableBetCard({ market, onSelect }: { market: any, onSelect: (dir: '
           pointerEvents="none"
           style={{
             ...StyleSheet.absoluteFillObject,
-            backgroundColor: theme.swipe.yesOverlay,
+            backgroundColor: "rgba(16, 185, 129, 0.3)",
             opacity: yesOverlayOpacity,
-            borderRadius: theme.borderRadius.xl,
+            borderRadius: 20,
             zIndex: 2,
           }}
         />
@@ -129,33 +199,95 @@ function SwipeableBetCard({ market, onSelect }: { market: any, onSelect: (dir: '
           pointerEvents="none"
           style={{
             ...StyleSheet.absoluteFillObject,
-            backgroundColor: theme.swipe.noOverlay,
+            backgroundColor: "rgba(239, 68, 68, 0.3)",
             opacity: noOverlayOpacity,
-            borderRadius: theme.borderRadius.xl,
+            borderRadius: 20,
             zIndex: 2,
           }}
         />
-        <GlassyCard style={{ flex: 1, minHeight: 420, justifyContent: 'center', alignItems: 'center' }} intensity={0} shimmer={false}>
-          <View style={[styles.swipeCardInner, { backgroundColor: 'transparent' }]}>
+
+        <RefractiveBgCard style={{ flex: 1, minHeight: 420 }} borderRadius={20}>
+          <View style={styles.swipeCardInner}>
+            {/* Status Badge */}
+            <View style={styles.statusBadge}>
+              <MaterialCommunityIcons
+                name={status.icon as any}
+                size={16}
+                color={status.color}
+              />
+              <Text style={[styles.statusText, { color: status.color }]}>
+                {status.text}
+              </Text>
+            </View>
+
+            {/* Swipe Instructions */}
             <Text style={styles.swipeInstruction}>
-              Swipe <Text style={{ color: theme.swipe.yesText, fontWeight: "bold" }}>right</Text> for <Text style={{ color: theme.swipe.yesText, fontWeight: "bold" }}>YES</Text>, <Text style={{ color: theme.swipe.noText, fontWeight: "bold" }}>left</Text> for <Text style={{ color: theme.swipe.noText, fontWeight: "bold" }}>NO</Text>
+              Swipe{" "}
+              <Text style={{ color: "#10b981", fontWeight: "bold" }}>
+                right
+              </Text>{" "}
+              for{" "}
+              <Text style={{ color: "#10b981", fontWeight: "bold" }}>YES</Text>,{" "}
+              <Text style={{ color: "#ef4444", fontWeight: "bold" }}>left</Text>{" "}
+              for{" "}
+              <Text style={{ color: "#ef4444", fontWeight: "bold" }}>NO</Text>
             </Text>
+
             {/* YES/NO overlays */}
-            <Animated.View style={[styles.swipeOverlay, { backgroundColor: 'transparent', opacity: yesOverlayOpacity }]}>
-              <Text style={[styles.swipeYesText, { color: theme.swipe.yesText }]}>YES</Text>
+            <Animated.View
+              style={[styles.swipeOverlay, { opacity: yesOverlayOpacity }]}
+            >
+              <Text style={styles.swipeYesText}>YES</Text>
             </Animated.View>
-            <Animated.View style={[styles.swipeOverlay, { backgroundColor: 'transparent', opacity: noOverlayOpacity }]}>
-              <Text style={[styles.swipeNoText, { color: theme.swipe.noText }]}>NO</Text>
+            <Animated.View
+              style={[styles.swipeOverlay, { opacity: noOverlayOpacity }]}
+            >
+              <Text style={styles.swipeNoText}>NO</Text>
             </Animated.View>
-            {/* Market Info */}
+
+            {/* Market Question */}
             <Text style={styles.swipeCardQuestion}>{market.question}</Text>
-            <View style={{ marginTop: 12, backgroundColor: 'transparent' }}>
-              <Text style={styles.swipeCardMeta}>Resolution Time: <Text style={styles.swipeCardMetaValue}>{formatMarketDuration(market.marketStart, market.marketEnd)}</Text></Text>
-              <Text style={styles.swipeCardMeta}>Betting Ends: <Text style={styles.swipeCardMetaValue}>{formatDate(market.marketEnd)}</Text></Text>
-              <Text style={styles.swipeCardMeta}>Volume: <Text style={styles.swipeCardMetaValue}>${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(1)}</Text></Text>
+
+            {/* Market Details */}
+            <View style={styles.marketDetails}>
+              <View style={styles.detailRow}>
+                <MaterialCommunityIcons
+                  name="clock-outline"
+                  size={16}
+                  color="rgba(255, 255, 255, 0.7)"
+                />
+                <Text style={styles.detailLabel}>Resolution Time:</Text>
+                <Text style={styles.detailValue}>
+                  {formatMarketDuration(market.marketStart, market.marketEnd)}
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <MaterialCommunityIcons
+                  name="calendar-clock"
+                  size={16}
+                  color="rgba(255, 255, 255, 0.7)"
+                />
+                <Text style={styles.detailLabel}>Betting Ends:</Text>
+                <Text style={styles.detailValue}>
+                  {formatDate(market.marketEnd)}
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <MaterialCommunityIcons
+                  name="chart-line"
+                  size={16}
+                  color="rgba(255, 255, 255, 0.7)"
+                />
+                <Text style={styles.detailLabel}>Volume:</Text>
+                <Text style={styles.detailValue}>
+                  ${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(1)}
+                </Text>
+              </View>
             </View>
           </View>
-        </GlassyCard>
+        </RefractiveBgCard>
       </Animated.View>
     </View>
   );
@@ -177,12 +309,13 @@ export default function SlotMachineScreen() {
   } = useShortx();
 
   const [betAmount, setBetAmount] = useState("");
-  const [selectedDirection, setSelectedDirection] = useState<'yes'|'no'|null>(null);
+  const [selectedDirection, setSelectedDirection] = useState<
+    "yes" | "no" | null
+  >(null);
   const [showBetModal, setShowBetModal] = useState(false);
-  const [betStatus, setBetStatus] = useState<'idle'|'loading'|'success'|'error'>('idle');
-  const [manualSuccess, setManualSuccess] = useState(true); // manual override for success/failure
-  const insets = useSafeAreaInsets ? useSafeAreaInsets() : { bottom: 24 };
-  const statusScale = useRef(new Animated.Value(1)).current;
+  const [betStatus, setBetStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
 
   useEffect(() => {
     async function fetchMarket() {
@@ -191,12 +324,6 @@ export default function SlotMachineScreen() {
     if (id) fetchMarket();
   }, [id]);
 
-  const reelAnimations = [
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-    useRef(new Animated.Value(0)).current,
-  ];
-
   console.log("this is selectedAccount", selectedAccount?.publicKey);
 
   const handleBet = async (bet: string) => {
@@ -204,7 +331,7 @@ export default function SlotMachineScreen() {
       toast.error("Please connect your wallet");
       return;
     }
-    setBetStatus('loading');
+    setBetStatus("loading");
     try {
       const metadata = {
         question: selectedMarket?.question,
@@ -225,7 +352,7 @@ export default function SlotMachineScreen() {
       );
       const metadataUri = response.data.metadataUrl;
       if (!metadataUri || !selectedMarket) {
-        setBetStatus('error');
+        setBetStatus("error");
         return;
       }
       const buyIxs = await openPosition({
@@ -236,90 +363,29 @@ export default function SlotMachineScreen() {
         token: getMint("USDC", "devnet").toBase58(),
         payer: selectedAccount.publicKey,
         feeVaultAccount: new PublicKey(
-          process.env.EXPO_PUBLIC_FEE_VAULT || "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"
+          process.env.EXPO_PUBLIC_FEE_VAULT ||
+            "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"
         ),
-        usdcMintAddress: new PublicKey(
-          process.env.EXPO_PUBLIC_USDC_MINT || ""
-        ),
+        usdcMintAddress: new PublicKey(process.env.EXPO_PUBLIC_USDC_MINT || ""),
         metadataUri: metadataUri,
       });
       if (typeof buyIxs === "string" || !buyIxs) {
-        setBetStatus('error');
+        setBetStatus("error");
         return;
       }
       const signature = await createAndSendTx(buyIxs.ixs, true, undefined, {
         addressLookupTableAccounts: buyIxs.addressLookupTableAccounts,
       });
-      setBetStatus('success');
+      setBetStatus("success");
     } catch (error) {
-      setBetStatus('error');
+      setBetStatus("error");
     }
   };
 
   useEffect(() => {
-    startSlotMachine();
-  }, []);
-
-  const startSlotMachine = () => {
-    DUMMY_API_RESPONSE.forEach((result, index) => {
-      setTimeout(() => {
-        animateReelToIcon(reelAnimations[index], result);
-      }, index * 500);
-    });
-  };
-
-  const animateReelToIcon = (animatedValue: Animated.Value, result: string) => {
-    const indexInLoop = REEL_ITEMS.findIndex((item) => item === result);
-    const totalSpins = 3;
-    const finalPosition =
-      (REEL_ITEMS.length * totalSpins + indexInLoop) * REEL_HEIGHT;
-
-    Animated.timing(animatedValue, {
-      toValue: finalPosition,
-      duration: 1500,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const renderReel = (animatedValue: Animated.Value, key: number) => (
-    <View style={styles.reelWrapper} key={key}>
-      <Text style={styles.reelLabel}>Model {key + 1}</Text>
-      <View style={styles.reelContainer}>
-        <Animated.View
-          style={{
-            transform: [
-              {
-                translateY: animatedValue.interpolate({
-                  inputRange: [0, REEL_HEIGHT * REEL_ITEMS.length * 5],
-                  outputRange: [0, -REEL_HEIGHT * REEL_ITEMS.length * 5],
-                }),
-              },
-            ],
-          }}
-        >
-          {Array(5)
-            .fill(null)
-            .map((_, loopIndex) =>
-              REEL_ITEMS.map((icon, iconIndex) => (
-                <View
-                  key={`${loopIndex}-${iconIndex}`}
-                  style={styles.reelItem}
-                >
-                  <Text style={styles.reelIcon}>
-                    {icons[icon as keyof typeof icons]}
-                  </Text>
-                </View>
-              ))
-            )}
-        </Animated.View>
-      </View>
-    </View>
-  );
-
-  useEffect(() => {
-    if (betStatus === 'success' || betStatus === 'error') {
+    if (betStatus === "success" || betStatus === "error") {
       const timeout = setTimeout(() => {
-        setBetStatus('idle');
+        setBetStatus("idle");
         setBetAmount("");
         setSelectedDirection(null);
         navigation.goBack();
@@ -329,21 +395,26 @@ export default function SlotMachineScreen() {
   }, [betStatus]);
 
   return (
-    <ScreenWrapper>
+    <DefaultBg>
       <View style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          className="bg-transparent px-4"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Back Button */}
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={styles.backButton}
+            className="flex-row items-center justify-center mt-6 px-3 py-4 rounded-full border border-white/50 bg-white/08 max-w-40"
             activeOpacity={0.85}
           >
-            <Text style={styles.backButtonText}>View All Markets</Text>
+            <Text className="font-better-regular text-white text-lg">
+              All Markets
+            </Text>
           </TouchableOpacity>
 
           {loadingMarket && (
-            <View style={styles.centered}>
-              <Text style={styles.loadingText}>Loading...</Text>
+            <View className="flex-1 items-center justify-center h-full mt-20">
+              <LogoLoader message="Loading market" />
             </View>
           )}
 
@@ -363,7 +434,7 @@ export default function SlotMachineScreen() {
           {!loadingMarket && !shortxError && selectedMarket && (
             <>
               {/* Single Swipeable Card with all info */}
-              <View style={{ alignItems: 'center', marginVertical: 24 }}>
+              <View className="items-center">
                 <SwipeableBetCard
                   market={selectedMarket}
                   onSelect={(dir) => {
@@ -379,155 +450,303 @@ export default function SlotMachineScreen() {
         {/* Bet Modal (restyled) */}
         <Modal
           visible={showBetModal}
-          animationType="slide"
+          animationType="fade"
           transparent={true}
           onRequestClose={() => setShowBetModal(false)}
         >
-          <View style={styles.betModalOverlay}>
-            <View style={styles.betModalCard}>
-              <Text style={styles.betModalDirection}>
-                {selectedDirection === 'yes' ? "You're betting YES" : "You're betting NO"}
-              </Text>
-              <Text style={styles.betModalLabelBig}>How much do you want to bet?</Text>
-              <DynamicTextInput
-                value={betAmount}
-                onChangeText={setBetAmount}
-                placeholder="0"
-              />
-              <View style={styles.suggestedRowBig}>
-                {SUGGESTED_BETS.map((amt) => (
-                  <TouchableOpacity
-                    key={amt}
-                    style={[
-                      styles.suggestedButtonBig,
-                      betAmount === amt.toString() && styles.suggestedButtonBigSelected
-                    ]}
-                    onPress={() => setBetAmount(amt.toString())}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={betAmount === amt.toString() ? styles.suggestedButtonTextBigSelected : styles.suggestedButtonTextBig}>
-                      ${amt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {/* Manual success/failure toggle */}
-              <View style={styles.manualToggleRow}>
-                <Text style={styles.manualToggleLabel}>Simulate Success</Text>
-                <Switch
-                  value={manualSuccess}
-                  onValueChange={setManualSuccess}
-                  thumbColor={manualSuccess ? theme.colors.success : theme.colors.error}
-                  trackColor={{ true: theme.colors.success + '55', false: theme.colors.error + '55' }}
-                />
-                <Text style={styles.manualToggleLabel}>Simulate Failure</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.placeBetButtonBig}
-                onPress={async () => {
-                  setShowBetModal(false); // Close modal immediately
-                  setBetStatus('loading');
-                  setTimeout(() => {
-                    setBetStatus(manualSuccess ? 'success' : 'error');
-                  }, 1200);
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 20,
+            }}
+            activeOpacity={1}
+            onPress={() => setShowBetModal(false)}
+          >
+            <TouchableOpacity
+              style={{
+                backgroundColor: "white",
+                borderRadius: 16,
+                width: "100%",
+                maxWidth: 350,
+                overflow: "hidden",
+              }}
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              {/* Header Section */}
+              <View
+                style={{
+                  padding: 20,
+                  borderBottomWidth: 1,
+                  borderBottomColor: "#f0f0f0",
+                  position: "relative",
                 }}
-                disabled={!betAmount || betStatus === 'loading'}
               >
-                <Text style={styles.placeBetButtonTextBig}>Place Bet</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowBetModal(false)} style={{ marginTop: 12 }}>
-                <Text style={{ color: theme.colors.primary, textAlign: 'center' }}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-        {/* Full-screen Bet Status Overlay */}
-        {betStatus !== 'idle' && (
-          <View style={styles.fullScreenStatusOverlay} pointerEvents="auto">
-            {betStatus === 'loading' && (
-              <View style={styles.betStatusCard}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={styles.betStatusText}>Placing Bet…</Text>
+                {/* Close Button */}
+                <TouchableOpacity
+                  onPress={() => setShowBetModal(false)}
+                  style={{
+                    position: "absolute",
+                    top: 16,
+                    left: 16,
+                    zIndex: 1,
+                    width: 24,
+                    height: 24,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="close" size={20} color="#666" />
+                </TouchableOpacity>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    paddingLeft: 40, // Make room for close button
+                  }}
+                >
+                  {/* Market Question */}
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text
+                      style={{
+                        color: "#000",
+                        fontSize: 14,
+                        fontFamily: "Poppins-Regular",
+                        lineHeight: 18,
+                      }}
+                    >
+                      {selectedMarket?.question || "Loading..."}
+                    </Text>
+                  </View>
+
+                  {/* Direction Badge */}
+                  <View
+                    style={{
+                      backgroundColor:
+                        selectedDirection === "yes" ? "#dcfce7" : "#fee2e2",
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor:
+                        selectedDirection === "yes" ? "#bbf7d0" : "#fecaca",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color:
+                          selectedDirection === "yes" ? "#166534" : "#dc2626",
+                        fontSize: 14,
+                        fontFamily: "Poppins-SemiBold",
+                      }}
+                    >
+                      {selectedDirection === "yes" ? "YES" : "NO"}
+                    </Text>
+                  </View>
+                </View>
               </View>
-            )}
-            {betStatus === 'success' && (
-              <Animated.Text
-                style={[
-                  styles.fullScreenStatusText,
-                  { color: theme.colors.success, transform: [{ scale: statusScale }] }
-                ]}
-              >
-                BET PLACED
-              </Animated.Text>
-            )}
-            {betStatus === 'error' && (
-              <Animated.Text
-                style={[
-                  styles.fullScreenStatusText,
-                  { color: theme.colors.error, transform: [{ scale: statusScale }] }
-                ]}
-              >
-                ERROR, bet not placed
-              </Animated.Text>
-            )}
-          </View>
-        )}
+
+              {/* Content Section */}
+              <View style={{ padding: 20 }}>
+                <Text className="text-black text-lg font-better-semi-bold text-center mb-2">
+                  How much do you want to bet?
+                </Text>
+
+                {/* Custom styled input for modal */}
+                <View
+                  style={{
+                    backgroundColor: "#f8f9fa",
+                    borderColor: "#e9ecef",
+                    borderWidth: 1.5,
+                    borderRadius: 16,
+                    paddingVertical: 18,
+                    paddingHorizontal: 18,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 18,
+                    minHeight: 90,
+                    width: "100%",
+                  }}
+                >
+                  <DynamicTextInput
+                    value={betAmount}
+                    onChangeText={(text) => {
+                      const regex = /^\d*\.?\d*$/;
+                      if (text === "" || regex.test(text)) {
+                        setBetAmount(text);
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      backgroundColor: "transparent",
+                      borderWidth: 0,
+                    }}
+                    placeholder="0"
+                  />
+                </View>
+
+                <View style={styles.suggestedRowBig}>
+                  {SUGGESTED_BETS.map((amt) => (
+                    <TouchableOpacity
+                      key={amt}
+                      style={[
+                        styles.suggestedButtonBig,
+                        betAmount === amt.toString() &&
+                          styles.suggestedButtonBigSelected,
+                      ]}
+                      onPress={() => setBetAmount(amt.toString())}
+                      activeOpacity={0.85}
+                    >
+                      <Text
+                        style={
+                          betAmount === amt.toString()
+                            ? styles.suggestedButtonTextBigSelected
+                            : styles.suggestedButtonTextBig
+                        }
+                      >
+                        ${amt}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Manual success/failure toggle */}
+                <View style={styles.manualToggleRow}>
+                  <Text style={styles.manualToggleLabel}>Bet NO</Text>
+                  <Switch
+                    value={selectedDirection === "yes"}
+                    onValueChange={(value) =>
+                      setSelectedDirection(value ? "yes" : "no")
+                    }
+                    thumbColor={
+                      selectedDirection === "yes" ? "#8b5cf6" : "#8b5cf6"
+                    }
+                    trackColor={{ true: "#8b5cf655", false: "#8b5cf655" }}
+                  />
+                  <Text style={styles.manualToggleLabel}>Bet YES</Text>
+                </View>
+                <SwipeButton
+                  disabled={
+                    betStatus !== "idle" ||
+                    !betAmount ||
+                    parseFloat(betAmount) <= 0
+                  }
+                  title={
+                    betStatus === "loading"
+                      ? "Placing bet..."
+                      : `Swipe to bet ${
+                          selectedDirection?.toUpperCase() || "YES"
+                        }`
+                  }
+                  titleColor="#ffffff"
+                  titleFontSize={16}
+                  titleStyles={{
+                    fontFamily: "Poppins-SemiBold",
+                    fontWeight: "600",
+                  }}
+                  onSwipeSuccess={() => {
+                    setShowBetModal(false); // Close modal immediately
+                    setBetStatus("loading");
+                    // Call the actual handleBet function
+                    handleBet(betAmount);
+                  }}
+                  onSwipeFail={() => {
+                    console.log("Swipe failed - not swiped far enough");
+                  }}
+                  railBackgroundColor={
+                    betStatus === "loading" ? "#10b981" : "#000000"
+                  }
+                  railBorderColor={betStatus === "loading" ? "#10b981" : "#fff"}
+                  railFillBackgroundColor="#088F8F"
+                  railFillBorderColor="#10b981"
+                  railStyles={{
+                    borderRadius: 30,
+                    borderWidth: 1,
+                  }}
+                  thumbIconBackgroundColor="#10b981"
+                  thumbIconBorderColor="#10b981"
+                  disabledThumbIconBorderColor={"transparent"}
+                  thumbIconComponent={() => (
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={24}
+                      color="#ffffff"
+                    />
+                  )}
+                  height={60}
+                  swipeSuccessThreshold={80}
+                  shouldResetAfterSuccess={true}
+                  resetAfterSuccessAnimDelay={1000}
+                  finishRemainingSwipeAnimationDuration={300}
+                  containerStyles={{
+                    marginBottom: 18,
+                  }}
+                />
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
       </View>
-    </ScreenWrapper>
+    </DefaultBg>
   );
-};
+}
 
 const styles = StyleSheet.create({
   scrollContent: {
-    padding: theme.spacing.lg,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     paddingBottom: 32,
   },
   backButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 18,
     paddingVertical: 10,
     paddingHorizontal: 22,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: "rgba(255,255,255,0.7)",
+    backgroundColor: "rgba(255,255,255,0.08)",
     maxWidth: 120,
   },
   backButtonText: {
     color: theme.colors.onSurface,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     minHeight: 120,
   },
   loadingText: {
     color: theme.colors.onSurface,
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   errorCard: {
     marginVertical: 18,
-    alignItems: 'center',
+    alignItems: "center",
     padding: theme.spacing.lg,
   },
   errorTitle: {
     color: theme.colors.error,
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 8,
   },
   errorMessage: {
     color: theme.colors.onSurface,
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   marketInfoCard: {
     marginBottom: theme.spacing.lg,
@@ -536,19 +755,19 @@ const styles = StyleSheet.create({
   marketInfoHeader: {
     marginBottom: 4,
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   marketInfoDate: {
     color: theme.colors.onSurfaceVariant,
     fontSize: 13,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: "Poppins-Regular",
   },
   marketInfoQuestion: {
     color: theme.colors.onSurface,
     fontSize: 22,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
   },
   marketInfoMeta: {
     marginTop: 2,
@@ -557,57 +776,57 @@ const styles = StyleSheet.create({
   marketInfoMetaLabel: {
     color: theme.colors.onSurfaceVariant,
     fontSize: 14,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: "Poppins-Regular",
   },
   marketInfoMetaValue: {
     color: theme.colors.onSurface,
-    fontWeight: '500',
-    fontFamily: 'Poppins-Bold',
+    fontWeight: "500",
+    fontFamily: "Poppins-Bold",
   },
   slotMachineCard: {
     marginBottom: theme.spacing.lg,
     padding: theme.spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   slotMachineRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     gap: 8,
-    width: '100%',
+    width: "100%",
     padding: 8,
   },
   reelWrapper: {
-    alignItems: 'center',
+    alignItems: "center",
     marginHorizontal: 4,
   },
   reelLabel: {
     color: theme.colors.onSurfaceVariant,
     fontSize: 13,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
   },
   reelContainer: {
     width: 100,
     height: 100,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderColor: "rgba(255,255,255,0.7)",
+    backgroundColor: "rgba(255,255,255,0.6)",
     borderRadius: 16,
   },
   reelItem: {
     height: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   reelIcon: {
     fontSize: 48,
-    textAlign: 'center',
+    textAlign: "center",
   },
   aggregatedCard: {
     marginBottom: theme.spacing.lg,
-    alignItems: 'center',
+    alignItems: "center",
     padding: theme.spacing.md,
     backgroundColor: theme.colors.primaryContainer,
     borderRadius: 14,
@@ -615,27 +834,27 @@ const styles = StyleSheet.create({
   aggregatedText: {
     color: theme.colors.onSurface,
     fontSize: 18,
-    fontWeight: '500',
-    fontFamily: 'Poppins-Regular',
+    fontWeight: "500",
+    fontFamily: "Poppins-Regular",
   },
   inputCard: {
     marginBottom: theme.spacing.lg,
     padding: 0,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: "rgba(255,255,255,0.7)",
     borderRadius: 16,
   },
   buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     gap: 12,
     marginTop: 8,
     marginBottom: 24,
   },
   betButton: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: 14,
     paddingVertical: 18,
     marginHorizontal: 4,
@@ -645,32 +864,32 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   yesButton: {
-    backgroundColor: 'rgba(16,185,129,0.18)',
-    borderColor: '#10b981',
+    backgroundColor: "rgba(16,185,129,0.18)",
+    borderColor: "#10b981",
   },
   noButton: {
-    backgroundColor: 'rgba(244,63,94,0.18)',
-    borderColor: '#f43f5e',
+    backgroundColor: "rgba(244,63,94,0.18)",
+    borderColor: "#f43f5e",
   },
   betButtonText: {
     color: theme.colors.onSurface,
     fontSize: 20,
-    fontWeight: '700',
-    fontFamily: 'Poppins-Bold',
+    fontWeight: "700",
+    fontFamily: "Poppins-Bold",
   },
   fixedBetBox: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
     zIndex: 100,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
+    alignItems: "center",
+    backgroundColor: "transparent",
     paddingBottom: 0,
   },
   fixedBetCard: {
-    width: '100%',
-    alignSelf: 'center',
+    width: "100%",
+    alignSelf: "center",
     marginBottom: 0,
     paddingVertical: 10,
     paddingHorizontal: 0,
@@ -680,26 +899,26 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     backgroundColor: theme.colors.surfaceContainerHigh,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: -2 },
     elevation: 8,
     minHeight: 90,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   betLabel: {
     color: theme.colors.onSurfaceVariant,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 2,
-    textAlign: 'center',
-    fontFamily: 'Poppins-Regular',
+    textAlign: "center",
+    fontFamily: "Poppins-Regular",
   },
   inputRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 2,
   },
   compactInput: {
@@ -712,9 +931,9 @@ const styles = StyleSheet.create({
     marginVertical: 0,
   },
   suggestedRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 2,
     marginBottom: 2,
     gap: 6,
@@ -728,159 +947,157 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.primary,
     minWidth: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   suggestedButtonText: {
     color: theme.colors.primary,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 15,
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
   },
   swipeCard: {
-    width: '90%',
+    width: "90%",
     height: 150,
     borderRadius: 16,
     backgroundColor: theme.colors.surfaceContainer,
     borderWidth: 1,
     borderColor: theme.colors.outlineVariant,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
   },
   swipeCardInner: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   swipeCardQuestion: {
     color: theme.colors.onSurface,
     fontSize: 20,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Poppins-Bold',
+    fontWeight: "600",
+    fontFamily: "Poppins-Bold",
   },
   swipeOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     bottom: 0,
     left: 0,
     right: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
   },
   swipeYes: {
-    backgroundColor: 'rgba(16,185,129,0.2)',
+    backgroundColor: "rgba(16,185,129,0.2)",
   },
   swipeNo: {
-    backgroundColor: 'rgba(244,63,94,0.2)',
+    backgroundColor: "rgba(244,63,94,0.2)",
   },
   swipeYesText: {
-    color: '#10b981',
+    color: "#10b981",
     fontSize: 30,
-    fontWeight: '700',
-    fontFamily: 'Poppins-Bold',
+    fontWeight: "700",
+    fontFamily: "Poppins-Bold",
   },
   swipeNoText: {
-    color: '#ef4444',
+    color: "#ef4444",
     fontSize: 30,
-    fontWeight: '700',
-    fontFamily: 'Poppins-Bold',
+    fontWeight: "700",
+    fontFamily: "Poppins-Bold",
   },
   swipeInstruction: {
     color: theme.colors.onSurfaceVariant,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 12,
-    textAlign: 'center',
-    fontFamily: 'Poppins-Regular',
+    textAlign: "center",
+    fontFamily: "Poppins-Regular",
   },
   swipeCardMeta: {
     color: theme.colors.onSurfaceVariant,
     fontSize: 14,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: "Poppins-Regular",
   },
   swipeCardMetaValue: {
     color: theme.colors.onSurface,
-    fontWeight: '500',
-    fontFamily: 'Poppins-Bold',
+    fontWeight: "500",
+    fontFamily: "Poppins-Bold",
   },
   betModalOverlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.8)",
   },
   betModalCard: {
-    width: '90%',
-    backgroundColor: theme.colors.surfaceContainerHigh,
+    width: "90%",
+    backgroundColor: "white",
     borderRadius: 16,
     padding: 24,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
     borderColor: theme.colors.outlineVariant,
   },
   betModalDirection: {
     color: theme.colors.onSurface,
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 12,
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
   },
   betModalLabel: {
     color: theme.colors.onSurfaceVariant,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 12,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: "Poppins-Regular",
   },
   betModalLabelBig: {
     color: theme.colors.onSurface,
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 12,
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
   },
   suggestedRowBig: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 2,
     marginBottom: 2,
     gap: 6,
   },
   suggestedButtonBig: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    marginHorizontal: 2,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginHorizontal: 4,
     borderWidth: 1,
-    borderColor: theme.colors.primary,
-    minWidth: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#e9ecef",
+    minWidth: 50,
+    alignItems: "center",
+    justifyContent: "center",
   },
   suggestedButtonBigSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: "#000",
+    borderColor: "#000",
   },
   suggestedButtonTextBig: {
-    color: theme.colors.primary,
-    fontWeight: '700',
-    fontSize: 15,
-    fontFamily: 'Poppins-Bold',
+    color: "#000",
+    fontWeight: "600",
+    fontSize: 14,
+    fontFamily: "Poppins-SemiBold",
   },
   suggestedButtonTextBigSelected: {
-    color: theme.colors.onPrimary,
-    fontWeight: '700',
-    fontSize: 15,
-    fontFamily: 'Poppins-Bold',
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+    fontFamily: "Poppins-SemiBold",
   },
   placeBetButton: {
     backgroundColor: theme.colors.primary,
@@ -888,15 +1105,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 24,
     marginTop: 12,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   placeBetButtonText: {
     color: theme.colors.onPrimary,
     fontSize: 18,
-    fontWeight: '700',
-    fontFamily: 'Poppins-Bold',
+    fontWeight: "700",
+    fontFamily: "Poppins-Bold",
   },
   placeBetButtonBig: {
     backgroundColor: theme.colors.primary,
@@ -904,47 +1121,47 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 24,
     marginTop: 12,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   placeBetButtonTextBig: {
     color: theme.colors.onPrimary,
     fontSize: 18,
-    fontWeight: '700',
-    fontFamily: 'Poppins-Bold',
+    fontWeight: "700",
+    fontFamily: "Poppins-Bold",
   },
   betStatusOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
     zIndex: 1000,
   },
   fullScreenStatusOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0,0,0,0.82)',
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(0,0,0,0.82)",
     zIndex: 1000,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   fullScreenStatusText: {
     fontSize: 38,
-    fontWeight: '900',
-    textAlign: 'center',
+    fontWeight: "900",
+    textAlign: "center",
     letterSpacing: 1.2,
-    fontFamily: 'Poppins-Bold',
-    textShadowColor: 'rgba(0,0,0,0.22)',
+    fontFamily: "Poppins-Bold",
+    textShadowColor: "rgba(0,0,0,0.22)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
@@ -952,29 +1169,69 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceContainerHigh,
     borderRadius: 16,
     padding: 24,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
     borderColor: theme.colors.outlineVariant,
   },
   betStatusText: {
     color: theme.colors.onSurface,
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     marginTop: 12,
-    fontFamily: 'Poppins-Bold',
+    fontFamily: "Poppins-Bold",
   },
   manualToggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
     marginTop: 12,
     marginBottom: 12,
-    width: '100%',
+    width: "100%",
   },
   manualToggleLabel: {
-    color: theme.colors.onSurfaceVariant,
+    color: "#666",
     fontSize: 14,
-    fontWeight: '500',
-    fontFamily: 'Poppins-Regular',
+    fontWeight: "500",
+    fontFamily: "Poppins-Regular",
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginLeft: 6,
+    fontFamily: "Poppins-Bold",
+  },
+  marketDetails: {
+    marginTop: 12,
+    width: "100%",
+    paddingHorizontal: 10,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  detailLabel: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 14,
+    marginLeft: 8,
+    fontFamily: "Poppins-Regular",
+  },
+  detailValue: {
+    color: theme.colors.onSurface,
+    fontSize: 14,
+    fontWeight: "500",
+    fontFamily: "Poppins-Bold",
+    marginLeft: 8,
   },
 });

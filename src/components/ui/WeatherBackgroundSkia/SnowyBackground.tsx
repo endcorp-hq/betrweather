@@ -8,7 +8,7 @@ const { width, height } = Dimensions.get('window');
 const SNOWFLAKE_COUNT = 32;
 const SNOW_COLOR = '#fafdff';
 
-const SnowyBackground = ({ theme }: { theme: any }) => {
+const SnowyBackground = ({ theme, transparent = false }: { theme: any; transparent?: boolean }) => {
   const skyGradient = ['#b3c6e0', '#e0eafc', '#fafdff'];
   const [flakes, setFlakes] = useState(() => Array.from({ length: SNOWFLAKE_COUNT }, (_, i) => randomSnowflake({ id: i })));
   const [t, setT] = useState(0);
@@ -31,9 +31,11 @@ const SnowyBackground = ({ theme }: { theme: any }) => {
     <>
       {/* Snowy sky gradient */}
       <Canvas style={{ position: 'absolute', width, height }} pointerEvents="none">
-        <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
-          <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
-        </Path>
+        {!transparent && (
+          <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
+            <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
+          </Path>
+        )}
         {/* Snowflakes */}
         <Group>
           {flakes.map((flake) => (

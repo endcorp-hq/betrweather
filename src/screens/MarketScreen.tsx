@@ -1,13 +1,14 @@
-import React from "react";
-import { ScrollView, Text, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { ScrollView, Text, StyleSheet, View } from "react-native";
 import { useShortx } from "../solana/useContract";
 import { MarketCard } from "../components/ui/MarketCard";
 import { useFilters } from "../components/ui/useFilters";
-import { ScreenWrapper } from "../components/ui/ScreenWrapper";
+import { StatusFilterBar } from "../components/ui/StatusFilterBar";
 import { LogoLoader as LoadingSpinner } from "../components/ui/LoadingSpinner";
 import MaterialCard from '../components/ui/MaterialCard';
 import theme from '../theme';
 import { WinningDirection } from "shortx-sdk";
+import { MarketType } from "shortx-sdk";
 
 export default function MarketScreen() {
   const { markets, error, loadingMarkets } = useShortx();
@@ -20,12 +21,8 @@ export default function MarketScreen() {
     "longterm",
   ]);
 
-  // Use the filter hook for status filters
-  const { selected: statusFilter, FilterBar: StatusFilterBar } = useFilters([
-    "betting",
-    "active",
-    "resolved",
-  ]);
+  // Use separate state for status filter
+  const [statusFilter, setStatusFilter] = useState("active");
 
   // Filter markets based on selected filters
   const filteredMarkets = markets.filter((market) => {
@@ -37,17 +34,28 @@ export default function MarketScreen() {
     let matchesStatus = false;
     switch (statusFilter) {
       case "betting":
-        // Betting period: current time is before market start
-        matchesStatus = now < marketStart;
+        // Betting period: for future markets, current time is before market start
+        if (market.marketType === MarketType.LIVE) {
+          // Live markets don't have a betting period
+          matchesStatus = false;
+        } else {
+          // Future markets: betting period is before market start
+          matchesStatus = now < marketStart;
+        }
         break;
       case "resolved":
         // Resolved: market has a winningDirection
         matchesStatus = market.winningDirection !== WinningDirection.NONE;
         break;
       case "active":
-        // Active: everything else (between start and end, or ended but not resolved)
-        matchesStatus = !(now < marketStart) && 
-                       (market.winningDirection === WinningDirection.NONE);
+        // Active: future markets that have completed betting but not resolved
+        if (market.marketType === MarketType.LIVE) {
+          // Live markets are always active during their interval
+          matchesStatus = now >= marketStart && now <= marketEnd;
+        } else {
+          // Future markets: active when betting is done but not resolved
+          matchesStatus = now >= marketStart && market.winningDirection === WinningDirection.NONE;
+        }
         break;
       default:
         matchesStatus = true;
@@ -119,37 +127,53 @@ export default function MarketScreen() {
   });
 
   return (
-    <ScreenWrapper>
+    <View className="flex-1">
       {loadingMarkets ? (
         <LoadingSpinner message="Loading markets" />
       ) : (
-        <ScrollView style={{ backgroundColor: 'transparent' }} contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.sectionTitle}>Markets</Text>
-          <MaterialCard elevation="level1" style={styles.filterCard}>
+        <View className="flex-1">
+          {/* Fixed Header Section */}
+          <View className="px-4 pt-10">
+            <Text className="text-white text-2xl font-better-semi-bold mb-4">
+              Climate Prediction Markets
+            </Text>
             <TimeFilterBar />
-            <StatusFilterBar />
-          </MaterialCard>
-          {error && (
-            <Text style={styles.errorText}>{error.message}</Text>
-          )}
-          {!loadingMarkets && !error && filteredMarkets.length === 0 && (
-            <Text style={styles.emptyText}>No markets found for the selected filters.</Text>
-          )}
-          {filteredMarkets.map((market, idx) => (
-            <MarketCard
-              key={market.address?.toString?.() || idx}
-              market={market}
+            <StatusFilterBar 
+              selected={statusFilter} 
+              onSelect={setStatusFilter}
             />
-          ))}
-        </ScrollView>
+          </View>
+
+          {/* Scrollable Market Cards Section */}
+          <ScrollView 
+            className="flex-1 px-4"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
+            {error && (
+              <Text style={styles.errorText}>{error.message}</Text>
+            )}
+            {!loadingMarkets && !error && filteredMarkets.length === 0 && (
+              <View className="flex-1 justify-center items-center py-20">
+                <Text style={styles.emptyText}>No markets found for the selected filters.</Text>  
+              </View>
+            )}
+            {filteredMarkets.map((market, idx) => (
+              <MarketCard
+                key={market.address?.toString?.() || idx}
+                market={market}
+              />
+            ))}
+          </ScrollView>
+        </View>
       )}
-    </ScreenWrapper>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   scrollContent: {
-    padding: theme.spacing.lg,
+    padding: 16,
     backgroundColor: 'transparent',
   },
   sectionTitle: {

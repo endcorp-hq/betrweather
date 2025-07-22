@@ -19,7 +19,7 @@ const lensFlares = [
   { x: sunCenter.x, y: sunCenter.y + sunRadius * 2.5, r: sunRadius * 0.22, opacity: 0.10 },
 ];
 
-const SunnyBackground = ({ theme }: { theme: any }) => {
+const SunnyBackground = ({ theme, transparent = false }: { theme: any; transparent?: boolean }) => {
   const skyGradient = ['#56ccf2', '#ffe29f', '#f6d365']; // blue to yellow
 
   // Sun rays as paths
@@ -49,11 +49,13 @@ const SunnyBackground = ({ theme }: { theme: any }) => {
 
   return (
     <>
-      {/* Sky gradient background */}
+      {/* Sky gradient background - only show if not transparent */}
       <Canvas style={{ position: 'absolute', width, height }} pointerEvents="none">
-        <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
-          <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
-        </Path>
+        {!transparent && (
+          <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
+            <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
+          </Path>
+        )}
         {/* Sun rays */}
         <Group>{rays}</Group>
         {/* Sun core */}

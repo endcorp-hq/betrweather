@@ -1,49 +1,74 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Dimensions } from 'react-native';
 import { Canvas, Path, LinearGradient, vec, BlurMask, Group, Paint } from '@shopify/react-native-skia';
 import { randomRainDrop, useAnimationFrame } from './utils';
 
 const { width, height } = Dimensions.get('window');
 
-const RAIN_DROP_COUNT = 48;
-const RAIN_LENGTH = 48;
-const RAIN_WIDTH = 2.2;
-const RAIN_COLOR = '#b3d0f7';
-const RAIN_BLUR = 6;
+const RAIN_DROP_COUNT = 80;
+const RAIN_LENGTH = 20;
+const RAIN_WIDTH = 0.8;
+const RAIN_COLOR = '#ffffff';
+const RAIN_BLUR = 0;
 
-const RainyBackground = ({ theme }: { theme: any }) => {
+const RainyBackground = ({ theme, transparent = false }: { theme: any; transparent?: boolean }) => {
   const skyGradient = ['#4e5d7a', '#7b8fa3', '#b3c6e0'];
-  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop({ id: i, width, height })));
+  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop({ 
+    id: i, 
+    speedRange: [400, 700],
+    lengthRange: [15, 25],
+    opacityRange: [0.4, 0.8],
+    width, 
+    height 
+  })));
 
-  useAnimationFrame((dt) => {
+  // Stable rain update function
+  const updateRain = useCallback((dt: number) => {
     setDrops((prev) =>
       prev.map((drop) => {
         let newY = drop.y + drop.speed * dt;
         if (newY > height + drop.length) {
-          return randomRainDrop({ id: drop.id, width, height });
+          // Reset to top with deterministic offset
+          const offset = (drop.id * 17) % 30; // Deterministic offset
+          const xVariation = ((drop.id * 13) % 30) - 15; // Deterministic X variation
+          return {
+            ...drop,
+            y: -drop.length - offset,
+            x: drop.x + xVariation
+          };
         }
         return { ...drop, y: newY };
       })
     );
-  });
+  }, [height]);
+
+  useAnimationFrame(updateRain);
 
   return (
     <>
       {/* Rainy sky gradient */}
       <Canvas style={{ position: 'absolute', width, height }} pointerEvents="none">
-        <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
-          <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
-        </Path>
+        {!transparent && (
+          <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
+            <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
+          </Path>
+        )}
         {/* Rain drops */}
         <Group>
           {drops.map((drop) => {
-            const path = `M${drop.x} ${drop.y} L${drop.x} ${drop.y + drop.length}`;
+            // Ensure drop coordinates are valid numbers
+            const startX = typeof drop.x === 'number' ? drop.x : 0;
+            const startY = typeof drop.y === 'number' ? drop.y : 0;
+            const endY = typeof drop.length === 'number' ? startY + drop.length : startY + 20;
+            
+            const path = `M${startX} ${startY} L${startX} ${endY}`;
+            
             return (
               <Path
                 key={drop.id}
                 path={path}
                 color={RAIN_COLOR}
-                opacity={drop.opacity}
+                opacity={drop.opacity || 0.6}
                 style="stroke"
                 strokeWidth={RAIN_WIDTH}
               >

@@ -16,14 +16,23 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.solana.mobile.expo.template"
+      "bundleIdentifier": "com.solana.mobile.expo.template",
+      "infoPlist": {
+        "UIStatusBarStyle": "light-content",
+        "UIViewControllerBasedStatusBarAppearance": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.solana.mobile.expo.template"
+      "package": "com.solana.mobile.expo.template",
+      "statusBar": {
+        "backgroundColor": "transparent",
+        "barStyle": "light-content",
+        "translucent": true
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png",

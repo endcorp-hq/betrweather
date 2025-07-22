@@ -10,10 +10,6 @@ import { HomeNavigator } from "./HomeNavigator";
 import { StatusBar } from "expo-status-bar";
 import MarketDetailScreen from "../screens/MarketDetailScreen";
 import { TopBar } from "../components/top-bar/top-bar-feature";
-import LoginScreen from "../screens/LoginScreen";
-import { useAuthorization } from "../utils/useAuthorization";
-import { Toaster } from "sonner-native";
-import theme from '../theme';
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -80,7 +76,7 @@ export const AppNavigator = (props: NavigationProps) => {
 
   return (
     <NavigationContainer theme={MyTheme} {...props}>
-      <StatusBar style="light" backgroundColor={theme.colors.background} />
+      <StatusBar style="light" translucent backgroundColor="transparent" />
       <AppStack />
     </NavigationContainer>
   );

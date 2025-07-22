@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Dimensions } from 'react-native';
 import { Canvas, Group, Path, LinearGradient, vec, BlurMask } from '@shopify/react-native-skia';
 import Animated, { useSharedValue, withTiming, useAnimatedStyle, Easing, runOnJS } from 'react-native-reanimated';
@@ -63,69 +63,148 @@ const AnimatedStormCloud = ({
   );
 };
 
-// Lightning bolt shape (simple zigzag)
+// Improved lightning bolt with more realistic zigzag pattern
 function LightningBolt({ x, y, scale = 1, opacity = 1 }: { x: number; y: number; scale?: number; opacity?: number }) {
-  // Simple bolt path
-  const boltPath = `M${x} ${y} L${x + 10 * scale} ${y + 40 * scale} L${x + 25 * scale} ${y + 40 * scale} L${x + 5 * scale} ${y + 90 * scale} L${x + 30 * scale} ${y + 60 * scale} L${x + 15 * scale} ${y + 60 * scale} L${x + 35 * scale} ${y}`;
+  // More realistic lightning bolt path with multiple branches
+  const boltHeight = 50 * scale;
+  const segments = 5;
+  const segmentHeight = boltHeight / segments;
+  
+  // Create a deterministic zigzag pattern based on position
+  const zigzagPattern = [];
+  for (let i = 0; i < segments; i++) {
+    const seed = Math.abs((x + y + i) % 100);
+    zigzagPattern.push(((seed - 50) / 50) * 20 * scale);
+  }
+  
+  let path = `M${x} ${y}`;
+  let currentX = x;
+  
+  for (let i = 1; i <= segments; i++) {
+    const segmentY = y + (i * segmentHeight);
+    const zigzag = zigzagPattern[i - 1] || 0;
+    currentX = x + zigzag;
+    path += ` L${currentX} ${segmentY}`;
+  }
+  
+  // Ensure path is valid
+  if (!path || path.length < 10) {
+    path = `M${x} ${y} L${x} ${y + boltHeight}`;
+  }
+  
   return (
-    <Path
-      path={boltPath}
-      color="#fffbe6"
-      opacity={opacity}
-      style="stroke"
-      strokeWidth={6 * scale}
-    >
-      <BlurMask blur={12 * scale} style="normal" />
-    </Path>
+    <Group>
+      {/* Main lightning bolt */}
+      <Path
+        path={path}
+        color="#ffffff"
+        opacity={opacity}
+        style="stroke"
+        strokeWidth={4 * scale}
+      >
+        <BlurMask blur={1 * scale} style="normal" />
+      </Path>
+      {/* Brighter core */}
+      <Path
+        path={path}
+        color="#fffbe6"
+        opacity={opacity * 1.5}
+        style="stroke"
+        strokeWidth={2 * scale}
+      >
+        <BlurMask blur={0.5 * scale} style="normal" />
+      </Path>
+      {/* Glow effect */}
+      <Path
+        path={path}
+        color="#fff9c4"
+        opacity={opacity * 0.15}
+        style="stroke"
+        strokeWidth={8 * scale}
+      >
+        <BlurMask blur={6 * scale} style="normal" />
+      </Path>
+    </Group>
   );
 }
 
-// --- Rain effect (from RainyBackground) ---
-const RAIN_DROP_COUNT = 20; // reduced for performance
-const RAIN_LENGTH = 44;
-const RAIN_WIDTH = 2.2;
-const RAIN_COLOR = '#b3d0f7';
-const RAIN_BLUR = 6;
+// Improved rain effect with better drops
+const RAIN_DROP_COUNT = 80;
+const RAIN_LENGTH = 20;
+const RAIN_WIDTH = 0.8;
+const RAIN_COLOR = '#ffffff';
+const RAIN_BLUR = 0;
 
-const StormyBackground = ({ theme }: { theme: any }) => {
-  const skyGradient = ['#23243a', '#3a3a5a', '#4e4376', '#232526']; // dark, stormy
+const StormyBackground = ({ theme, transparent = false }: { theme: any; transparent?: boolean }) => {
+  const skyGradient = ['#23243a', '#3a3a5a', '#4e4376', '#232526'];
   const [clouds, setClouds] = useState(Array.from({ length: 4 }, (_, i) => randomCloudConfig({ id: i, yRange: [0.15, 0.75], scaleRange: [1.1, 2.3], speedRange: [12, 20], opacityRange: [0.35, 0.65], pathCount: stormCloudPaths.length })));
   const nextId = useRef(4);
 
-  // Lightning state
-  const [lightning, setLightning] = useState<{ x: number; y: number; scale: number; key: number }[]>([]);
+  // Lightning state with multiple bolts
+  const [lightning, setLightning] = useState<{ x: number; y: number; scale: number; key: number; duration: number }[]>([]);
   const lightningKey = useRef(0);
 
-  // Rain state
-  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop({ id: i, speedRange: [220, 400], lengthRange: [30.8, 70.4], opacityRange: [0.22, 0.54], width, height })));
+  // Rain state with better positioning
+  const [drops, setDrops] = useState(() => Array.from({ length: RAIN_DROP_COUNT }, (_, i) => randomRainDrop({ 
+    id: i, 
+    speedRange: [400, 700],
+    lengthRange: [15, 25],
+    opacityRange: [0.4, 0.8],
+    width, 
+    height 
+  })));
 
-  useAnimationFrame((dt) => {
+  // Stable rain update function
+  const updateRain = useCallback((dt: number) => {
     setDrops((prev) =>
       prev.map((drop) => {
         let newY = drop.y + drop.speed * dt;
         if (newY > height + drop.length) {
-          return randomRainDrop({ id: drop.id, speedRange: [220, 400], lengthRange: [30.8, 70.4], opacityRange: [0.22, 0.54], width, height });
+          // Reset to top with deterministic offset
+          const offset = (drop.id * 17) % 30; // Deterministic offset
+          const xVariation = ((drop.id * 13) % 30) - 15; // Deterministic X variation
+          return {
+            ...drop,
+            y: -drop.length - offset,
+            x: drop.x + xVariation
+          };
         }
         return { ...drop, y: newY };
       })
     );
-  });
+  }, [height]);
 
-  // Lightning logic (less frequent)
+  useAnimationFrame(updateRain);
+
+  // Improved lightning logic - only in top half, more frequent and pronounced
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const trigger = () => {
-      const x = 80 + Math.random() * (width - 160);
-      const y = 60 + Math.random() * (height * 0.3);
-      const scale = 0.8 + Math.random() * 1.2;
-      setLightning((prev) => [...prev, { x, y, scale, key: lightningKey.current++ }]);
+      // Position lightning only in top half of screen
+      const x = 60 + (Date.now() % (width - 120));
+      const y = 40 + (Date.now() % (height * 0.4));
+      const scale = 1.2 + ((Date.now() % 100) / 100) * 1.8;
+      const duration = 200 + (Date.now() % 300);
+      
+      setLightning((prev) => [...prev, { x, y, scale, key: lightningKey.current++, duration }]);
+      
+      // Remove lightning after duration
       setTimeout(() => {
-        setLightning((prev) => prev.slice(1));
-      }, 350 + Math.random() * 200);
-      setTimeout(trigger, 3000 + Math.random() * 3000); // less frequent
+        setLightning((prev) => prev.filter(l => l.key !== lightningKey.current - 1));
+      }, duration);
+      
+      // Trigger next lightning
+      timeoutId = setTimeout(trigger, 2000 + (Date.now() % 4000));
     };
-    trigger();
-    return () => {};
-  }, []);
+    
+    // Initial delay
+    timeoutId = setTimeout(trigger, 1000 + (Date.now() % 2000));
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [width, height]);
 
   const handleCloudEnd = (id: number) => {
     setClouds((prev) => prev.filter((c) => c.id !== id).concat(randomCloudConfig({ id: nextId.current++, yRange: [0.15, 0.75], scaleRange: [1.1, 2.3], speedRange: [12, 20], opacityRange: [0.35, 0.65], pathCount: stormCloudPaths.length })));
@@ -135,25 +214,33 @@ const StormyBackground = ({ theme }: { theme: any }) => {
     <>
       {/* Stormy sky gradient */}
       <Canvas style={{ position: 'absolute', width, height }} pointerEvents="none">
-        <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
-          <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
-        </Path>
+        {!transparent && (
+          <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
+            <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
+          </Path>
+        )}
         {/* Lightning bolts */}
         <Group>
           {lightning.map((l) => (
-            <LightningBolt key={l.key} x={l.x} y={l.y} scale={l.scale} opacity={0.95} />
+            <LightningBolt key={l.key} x={l.x} y={l.y} scale={l.scale} opacity={1.0} />
           ))}
         </Group>
-        {/* Rain drops */}
+        {/* Improved rain drops */}
         <Group>
           {drops.map((drop) => {
-            const path = `M${drop.x} ${drop.y} L${drop.x} ${drop.y + drop.length}`;
+            // Ensure drop coordinates are valid numbers
+            const startX = typeof drop.x === 'number' ? drop.x : 0;
+            const startY = typeof drop.y === 'number' ? drop.y : 0;
+            const endY = typeof drop.length === 'number' ? startY + drop.length : startY + 20;
+            
+            const path = `M${startX} ${startY} L${startX} ${endY}`;
+            
             return (
               <Path
                 key={drop.id}
                 path={path}
                 color={RAIN_COLOR}
-                opacity={drop.opacity}
+                opacity={drop.opacity || 0.6}
                 style="stroke"
                 strokeWidth={RAIN_WIDTH}
               >

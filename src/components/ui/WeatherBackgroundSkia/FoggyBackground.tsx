@@ -13,7 +13,7 @@ const FOG_COLORS = [
   'rgba(210,220,230,0.16)',
 ];
 
-const FoggyBackground = ({ theme }: { theme: any }) => {
+const FoggyBackground = ({ theme, transparent = false }: { theme: any; transparent?: boolean }) => {
   const skyGradient = ['#bfc7d1', '#e0eafc', '#fafdff'];
   const [layers, setLayers] = useState(() => Array.from({ length: FOG_LAYER_COUNT }, (_, i) => randomFogLayer({ id: i })));
 
@@ -32,9 +32,11 @@ const FoggyBackground = ({ theme }: { theme: any }) => {
     <>
       {/* Foggy sky gradient */}
       <Canvas style={{ position: 'absolute', width, height }} pointerEvents="none">
-        <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
-          <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
-        </Path>
+        {!transparent && (
+          <Path path={`M0 0 H${width} V${height} H0 Z`} style="fill">
+            <LinearGradient start={vec(0, 0)} end={vec(0, height)} colors={skyGradient} />
+          </Path>
+        )}
         {/* Fog layers */}
         <Group>
           {layers.map((layer, i) => {

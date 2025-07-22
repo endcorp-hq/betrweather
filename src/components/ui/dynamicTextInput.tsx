@@ -1,4 +1,4 @@
-import { TextInput, View, Text } from "react-native";
+import { TextInput, View, Text, StyleProp, ViewStyle } from "react-native";
 import { USDC_ICON } from "./svg/usdc";
 import { useState, useEffect, useRef } from "react";
 import theme from '../../theme';
@@ -7,10 +7,12 @@ export const DynamicTextInput = ({
     value,
     onChangeText,
     placeholder,
+    style,
   }: {
     value: string;
     onChangeText: (text: string) => void;
     placeholder: string;
+    style?: StyleProp<ViewStyle>;
   }) => {
     const [fontSize, setFontSize] = useState(40);
     const [inputWidth, setInputWidth] = useState(120);
@@ -55,19 +57,23 @@ export const DynamicTextInput = ({
   
     return (
       <View
-        style={{
-          backgroundColor: theme.colors.surfaceContainerHigh,
-          borderColor: theme.colors.outlineVariant,
-          borderWidth: 1.5,
-          borderRadius: 16,
-          paddingVertical: 18,
-          paddingHorizontal: 18,
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 18,
-          minHeight: 90,
-          width: '100%',
-        }}
+        style={[
+          {
+            backgroundColor: theme.colors.surfaceContainerHigh,
+            borderColor: theme.colors.outlineVariant,
+            borderWidth: 1.5,
+            borderRadius: 16,
+            paddingVertical: 18,
+            paddingHorizontal: 18,
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 18,
+            minHeight: 90,
+            width: '100%',
+         
+          },
+          style
+        ]}
       >
         <TextInput
           ref={inputRef}
@@ -81,9 +87,9 @@ export const DynamicTextInput = ({
             textAlignVertical: "center",
             width: inputWidth,
             height: 48,
-            color: theme.colors.onSurface,
+            color: "#000",
             fontWeight: '700',
-            fontFamily: 'Poppins-Bold',
+            fontFamily: 'Poppins-SemiBold',
             backgroundColor: 'transparent',
             marginBottom: 0,
           }}

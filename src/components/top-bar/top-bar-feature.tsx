@@ -1,27 +1,13 @@
 import { View, Text } from "react-native";
 import { TopBarWalletMenu } from "./top-bar-ui";
-
+import { useAuthorization } from "../../utils/useAuthorization";
 
 export function TopBar() {
+  const { selectedAccount } = useAuthorization();
   return (
-    <View className="" style={{
-      backgroundColor: 'transparent',
-      opacity: 0.8,
-      height: 80,
-      flexDirection: 'row',
-      paddingHorizontal: 16,
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      shadowColor: '#000',
-      shadowOpacity: 0,
-      shadowRadius: 0,
-      shadowOffset: { width: 10, height: 10 },
-      elevation: 2,
-      borderBottomLeftRadius: 15,
-      borderBottomRightRadius: 15,
-    }}>
-      <Text className="text-white/75 text-[24px] font-better-semi-bold">BetrWeather</Text>
-      <TopBarWalletMenu />
+    <View className="flex-row justify-between items-center px-4 py-2 pt-20 bg-black">
+      <Text className="text-white text-[24px] font-better-bold">BetrWeather</Text>
+      {selectedAccount && <TopBarWalletMenu />}
     </View>
   );
 }

@@ -4,7 +4,6 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuthorization } from "../utils/useAuthorization";
 import { useMobileWallet } from "../utils/useMobileWallet";
 import { NftMetadata, useNftMetadata } from "../solana/useNft";
-import { ScreenWrapper } from "../components/ui/ScreenWrapper";
 import GlassyCard from '../components/ui/GlassyCard';
 import theme from '../theme';
 
@@ -68,7 +67,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScreenWrapper>
+
       <View style={styles.container}>
         {/* Trades */}
         <Text style={styles.title}>User Trades</Text>
@@ -104,7 +103,6 @@ export default function ProfileScreen() {
           ))}
         </ScrollView>
       </View>
-    </ScreenWrapper>
   );
 }
 

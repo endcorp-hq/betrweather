@@ -12,7 +12,7 @@ export function useFilters(filters: string[]) {
         <TouchableOpacity
           key={filter}
           className={`px-4 py-2 rounded-xl mr-4 border ${
-            selected === filter ? "bg-accent-light" : "bg-transparent border-white"
+            selected === filter ? "bg-white/90" : "bg-transparent border-white"
           }`}
           onPress={() => setSelected(filter)}
           activeOpacity={0.85}

@@ -1,7 +1,7 @@
 // Polyfills
 import "./src/polyfills";
 
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import "react-native-reanimated";
 import { ConnectionProvider } from "./src/utils/ConnectionProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,36 +12,31 @@ import "./global.css";
 import { Toaster } from "sonner-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View } from "react-native";
-import { ScreenWrapper, WeatherProvider } from "./src/components/ui/ScreenWrapper";
+import { WeatherProvider } from "./src/components/ui/ScreenWrappers/WeatherBg";
+import { StatusBar } from "expo-status-bar";
 
 const queryClient = new QueryClient();
 
 export default function App() {
   return (
     <View style={{ flex: 1 }}>
-      {/* Main app content */}
-      <View style={{ flex: 1 }}>
-        <QueryClientProvider client={queryClient}>
-          <ClusterProvider>
-            <ConnectionProvider config={{ commitment: "processed" }}>
-              <ShortxProvider>
+      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <QueryClientProvider client={queryClient}>
+        <ClusterProvider>
+          <ConnectionProvider config={{ commitment: "processed" }}>
+            <ShortxProvider>
               <WeatherProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
                   <SafeAreaProvider>
-                    <SafeAreaView className="flex-1 bg-transparent">
-                      <ScreenWrapper>
-                      <AppNavigator />
-                      <Toaster richColors />
-                      </ScreenWrapper>
-                    </SafeAreaView>
+                    <AppNavigator />
+                    <Toaster richColors />
                   </SafeAreaProvider>
                 </GestureHandlerRootView>
-                </WeatherProvider>
-              </ShortxProvider>
-            </ConnectionProvider>
-          </ClusterProvider>
-        </QueryClientProvider>
-      </View>
+              </WeatherProvider>
+            </ShortxProvider>
+          </ConnectionProvider>
+        </ClusterProvider>
+      </QueryClientProvider>
     </View>
   );
 }

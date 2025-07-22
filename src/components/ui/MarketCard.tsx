@@ -1,11 +1,9 @@
 import React from "react";
-import { Pressable, View, Text, StyleSheet, Image } from "react-native";
-import theme from "../../theme";
-import { formatMarket } from "../../utils/formatMarket";
+import { Pressable, View, Text, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Market, MarketType, WinningDirection } from "shortx-sdk";
-import { formatMarketDuration } from "../market/format-market-duration";
-import GlassyCard from "./GlassyCard";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { RefractiveBgCard } from "./RefractiveBgCard";
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
   if (!endTimestamp) return "market ended";
@@ -58,29 +56,77 @@ export function MarketCard({ market }: { market: Market }) {
   // Check if market is resolved
   const isResolved = market.winningDirection !== WinningDirection.NONE;
 
-  // Color for left border and badge
-  let borderColor = "transparent";
-  let badgeColor = theme.colors.onSurfaceVariant;
-  let badgeText = "";
-  if (isResolved) {
-    if (winningDirection === "yes") {
-      borderColor = theme.colors.success;
-      badgeColor = theme.colors.success;
-      badgeText = "Yes Won";
-    } else if (winningDirection === "no") {
-      borderColor = theme.colors.error;
-      badgeColor = theme.colors.error;
-      badgeText = "No Won";
-    } else if (winningDirection === "draw") {
-      borderColor = theme.colors.onSurfaceVariant;
-      badgeColor = theme.colors.onSurfaceVariant;
-      badgeText = "Draw";
+  // Get market status and styling - matching StatusFilterBar colors
+  const getMarketStatus = () => {
+    if (isResolved) {
+      if (winningDirection === "yes") {
+        return {
+          text: "YES WON",
+          color: "#8b5cf6",
+          bgColor: "rgba(139, 92, 246, 0.1)",
+          icon: "check-circle",
+        };
+      } else if (winningDirection === "no") {
+        return {
+          text: "NO WON",
+          color: "#8b5cf6",
+          bgColor: "rgba(139, 92, 246, 0.1)",
+          icon: "close-circle",
+        };
+      } else {
+        return {
+          text: "DRAW",
+          color: "#8b5cf6",
+          bgColor: "rgba(139, 92, 246, 0.1)",
+          icon: "minus-circle",
+        };
+      }
     } else {
-      borderColor = theme.colors.surfaceContainerHigh;
-      badgeColor = theme.colors.onSurfaceVariant;
-      badgeText = "Resolved";
+      // Check if this is an active market (future market that has completed betting but not resolved)
+      const now = Date.now();
+      const marketStart = Number(market.marketStart) * 1000;
+      const marketEnd = Number(market.marketEnd) * 1000;
+
+      if (isLive) {
+        // Live market - betting happens during market interval
+        return {
+          text: "LIVE",
+          color: "#3b82f6",
+          bgColor: "rgba(59, 130, 246, 0.1)",
+          icon: "radio-tower",
+        };
+      } else {
+        // Future market
+        if (now >= marketStart && now <= marketEnd) {
+          // Market is currently running (active)
+          return {
+            text: "ACTIVE",
+            color: "#3b82f6",
+            bgColor: "rgba(59, 130, 246, 0.1)",
+            icon: "play-circle",
+          };
+        } else if (now < marketStart) {
+          // Betting period
+          return {
+            text: "BETTING",
+            color: "#10b981",
+            bgColor: "rgba(16, 185, 129, 0.1)",
+            icon: "gavel",
+          };
+        } else {
+          // Market has ended but not resolved
+          return {
+            text: "ACTIVE",
+            color: "#3b82f6",
+            bgColor: "rgba(59, 130, 246, 0.1)",
+            icon: "play-circle",
+          };
+        }
+      }
     }
-  }
+  };
+
+  const status = getMarketStatus();
 
   // Calculate probability from yesLiquidity and noLiquidity
   const yes = Number(market.yesLiquidity || 0);
@@ -91,156 +137,282 @@ export function MarketCard({ market }: { market: Market }) {
   }
   const probabilityPercent = Math.round(probability * 100);
 
-  const resolvedDirection = isResolved
-    ? market.winningDirection === WinningDirection.YES
-      ? "YES"
-      : "NO"
-    : null;
-
   const handlePress = () => {
     navigation.navigate("MarketDetail", { id: market.marketId });
   };
 
   return (
-    <Pressable onPress={handlePress} style={styles.cardTouchable}>
-      <GlassyCard
-        style={[
-          styles.card,
-          isResolved && { borderLeftWidth: 5, borderLeftColor: borderColor },
-        ]}
-        intensity={36}
-        shimmer={false}
-      >
+    <Pressable onPress={handlePress}>
+      <RefractiveBgCard style={styles.card} borderRadius={16}>
+        {/* Header with status badge */}
         <View style={styles.headerRow}>
-          <Text style={styles.question}>{market.question}</Text>
-          {isResolved && (
-            <View style={[styles.badge, { backgroundColor: badgeColor }]}>
-              <Text style={styles.badgeText}>{badgeText}</Text>
-            </View>
-          )}
-        </View>
-
-        {!isLive && (
-          <View style={styles.metaRow}>
-            <Text style={styles.metaText}>
-              {formatMarketDuration(market.marketStart, market.marketEnd)}
-            </Text>
-            <Text style={styles.metaTextSecondary}>
-              {formatDate(market.marketStart)}
-            </Text>
-          </View>
-        )}
-
-        {/* Probability */}
-        <View style={styles.probabilityRow}>
-          <Text style={styles.probabilityText}>{probabilityPercent}%</Text>
-          <View style={styles.probabilityBarBg}>
-            <View
-              style={[
-                styles.probabilityBarFill,
-                { width: `${probabilityPercent}%` },
-              ]}
+          <View style={styles.statusBadge}>
+            <MaterialCommunityIcons
+              name={status.icon as any}
+              size={16}
+              color={status.color}
             />
+            <Text style={[styles.statusText, { color: status.color }]}>
+              {status.text}
+            </Text>
+          </View>
+          <Text style={styles.volume}>
+            ${parseFloat(market.volume || "0").toFixed(1)}
+          </Text>
+        </View>
+
+        {/* Question */}
+        <Text style={styles.question} numberOfLines={2}>
+          {market.question}
+        </Text>
+
+        {/* Interval and Time Details - always show time range */}
+        <View style={styles.intervalSection}>
+          <View style={styles.intervalRow}>
+            <MaterialCommunityIcons
+              name="clock-outline"
+              size={16}
+              color="rgba(255, 255, 255, 0.7)"
+            />
+            <Text style={styles.intervalLabel}>Time:</Text>
+            <Text style={styles.intervalValue}>
+              {new Date(Number(market.marketStart) * 1000).toLocaleTimeString(
+                "en-US",
+                {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                }
+              )}{" "}
+              to{" "}
+              {new Date(Number(market.marketEnd) * 1000).toLocaleTimeString(
+                "en-US",
+                {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                }
+              )}
+            </Text>
           </View>
         </View>
 
-        {/* Bottom row: Volume and State */}
-        <View style={styles.bottomRow}>
-          <Text style={styles.bottomText}>
-            ${parseFloat(market.volume || "0").toFixed(1)} Vol.
-          </Text>
-          <Text style={styles.bottomText}>
-            {isLive
-              ? getTimeLeft(market.marketEnd)
-              : getBettingTimeLeft(market.marketStart)}
-          </Text>
+        {/* Voting Bias section */}
+        <View style={styles.probabilitySection}>
+          <View style={styles.probabilityHeader}>
+            <Text style={styles.probabilityLabel}>Voting Bias</Text>
+            <Text style={styles.probabilityValue}>{probabilityPercent}%</Text>
+          </View>
+          <View style={styles.probabilityBarContainer}>
+            <View style={styles.probabilityBarBg}>
+              <View
+                style={[
+                  styles.probabilityBarFill,
+                  {
+                    width: `${probabilityPercent}%`,
+                    backgroundColor: status.color,
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.probabilityLabels}>
+              <Text style={styles.probabilityLabelText}>NO</Text>
+              <Text style={styles.probabilityLabelText}>YES</Text>
+            </View>
+          </View>
         </View>
-      </GlassyCard>
+
+        {/* Bottom info */}
+        <View style={styles.bottomRow}>
+          <View style={styles.timeInfo}>
+            <MaterialCommunityIcons
+              name="clock-outline"
+              size={14}
+              color="rgba(255, 255, 255, 0.6)"
+            />
+            <Text style={styles.timeText}>
+              {isLive
+                ? getTimeLeft(market.marketEnd)
+                : getBettingTimeLeft(market.marketStart)}
+            </Text>
+          </View>
+          {(() => {
+            const startDate = new Date(Number(market.marketStart) * 1000);
+            const endDate = new Date(Number(market.marketEnd) * 1000);
+            const isSameDay =
+              startDate.toDateString() === endDate.toDateString();
+
+            // Check if betting is ending soon (less than 30 minutes)
+            const now = Date.now();
+            const bettingEndTime = Number(market.marketStart) * 1000;
+            const timeUntilBettingEnds = bettingEndTime - now;
+            const minutesLeft = Math.floor(timeUntilBettingEnds / (1000 * 60));
+
+            if (minutesLeft > 0 && minutesLeft <= 30) {
+              return (
+                <Text style={[styles.dateText, { color: "#f59e0b" }]}>
+                  {minutesLeft} mins left
+                </Text>
+              );
+            }
+
+            if (isSameDay) {
+              return (
+                <Text style={styles.dateText}>
+                  {formatDate(market.marketStart)}
+                </Text>
+              );
+            }
+            return null;
+          })()}
+        </View>
+      </RefractiveBgCard>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  cardTouchable: {
-    marginVertical: 8,
-    marginHorizontal: 4,
-  },
   card: {
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    marginHorizontal: 0,
-    borderLeftWidth: 0,
-    // Remove old backgroundColor and shadow
+    position: "relative",
+    overflow: "hidden",
+    height: 320,
+    width: "100%",
+    marginVertical: 12,
   },
   headerRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: theme.spacing.sm,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: "Poppins-SemiBold",
+  },
+  volume: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
+    fontFamily: "Poppins-Bold",
   },
   question: {
-    color: theme.colors.onSurface,
+    color: "white",
     fontSize: 18,
-    fontWeight: "500",
-    flex: 1,
-    marginRight: theme.spacing.md,
-  },
-  badge: {
-    borderRadius: theme.borderRadius.md,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    alignSelf: "flex-start",
-  },
-  badgeText: {
-    color: theme.colors.onPrimary,
-    fontWeight: "700",
-    fontSize: 12,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.sm,
-  },
-  metaText: {
-    color: theme.colors.onSurface,
-    fontSize: 14,
-    marginRight: theme.spacing.md,
-  },
-  metaTextSecondary: {
-    color: theme.colors.onSurfaceVariant,
-    fontSize: 12,
-  },
-  probabilityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.sm,
-  },
-  probabilityText: {
-    color: theme.colors.onSurface,
-    fontSize: 16,
     fontWeight: "600",
-    marginRight: theme.spacing.md,
+    lineHeight: 24,
+    marginBottom: 20,
+    fontFamily: "Poppins-SemiBold",
+  },
+  probabilitySection: {
+    marginBottom: 16,
+  },
+  probabilityHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  probabilityLabel: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+  },
+  probabilityValue: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "700",
+    fontFamily: "Poppins-Bold",
+  },
+  probabilityBarContainer: {
+    marginBottom: 4,
   },
   probabilityBarBg: {
-    flex: 1,
     height: 8,
-    backgroundColor: theme.colors.surfaceContainer,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 4,
     overflow: "hidden",
+    marginBottom: 6,
   },
   probabilityBarFill: {
     height: 8,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: "#3b82f6",
     borderRadius: 4,
+  },
+  probabilityLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  probabilityLabelText: {
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 12,
+    fontFamily: "Poppins-Regular",
   },
   bottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: theme.spacing.sm,
   },
-  bottomText: {
-    color: theme.colors.onSurface,
+  timeInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  timeText: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+  },
+  dateText: {
+    color: "rgba(255, 255, 255, 0.6)",
     fontSize: 12,
+    fontFamily: "Poppins-Regular",
+  },
+  intervalSection: {
+    marginBottom: 16,
+  },
+  intervalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  intervalLabel: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+    marginLeft: 8,
+  },
+  intervalValue: {
+    color: "white",
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+  },
+  timeRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  timeItem: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 4,
+  },
+  timeLabel: {
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 12,
+    fontFamily: "Poppins-Regular",
+  },
+  timeValue: {
+    color: "white",
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
   },
 });
