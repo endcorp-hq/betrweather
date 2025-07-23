@@ -5,7 +5,6 @@ import { MarketCard } from "../components/ui/MarketCard";
 import { useFilters } from "../components/ui/useFilters";
 import { StatusFilterBar } from "../components/ui/StatusFilterBar";
 import { LogoLoader as LoadingSpinner } from "../components/ui/LoadingSpinner";
-import MaterialCard from '../components/ui/MaterialCard';
 import theme from '../theme';
 import { WinningDirection } from "shortx-sdk";
 import { MarketType } from "shortx-sdk";

@@ -1,4 +1,4 @@
-import { TextInput, View, Text, StyleProp, ViewStyle } from "react-native";
+import { TextInput, View, Text, StyleProp, ViewStyle, TouchableOpacity, Image } from "react-native";
 import { USDC_ICON } from "./svg/usdc";
 import { useState, useEffect, useRef } from "react";
 import theme from '../../theme';
@@ -8,11 +8,17 @@ export const DynamicTextInput = ({
     onChangeText,
     placeholder,
     style,
+    disabled = false,
+    selectedToken = "USDC",
+    onTokenChange,
   }: {
     value: string;
     onChangeText: (text: string) => void;
     placeholder: string;
     style?: StyleProp<ViewStyle>;
+    disabled?: boolean;
+    selectedToken?: "USDC" | "BONK";
+    onTokenChange?: (token: "USDC" | "BONK") => void;
   }) => {
     const [fontSize, setFontSize] = useState(40);
     const [inputWidth, setInputWidth] = useState(120);
@@ -54,6 +60,12 @@ export const DynamicTextInput = ({
         onChangeText(text);
       }
     };
+
+    const handleTokenToggle = () => {
+      if (onTokenChange) {
+        onTokenChange(selectedToken === "USDC" ? "BONK" : "USDC");
+      }
+    };
   
     return (
       <View
@@ -63,12 +75,12 @@ export const DynamicTextInput = ({
             borderColor: theme.colors.outlineVariant,
             borderWidth: 1.5,
             borderRadius: 16,
-            paddingVertical: 18,
+            paddingVertical: 24,
             paddingHorizontal: 18,
             alignItems: "center",
             justifyContent: "center",
             marginBottom: 18,
-            minHeight: 90,
+            minHeight: 200,
             width: '100%',
          
           },
@@ -87,20 +99,54 @@ export const DynamicTextInput = ({
             textAlignVertical: "center",
             width: inputWidth,
             height: 48,
-            color: "#000",
+            color: disabled ? "#999" : "#000",
             fontWeight: '700',
             fontFamily: 'Poppins-SemiBold',
             backgroundColor: 'transparent',
             marginBottom: 0,
+            opacity: disabled ? 0.5 : 1,
           }}
           keyboardType="decimal-pad"
           multiline={false}
           maxLength={15}
+          editable={!disabled}
         />
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-          <USDC_ICON width={20} height={20} />
-          <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16, fontWeight: '600', marginLeft: 6, fontFamily: 'Poppins-SemiBold' }}>USDC</Text>
-        </View>
+        <TouchableOpacity
+          onPress={handleTokenToggle}
+          disabled={disabled}
+          activeOpacity={0.7}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 25,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
+            borderColor: '#e5e5e5',
+          }}
+        >
+          {selectedToken === "USDC" ? (
+            <USDC_ICON width={20} height={20} />
+          ) : (
+            <Image
+              source={require("../../../assets/bonk-logo.png")}
+              style={{ width: 20, height: 20 }}
+              resizeMode="contain"
+            />
+          )}
+          <Text style={{ 
+            color: theme.colors.onSurfaceVariant, 
+            fontSize: 16, 
+            fontWeight: '600', 
+            marginLeft: 6, 
+            fontFamily: 'Poppins-SemiBold',
+            opacity: disabled ? 0.5 : 1,
+          }}>
+            {selectedToken}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };

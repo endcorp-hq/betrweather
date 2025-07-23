@@ -18,7 +18,8 @@ const TAB_BAR_HEIGHT = 62;
 const ICON_SIZE = 24;
 const ACTIVE_ICON_SCALE = 0.7;
 
-const SECONDARY_COLOR = "#130057";
+const SECONDARY_COLOR = "rgba(139, 92, 246, 0.15)";
+const ACTIVE_BORDER_COLOR = "rgba(139, 92, 246, 0.4)";
 
 export function CustomTabBar({
   state,
@@ -42,16 +43,16 @@ export function CustomTabBar({
           shadowColor: '#000',
           shadowOffset: {
             width: 0,
-            height: 4,
+            height: 8,
           },
-          shadowOpacity: 0.5,
-          shadowRadius: 8,
+          shadowOpacity: 0.3,
+          shadowRadius: 16,
           elevation: 100,
         }}
       >
         {/* Blur background */}
         <BlurView
-          intensity={50}
+          intensity={60}
           tint="dark"
           style={{
             position: 'absolute',
@@ -71,7 +72,7 @@ export function CustomTabBar({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
             borderRadius: 40,
           }}
         />
@@ -84,8 +85,8 @@ export function CustomTabBar({
             left: 0,
             right: 0,
             bottom: 0,
-            borderWidth: 2.5,
-            borderColor: 'rgba(255, 255, 255, 0.3)',
+            borderWidth: 1.5,
+            borderColor: 'rgba(255, 255, 255, 0.2)',
             borderRadius: 40,
           }}
         />
@@ -121,22 +122,22 @@ export function CustomTabBar({
             };
 
             let iconName: any = "circle";
-            let activeColor = theme.colors.primary;
+            let activeColor = "#8b5cf6"; // Purple for consistency
             if (route.name === "Weather") {
               iconName = "cloud";
-              activeColor = "#78a646"; // sky-blue
+              activeColor = "#3b82f6"; // Blue for weather
             }
             if (route.name === "Markets") {
               iconName = "finance";
-              activeColor = "#78a646"; // accent-green
+              activeColor = "#10b981"; // Green for markets/betting
             }
             if (route.name === "Profile") {
               iconName = "face-man";
-              activeColor = "#78a646";
+              activeColor = "#f59e0b"; // Amber for profile
             }
             if (route.name === "AI Models") {
               iconName = "robot-excited";
-              activeColor = "#78a646"; // accent-green
+              activeColor = "#8b5cf6"; // Purple for AI
             }
 
             // Animate icon scale on focus
@@ -153,7 +154,12 @@ export function CustomTabBar({
                 onPress={onPress}
                 activeOpacity={0.85}
                 className={`flex-1 flex-row gap-x-1 items-center justify-center rounded-[30px]`}
-                style={{ height: TAB_BAR_HEIGHT / 1.5, backgroundColor: isFocused ? SECONDARY_COLOR : "transparent" }}
+                style={{ 
+                  height: TAB_BAR_HEIGHT / 1.5, 
+                  backgroundColor: isFocused ? SECONDARY_COLOR : "transparent",
+                  borderWidth: isFocused ? 1 : 0,
+                  borderColor: isFocused ? ACTIVE_BORDER_COLOR : "transparent",
+                }}
               >
                 <Animated.View style={{ transform: [{ scale }] }}>
                   {route.name === "Weather" ? (
@@ -161,7 +167,7 @@ export function CustomTabBar({
                       name={iconName}
                       size={ICON_SIZE}
                       color={
-                        isFocused ? activeColor : theme.colors.onSurfaceVariant
+                        isFocused ? activeColor : "rgba(255, 255, 255, 0.6)"
                       }
                     />
                   ) : (
@@ -169,7 +175,7 @@ export function CustomTabBar({
                       name={iconName}
                       size={ICON_SIZE}
                       color={
-                        isFocused ? activeColor : theme.colors.onSurfaceVariant
+                        isFocused ? activeColor : "rgba(255, 255, 255, 0.6)"
                       }
                     />
                   )}
@@ -179,6 +185,7 @@ export function CustomTabBar({
                   entering={FadeIn.duration(200)}
                   exiting={FadeOut.duration(200)}
                   className="text-white text-xs font-better-regular"
+                  style={{ color: activeColor, fontWeight: '600' }}
                 >
                   {label as string}
                 </Animated.Text>

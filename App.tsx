@@ -14,6 +14,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View } from "react-native";
 import { WeatherProvider } from "./src/components/ui/ScreenWrappers/WeatherBg";
 import { StatusBar } from "expo-status-bar";
+import { ToastProvider } from "./src/components/ui/ToastProvider";
 
 const queryClient = new QueryClient();
 
@@ -28,8 +29,10 @@ export default function App() {
               <WeatherProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
                   <SafeAreaProvider>
+                    <ToastProvider>
                     <AppNavigator />
                     <Toaster richColors />
+                    </ToastProvider>
                   </SafeAreaProvider>
                 </GestureHandlerRootView>
               </WeatherProvider>

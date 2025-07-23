@@ -4,10 +4,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  ActivityIndicator,
   Switch,
   Animated,
-  TextInput,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useShortx } from "../solana/useContract";
@@ -21,8 +19,6 @@ import { getMint, formatDate } from "../utils/helpers";
 import { PublicKey } from "@solana/web3.js";
 import { useCreateAndSendTx } from "../utils/useCreateAndSendTx";
 import { DynamicTextInput } from "../components/ui/dynamicTextInput";
-import { toast } from "sonner-native";
-import GlassyCard from "../components/ui/GlassyCard";
 import MaterialCard from "../components/ui/MaterialCard";
 import theme from "../theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -30,22 +26,24 @@ import { DefaultBg } from "../components/ui/ScreenWrappers/DefaultBg";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { RefractiveBgCard } from "../components/ui/RefractiveBgCard";
 import { LogoLoader } from "../components/ui/LoadingSpinner";
-import { USDC_ICON } from "../components/ui/svg/usdc";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import SwipeButton from "rn-swipe-button";
+import { useGlobalToast } from "../components/ui/ToastProvider";
 
 const SUGGESTED_BETS = [1, 3, 5, 10];
 
 function SwipeableBetCard({
   market,
   onSelect,
+  scrollViewRef,
 }: {
   market: any;
   onSelect: (dir: "yes" | "no") => void;
+  scrollViewRef: React.RefObject<ScrollView>;
 }) {
   const pan = useRef(new Animated.ValueXY()).current;
   const [swiping, setSwiping] = useState(false);
   const [swipeDir, setSwipeDir] = useState<"yes" | "no" | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { bottom: 24 };
 
   // Opacity for each overlay
@@ -128,26 +126,31 @@ function SwipeableBetCard({
     } else if (now < marketStart) {
       return { text: "BETTING", color: "#10b981", icon: "gavel" };
     } else {
-      return { text: "ACTIVE", color: "#3b82f6", icon: "play-circle" };
+      return { text: "BETTING", color: "#10b981", icon: "gavel" };
     }
   };
 
   const status = getMarketStatus();
+
+  const handleExpand = () => {
+    setIsExpanded(!isExpanded);
+    if (!isExpanded && scrollViewRef.current) {
+      // Scroll to completely hide the back button and market card
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 400, animated: true });
+      }, 100);
+    }
+  };
 
   return (
     <View
       style={{
         flex: 1,
         width: "100%",
-        position: "absolute",
-        left: 0,
-        right: 0,
-        top: 60,
-        bottom: 0,
-        justifyContent: "flex-end",
+        position: "relative",
+        justifyContent: "center",
         alignItems: "center",
         paddingBottom: insets.bottom + 16,
-        zIndex: 10,
       }}
     >
       <Animated.View
@@ -220,18 +223,30 @@ function SwipeableBetCard({
               </Text>
             </View>
 
-            {/* Swipe Instructions */}
-            <Text style={styles.swipeInstruction}>
-              Swipe{" "}
-              <Text style={{ color: "#10b981", fontWeight: "bold" }}>
-                right
-              </Text>{" "}
-              for{" "}
-              <Text style={{ color: "#10b981", fontWeight: "bold" }}>YES</Text>,{" "}
-              <Text style={{ color: "#ef4444", fontWeight: "bold" }}>left</Text>{" "}
-              for{" "}
-              <Text style={{ color: "#ef4444", fontWeight: "bold" }}>NO</Text>
-            </Text>
+            {/* Swipe Instructions or Winning Direction */}
+            {market.winningDirection !== WinningDirection.NONE ? (
+              <Text style={styles.swipeInstruction}>
+                Winning Direction:{" "}
+                <Text style={{ 
+                  color: market.winningDirection === WinningDirection.YES ? "#059669" : "#dc2626", 
+                  fontWeight: "bold" 
+                }}>
+                  {market.winningDirection === WinningDirection.YES ? "YES" : "NO"}
+                </Text>
+              </Text>
+            ) : (
+              <Text style={styles.swipeInstruction}>
+                Swipe{" "}
+                <Text style={{ color: "#059669", fontWeight: "bold" }}>
+                  right
+                </Text>{" "}
+                for{" "}
+                <Text style={{ color: "#059669", fontWeight: "bold" }}>YES</Text>,{" "}
+                <Text style={{ color: "#dc2626", fontWeight: "bold" }}>left</Text>{" "}
+                for{" "}
+                <Text style={{ color: "#dc2626", fontWeight: "bold" }}>NO</Text>
+              </Text>
+            )}
 
             {/* YES/NO overlays */}
             <Animated.View
@@ -289,6 +304,129 @@ function SwipeableBetCard({
           </View>
         </RefractiveBgCard>
       </Animated.View>
+
+      {/* Expand/Collapse Arrow - Outside animated container */}
+      <TouchableOpacity
+        onPress={handleExpand}
+        style={styles.expandButton}
+        activeOpacity={0.7}
+      >
+        <MaterialCommunityIcons
+          name={isExpanded ? "chevron-up" : "chevron-down"}
+          size={24}
+          color="rgba(255, 255, 255, 0.8)"
+        />
+      </TouchableOpacity>
+
+      {/* Full Screen Details Section */}
+      {isExpanded && (
+        <View style={styles.fullScreenDetails}>
+          <ScrollView 
+            style={styles.detailsScrollView}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.detailsCard}>
+              {/* Market Description */}
+              <View style={styles.detailSection}>
+                <Text style={styles.sectionTitle}>Description</Text>
+                <Text style={styles.descriptionText}>
+                  {market.description || "This market allows users to bet on the outcome of a specific event. The resolution will be determined based on the criteria outlined below. Users can place bets on whether the specified condition will occur within the given time frame."}
+                </Text>
+              </View>
+
+              {/* Resolution Details */}
+              <View style={styles.detailSection}>
+                <Text style={styles.sectionTitle}>Resolution Details</Text>
+                <Text style={styles.descriptionText}>
+                  {market.resolutionDetails || "The market will be resolved based on official data sources and verified information. The outcome will be determined at the resolution time specified above. All bets will be settled according to the official results."}
+                </Text>
+              </View>
+
+              {/* Market Rules */}
+              <View style={styles.detailSection}>
+                <Text style={styles.sectionTitle}>Market Rules</Text>
+                <View style={styles.rulesList}>
+                  <View style={styles.ruleItem}>
+                    <MaterialCommunityIcons
+                      name="circle-small"
+                      size={20}
+                      color="rgba(255, 255, 255, 0.7)"
+                    />
+                    <Text style={styles.ruleText}>Minimum bet: $1 USDC</Text>
+                  </View>
+                  <View style={styles.ruleItem}>
+                    <MaterialCommunityIcons
+                      name="circle-small"
+                      size={20}
+                      color="rgba(255, 255, 255, 0.7)"
+                    />
+                    <Text style={styles.ruleText}>Maximum bet: $10,000 USDC</Text>
+                  </View>
+                  <View style={styles.ruleItem}>
+                    <MaterialCommunityIcons
+                      name="circle-small"
+                      size={20}
+                      color="rgba(255, 255, 255, 0.7)"
+                    />
+                    <Text style={styles.ruleText}>Bets are final once placed</Text>
+                  </View>
+                  <View style={styles.ruleItem}>
+                    <MaterialCommunityIcons
+                      name="circle-small"
+                      size={20}
+                      color="rgba(255, 255, 255, 0.7)"
+                    />
+                    <Text style={styles.ruleText}>Resolution based on official sources</Text>
+                  </View>
+                  <View style={styles.ruleItem}>
+                    <MaterialCommunityIcons
+                      name="circle-small"
+                      size={20}
+                      color="rgba(255, 255, 255, 0.7)"
+                    />
+                    <Text style={styles.ruleText}>No refunds after betting period ends</Text>
+                  </View>
+                  <View style={styles.ruleItem}>
+                    <MaterialCommunityIcons
+                      name="circle-small"
+                      size={20}
+                      color="rgba(255, 255, 255, 0.7)"
+                    />
+                    <Text style={styles.ruleText}>Disputes resolved by market administrators</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Additional Information */}
+              <View style={styles.detailSection}>
+                <Text style={styles.sectionTitle}>Additional Information</Text>
+                <Text style={styles.descriptionText}>
+                  This prediction market operates on blockchain technology, ensuring transparency and immutability of all transactions. All betting activity is publicly verifiable and cannot be altered once confirmed on the network.
+                </Text>
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Close Arrow */}
+          <TouchableOpacity
+            onPress={() => {
+              setIsExpanded(false);
+              if (scrollViewRef.current) {
+                scrollViewRef.current.scrollTo({ y: 0, animated: true });
+              }
+            }}
+            style={styles.closeButton}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="chevron-up"
+              size={24}
+              color="rgba(255, 255, 255, 0.8)"
+            />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -298,6 +436,7 @@ export default function SlotMachineScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
   const { createAndSendTx } = useCreateAndSendTx();
+  const { toast } = useGlobalToast();
   // @ts-ignore
   const { id } = route.params || {};
   const {
@@ -312,10 +451,12 @@ export default function SlotMachineScreen() {
   const [selectedDirection, setSelectedDirection] = useState<
     "yes" | "no" | null
   >(null);
+  const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK">("USDC");
   const [showBetModal, setShowBetModal] = useState(false);
   const [betStatus, setBetStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     async function fetchMarket() {
@@ -324,14 +465,21 @@ export default function SlotMachineScreen() {
     if (id) fetchMarket();
   }, [id]);
 
-  console.log("this is selectedAccount", selectedAccount?.publicKey);
-
   const handleBet = async (bet: string) => {
     if (!selectedAccount || !selectedAccount.publicKey) {
-      toast.error("Please connect your wallet");
+      toast.error("Wallet Error", "Please connect your wallet to place a bet", {
+        position: "top"
+      });
       return;
     }
+
     setBetStatus("loading");
+    
+    // Show loading toast and get the ID
+    const loadingToastId = toast.loading("Placing Bet", "Processing your bet on the blockchain...", {
+      position: "top"
+    });
+
     try {
       const metadata = {
         question: selectedMarket?.question,
@@ -341,6 +489,7 @@ export default function SlotMachineScreen() {
         amount: parseFloat(betAmount),
         direction: bet === "yes" ? WinningDirection.YES : WinningDirection.NO,
       };
+      
       const response = await axios.post(
         "http://192.168.1.16:8001/nft/create",
         metadata,
@@ -350,17 +499,26 @@ export default function SlotMachineScreen() {
           },
         }
       );
+      
       const metadataUri = response.data.metadataUrl;
       if (!metadataUri || !selectedMarket) {
+        // Update loading toast to error
+        toast.update(loadingToastId, {
+          type: "error",
+          title: "Bet Failed",
+          message: "Failed to create bet metadata. Please try again.",
+          duration: 4000
+        });
         setBetStatus("error");
         return;
       }
+      
       const buyIxs = await openPosition({
         marketId: parseInt(selectedMarket.marketId),
         direction: bet === "yes" ? { yes: {} } : { no: {} },
         amount: parseFloat(betAmount),
-        mint: getMint("USDC", "devnet"),
-        token: getMint("USDC", "devnet").toBase58(),
+        mint: getMint(selectedToken, "devnet"),
+        token: getMint(selectedToken, "devnet").toBase58(),
         payer: selectedAccount.publicKey,
         feeVaultAccount: new PublicKey(
           process.env.EXPO_PUBLIC_FEE_VAULT ||
@@ -369,15 +527,50 @@ export default function SlotMachineScreen() {
         usdcMintAddress: new PublicKey(process.env.EXPO_PUBLIC_USDC_MINT || ""),
         metadataUri: metadataUri,
       });
+      
       if (typeof buyIxs === "string" || !buyIxs) {
+        // Update loading toast to error
+        toast.update(loadingToastId, {
+          type: "error",
+          title: "Bet Failed",
+          message: "Failed to create bet transaction. Please try again.",
+          duration: 4000
+        });
         setBetStatus("error");
         return;
       }
+      
       const signature = await createAndSendTx(buyIxs.ixs, true, undefined, {
         addressLookupTableAccounts: buyIxs.addressLookupTableAccounts,
       });
+      
+      // Success! Update loading toast to success
+      toast.update(loadingToastId, {
+        type: "success",
+        title: "Bet Placed!",
+        message: `Successfully placed ${betAmount} ${selectedToken} bet on ${bet.toUpperCase()}`,
+        duration: 4000
+      });
+      
       setBetStatus("success");
+      
+      // Close modal after success toast
+      setTimeout(() => {
+        setShowBetModal(false);
+        setBetStatus("idle");
+        setBetAmount("");
+        setSelectedDirection(null);
+      }, 2000);
+      
     } catch (error) {
+      console.error("Bet error:", error);
+      // Update loading toast to error
+      toast.update(loadingToastId, {
+        type: "error",
+        title: "Bet Failed",
+        message: "An error occurred while placing your bet. Please try again.",
+        duration: 5000
+      });
       setBetStatus("error");
     }
   };
@@ -398,8 +591,15 @@ export default function SlotMachineScreen() {
     <DefaultBg>
       <View style={{ flex: 1 }}>
         <ScrollView
+          ref={scrollViewRef}
           className="bg-transparent px-4"
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          snapToInterval={0}
+          snapToAlignment="start"
+          bounces={false}
         >
           {/* Back Button */}
           <TouchableOpacity
@@ -434,13 +634,14 @@ export default function SlotMachineScreen() {
           {!loadingMarket && !shortxError && selectedMarket && (
             <>
               {/* Single Swipeable Card with all info */}
-              <View className="items-center">
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 600 }}>
                 <SwipeableBetCard
                   market={selectedMarket}
                   onSelect={(dir) => {
                     setSelectedDirection(dir);
                     setShowBetModal(true);
                   }}
+                  scrollViewRef={scrollViewRef}
                 />
               </View>
               {/* Slot Machine, Aggregated outcome, etc. can go here if desired */}
@@ -457,10 +658,11 @@ export default function SlotMachineScreen() {
           <TouchableOpacity
             style={{
               flex: 1,
-              backgroundColor: "rgba(0,0,0,0.5)",
+              backgroundColor: "rgba(0,0,0,0.4)",
               justifyContent: "center",
               alignItems: "center",
               padding: 20,
+              zIndex: 20,
             }}
             activeOpacity={1}
             onPress={() => setShowBetModal(false)}
@@ -570,7 +772,7 @@ export default function SlotMachineScreen() {
                     alignItems: "center",
                     justifyContent: "center",
                     marginBottom: 18,
-                    minHeight: 90,
+                    minHeight: 160,
                     width: "100%",
                   }}
                 >
@@ -583,11 +785,15 @@ export default function SlotMachineScreen() {
                       }
                     }}
                     style={{
-                      width: "100%",
+                      flex: 1,
                       backgroundColor: "transparent",
                       borderWidth: 0,
+                      height: 100,
                     }}
                     placeholder="0"
+                    disabled={betStatus === "loading"}
+                    selectedToken={selectedToken}
+                    onTokenChange={setSelectedToken}
                   />
                 </View>
 
@@ -602,15 +808,17 @@ export default function SlotMachineScreen() {
                       ]}
                       onPress={() => setBetAmount(amt.toString())}
                       activeOpacity={0.85}
+                      disabled={betStatus === "loading"}
                     >
                       <Text
-                        style={
+                        style={[
                           betAmount === amt.toString()
                             ? styles.suggestedButtonTextBigSelected
-                            : styles.suggestedButtonTextBig
-                        }
+                            : styles.suggestedButtonTextBig,
+                          betStatus === "loading" && { opacity: 0.5 }
+                        ]}
                       >
-                        ${amt}
+                        {selectedToken === "BONK" ? `${amt}K` : `$${amt}`}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -628,6 +836,7 @@ export default function SlotMachineScreen() {
                       selectedDirection === "yes" ? "#8b5cf6" : "#8b5cf6"
                     }
                     trackColor={{ true: "#8b5cf655", false: "#8b5cf655" }}
+                    disabled={betStatus === "loading"}
                   />
                   <Text style={styles.manualToggleLabel}>Bet YES</Text>
                 </View>
@@ -651,10 +860,10 @@ export default function SlotMachineScreen() {
                     fontWeight: "600",
                   }}
                   onSwipeSuccess={() => {
-                    setShowBetModal(false); // Close modal immediately
+                    // Don't close modal - keep it open during processing
                     setBetStatus("loading");
                     // Call the actual handleBet function
-                    handleBet(betAmount);
+                    handleBet(selectedDirection || "yes");
                   }}
                   onSwipeFail={() => {
                     console.log("Swipe failed - not swiped far enough");
@@ -662,7 +871,9 @@ export default function SlotMachineScreen() {
                   railBackgroundColor={
                     betStatus === "loading" ? "#10b981" : "#000000"
                   }
-                  railBorderColor={betStatus === "loading" ? "#10b981" : "#fff"}
+                  railBorderColor={
+                    betStatus === "loading" ? "transparent" : "#fff"
+                  }
                   railFillBackgroundColor="#088F8F"
                   railFillBorderColor="#10b981"
                   railStyles={{
@@ -682,7 +893,7 @@ export default function SlotMachineScreen() {
                   height={60}
                   swipeSuccessThreshold={80}
                   shouldResetAfterSuccess={true}
-                  resetAfterSuccessAnimDelay={1000}
+                  resetAfterSuccessAnimDelay={500}
                   finishRemainingSwipeAnimationDuration={300}
                   containerStyles={{
                     marginBottom: 18,
@@ -1031,7 +1242,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.8)",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    zIndex: 100,
   },
   betModalCard: {
     width: "90%",
@@ -1151,7 +1363,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     backgroundColor: "rgba(0,0,0,0.82)",
-    zIndex: 1000,
+    zIndex: 100,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1233,5 +1445,101 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     fontFamily: "Poppins-Bold",
     marginLeft: 8,
+  },
+  expandButton: {
+    alignSelf: "center",
+    marginTop: 16,
+    marginBottom: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  fullScreenDetails: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    zIndex: 999,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  detailsScrollView: {
+    flex: 1,
+    width: "100%",
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: 20,
+  },
+  detailsCard: {
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+    minHeight: 400,
+    width: "100%",
+  },
+  detailSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    color: "rgba(255, 255, 255, 0.95)",
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 12,
+    fontFamily: "Poppins-SemiBold",
+  },
+  descriptionText: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: "Poppins-Regular",
+  },
+  rulesList: {
+    marginTop: 12,
+  },
+  ruleItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  ruleText: {
+    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 15,
+    marginLeft: 8,
+    fontFamily: "Poppins-Regular",
+  },
+  closeButton: {
+    position: "absolute",
+    bottom: 30,
+    alignSelf: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });
