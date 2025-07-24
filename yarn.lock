@@ -9254,6 +9254,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-auto-scrolling@npm:^3.0.2":
+  version: 3.0.2
+  resolution: "react-native-auto-scrolling@npm:3.0.2"
+  checksum: 10c0/f46e3d511e8190525d5a9afb98bb645524aebb38d7cf842f0e21d65d2ec98eb21e4345f4bf7382ccce252280c872c02bc3e9ca95181a9d8a297ae4d5536b7a63
+  languageName: node
+  linkType: hard
+
 "react-native-css-interop@npm:0.1.22":
   version: 0.1.22
   resolution: "react-native-css-interop@npm:0.1.22"
@@ -10237,6 +10244,7 @@ __metadata:
     prettier-plugin-tailwindcss: "npm:^0.5.11"
     react: "npm:18.3.1"
     react-native: "npm:0.76.9"
+    react-native-auto-scrolling: "npm:^3.0.2"
     react-native-fs: "npm:^2.20.0"
     react-native-gesture-handler: "npm:~2.20.2"
     react-native-http: "npm:^0.0.3"

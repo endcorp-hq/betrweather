@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, Image, Animated } from 'react-native';
-import { RefractiveBgCard } from './RefractiveBgCard';
+import React, { useEffect, useRef } from "react";
+import { View, Text, Image, Animated } from "react-native";
+import { RefractiveBgCard } from "./RefractiveBgCard";
+import AutoScrolling from "react-native-auto-scrolling";
 
 interface HourlyForecastItemProps {
   time: string;
@@ -19,42 +20,8 @@ export function HourlyForecastItem({
   iconUri,
   precipitation,
 }: HourlyForecastItemProps) {
-  const scrollAnim = useRef(new Animated.Value(0)).current;
-  const textWidth = useRef(0);
-  const containerWidth = useRef(0);
-  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
-
-  useEffect(() => {
-    scrollAnim.setValue(0);
-
-    const timer = setTimeout(() => {
-      const scrollDistance = textWidth.current - containerWidth.current;
-      if (scrollDistance > 0) {
-        animationRef.current = Animated.loop(
-          Animated.sequence([
-            Animated.delay(1000),
-            Animated.timing(scrollAnim, {
-              toValue: -scrollDistance - 10, // add small buffer
-              duration: 3000,
-              useNativeDriver: true,
-            }),
-            Animated.delay(1000),
-            Animated.timing(scrollAnim, {
-              toValue: 0,
-              duration: 3000,
-              useNativeDriver: true,
-            }),
-          ])
-        );
-        animationRef.current.start();
-      }
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-      animationRef.current?.stop();
-    };
-  }, [description]);
+  // Calculate if text needs scrolling based on description length
+  const needsScrolling = description.length > 8;
 
   return (
     <RefractiveBgCard
@@ -72,7 +39,14 @@ export function HourlyForecastItem({
       </Text>
 
       {/* Weather Icon */}
-      <View style={{ alignItems: 'center', justifyContent: 'center', height: 30, marginBottom: 2 }}>
+      <View
+        style={{
+          alignItems: "center",
+          justifyContent: "center",
+          height: 30,
+          marginBottom: 2,
+        }}
+      >
         {iconUri ? (
           <Image
             source={{ uri: iconUri }}
@@ -80,41 +54,50 @@ export function HourlyForecastItem({
             resizeMode="contain"
           />
         ) : (
-          <Text className="text-lg">{icon || '☀️'}</Text>
+          <Text className="text-lg">{icon || "☀️"}</Text>
         )}
       </View>
 
       {/* Precipitation */}
-      <Text className="text-gray-300 text-xs text-center font-better-light mb-3">
-        {precipitation ?? ''}
-      </Text>
+      {precipitation && (
+        <Text className="text-gray-300 text-xs text-center font-better-light mb-2">
+          {precipitation}
+        </Text>
+      )}
 
-      {/* Auto-scrolling Description */}
-      <View
-        style={{
-          height: 16,
-          overflow: 'hidden',
-          width: '100%',
-          marginBottom: 4,
-        }}
-        onLayout={(e) => {
-          containerWidth.current = e.nativeEvent.layout.width;
-        }}
-      >
-        <Animated.View
-          style={{
-            transform: [{ translateX: scrollAnim }],
-          }}
-        >
-          <Text
-            className="text-gray-300 text-xs font-better-light"
-            onLayout={(e) => {
-              textWidth.current = e.nativeEvent.layout.width;
+      {/* Auto-scrolling Description with enhanced styling */}
+      <View className="mb-2">
+        {needsScrolling ? (
+          <AutoScrolling
+            duration={6000}
+            delay={2000}
+            endPaddingWidth={20}
+            style={{
+              height: 16,
+              justifyContent: 'center',
+              width: '100%',
+            }}
+          >
+            <Text 
+              className="text-gray-300 text-xs font-better-light"
+              style={{
+                textAlign: 'center',
+                lineHeight: 16,
+              }}
+            >
+              {description}
+            </Text>
+          </AutoScrolling>
+        ) : (
+          <Text 
+            className="text-gray-300 text-xs font-better-light w-full text-center"
+            style={{
+              lineHeight: 16,
             }}
           >
             {description}
           </Text>
-        </Animated.View>
+        )}
       </View>
 
       {/* Temperature */}
