@@ -3,7 +3,7 @@ import { View, ImageBackground } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WeatherBackgroundSkia } from "./WeatherBackgroundSkia";
 import theme from "../../theme";
-import { useWeather } from "./ScreenWrappers/WeatherBg";
+import { useWeatherData } from "../../utils/useWeatherData";
 
 // Function to determine if it's day or night based on current time
 function isDayTime(): boolean {
@@ -14,20 +14,21 @@ function isDayTime(): boolean {
 
 // Function to get the appropriate background image based on weather and time
 function getBackgroundImage(weatherType: any): any {
-  const isDay = isDayTime();
+  // Extract base weather type from day/night variant (e.g., "sunny_day" -> "sunny")
+  const baseWeatherType = weatherType?.includes('_') ? weatherType.split('_')[0] : weatherType;
   
-  if (weatherType === "sunny" || weatherType === null) {
-    return isDay ? require("../../../assets/weather/day-clear.png") : require("../../../assets/weather/night-clear.png");
-  } else if (weatherType === "cloudy" || weatherType === "partly_cloudy") {
-    return isDay ? require("../../../assets/weather/morning-cloudy.png") : require("../../../assets/weather/night-cloudy.png");
+  if (baseWeatherType === "sunny" || baseWeatherType === null) {
+    return require("../../../assets/weather/day-clear.png");
+  } else if (baseWeatherType === "cloudy" || baseWeatherType === "partly_cloudy") {
+    return require("../../../assets/weather/morning-cloudy.png");
   }
   
   // For other weather types, use cloudy backgrounds as fallback
-  return isDay ? require("../../../assets/weather/morning-cloudy.png") : require("../../../assets/weather/night-cloudy.png");
+  return require("../../../assets/weather/morning-cloudy.png");
 }
 
 export function WeatherBackgroundWrapper({ children }: { children: React.ReactNode }) {
-  const { weatherType, isLoading } = useWeather();
+  const { weatherType, isLoading } = useWeatherData();
   const insets = useSafeAreaInsets();
   // Use a dark gradient background as the default/fallback
   const backgroundType = (!weatherType || isLoading) ? "dark_gradient" : weatherType;

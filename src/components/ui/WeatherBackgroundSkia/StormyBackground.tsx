@@ -95,13 +95,13 @@ function LightningBolt({ x, y, scale = 1, opacity = 1 }: { x: number; y: number;
   return (
     <Group>
       {/* Main lightning bolt */}
-      <Path
+    <Path
         path={path}
         color="#ffffff"
-        opacity={opacity}
-        style="stroke"
+      opacity={opacity}
+      style="stroke"
         strokeWidth={4 * scale}
-      >
+    >
         <BlurMask blur={1 * scale} style="normal" />
       </Path>
       {/* Brighter core */}
@@ -123,7 +123,7 @@ function LightningBolt({ x, y, scale = 1, opacity = 1 }: { x: number; y: number;
         strokeWidth={8 * scale}
       >
         <BlurMask blur={6 * scale} style="normal" />
-      </Path>
+    </Path>
     </Group>
   );
 }

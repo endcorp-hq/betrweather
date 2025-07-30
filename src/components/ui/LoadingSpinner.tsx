@@ -32,7 +32,7 @@ export function LogoLoader({ message = "Loading..." }: LoadingSpinnerProps) {
   return (
     <View className="flex-1 justify-center items-center">
       <Text className="text-white text-3xl font-better-bold mb-4">
-        betterWeather
+        BetrWeather
       </Text>
       
       <Animated.View style={{ opacity: fadeAnim }}>

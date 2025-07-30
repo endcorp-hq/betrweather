@@ -57,7 +57,6 @@ export function useNftMetadata() {
             nft.interface === "MplCoreAsset"
       );
       const shortxMints = shortxNfts.map((nft: any) => nft.id);
-      console.log("shortxNfts", shortxNfts);
       if (!shortxNfts) return null;
 
       const assets = await fetchAllAssets(umi, shortxMints, {

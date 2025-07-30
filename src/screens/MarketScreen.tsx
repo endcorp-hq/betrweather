@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { ScrollView, Text, StyleSheet, View } from "react-native";
+import React, { useState, useRef } from "react";
+import { ScrollView, Text, StyleSheet, View, Animated } from "react-native";
 import { useShortx } from "../solana/useContract";
 import { MarketCard } from "../components/ui/MarketCard";
 import { useFilters } from "../components/ui/useFilters";
@@ -8,6 +8,7 @@ import { LogoLoader as LoadingSpinner } from "../components/ui/LoadingSpinner";
 import theme from '../theme';
 import { WinningDirection } from "shortx-sdk";
 import { MarketType } from "shortx-sdk";
+import { AnimatePresence, MotiView } from "moti";
 
 export default function MarketScreen() {
   const { markets, error, loadingMarkets } = useShortx();
@@ -157,12 +158,34 @@ export default function MarketScreen() {
                 <Text style={styles.emptyText}>No markets found for the selected filters.</Text>  
               </View>
             )}
-            {filteredMarkets.map((market, idx) => (
-              <MarketCard
-                key={market.address?.toString?.() || idx}
-                market={market}
-              />
-            ))}
+            
+            {/* Add top padding to separate cards from status buttons */}
+            <View>
+              {filteredMarkets.map((market, idx) => (
+                <MotiView
+                  key={`market-${market.marketId}`}
+                  from={{
+                    opacity: 0,
+                    translateY: 10,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    translateY: 0,
+                  }}
+                  transition={{
+                    type: 'timing',
+                    duration: 350,
+                    delay: idx * 50,
+                  }}
+                  style={{ marginBottom: 16 }}
+                >
+                  <MarketCard
+                    market={market}
+                    index={idx}
+                  />
+                </MotiView>
+              ))}
+            </View>
           </ScrollView>
         </View>
       )}

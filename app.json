@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "solana-dapp",
-    "slug": "solana-dapp",
+    "name": "BetrWeather",
+    "slug": "BetrWeather",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo/betrCloud.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/logo/betrCloud.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.solana.mobile.expo.template",
+      "supportsTablet": false,
+      "bundleIdentifier": "com.betrweather.app",
       "infoPlist": {
         "UIStatusBarStyle": "light-content",
         "UIViewControllerBasedStatusBarAppearance": false
@@ -24,10 +24,10 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/logo/betrCloud.png",
+        "backgroundColor": "#000000"
       },
-      "package": "com.solana.mobile.expo.template",
+      "package": "com.betrweather.app",
       "statusBar": {
         "backgroundColor": "transparent",
         "barStyle": "light-content",
@@ -35,7 +35,7 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/logo/betrCloud.png",
       "bundler": "metro"
     },
     "extra": {
@@ -47,9 +47,11 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow BetterWeather to use your location."
+          "locationAlwaysAndWhenInUsePermission": "Allow BetrWeather to use your location."
         }
-      ]
+      ],
+      "expo-video",
+      "expo-secure-store"
     ],
     "jsEngine": "hermes"
   }

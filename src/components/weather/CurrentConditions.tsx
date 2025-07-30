@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text } from "react-native";
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import GlassyCard from "../ui/GlassyCard";
-import { fallbackIcons } from "../../utils/weatherDataProcessor";
 
 interface CurrentConditionsProps {
   windSpeed: string;
@@ -34,18 +34,22 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
             marginBottom: 16,
           }}
         >
-          <View className=" flex flex-col justify-between items-start h-full">
+          <View className="flex flex-col justify-between items-start h-full">
             {/* Top Label */}
-            <View className="flex-row items-center ">
-              <Text className="text-xl mr-1">{fallbackIcons.wind}</Text>
-              <Text className="text-gray-300 text-xs font-better-regular">
+            <View className="flex-row items-center">
+              <MaterialCommunityIcons 
+                name="weather-windy" 
+                size={24} 
+                color="rgba(255, 255, 255, 0.8)" 
+              />
+              <Text className="text-gray-300 text-xs font-better-regular ml-2">
                 Wind
               </Text>
             </View>
             
             {/* Center Value */}
             <Text className="text-white text-3xl font-better-bold text-center">
-              {Number(windSpeed).toFixed(1)} km/h
+              {windSpeed}
             </Text>
             
             {/* Bottom Label */}
@@ -66,20 +70,24 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
           <View className="flex flex-col justify-between items-start h-full">
             {/* Top Label */}
             <View className="flex-row items-center">
-              <Text className="text-xl mr-1">{fallbackIcons.humidity}</Text>
-              <Text className="text-gray-300 text-xs font-better-regular">
+              <MaterialCommunityIcons 
+                name="water-percent" 
+                size={24} 
+                color="rgba(255, 255, 255, 0.8)" 
+              />
+              <Text className="text-gray-300 text-xs font-better-regular ml-2">
                 Humidity
               </Text>
             </View>
             
             {/* Center Value */}
             <Text className="text-white text-3xl font-better-bold text-center">
-              {Number(humidity).toFixed(1)}%
+              {humidity}
             </Text>
             
             {/* Bottom Label */}
             <Text className="text-gray-300 text-xs font-better-regular">
-              Dew point {typeof dewPoint === 'number' ? dewPoint.toFixed(1) : dewPoint}°
+              Dew point {typeof dewPoint === 'number' ? dewPoint.toFixed(1) : dewPoint}
             </Text>
           </View>
         </GlassyCard>
@@ -95,8 +103,12 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
           <View className="flex flex-col justify-between items-start h-full">
             {/* Top Label */}
             <View className="flex-row items-center">
-              <Text className="text-xl mr-1">{fallbackIcons.uv}</Text>
-              <Text className="text-gray-300 text-xs font-better-regular">
+              <MaterialCommunityIcons 
+                name="weather-sunny" 
+                size={24} 
+                color="rgba(255, 255, 255, 0.8)" 
+              />
+              <Text className="text-gray-300 text-xs font-better-regular ml-2">
                 UV Index
               </Text>
             </View>
@@ -121,15 +133,19 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
           <View className="flex flex-col justify-between items-start h-full">
             {/* Top Label */}
             <View className="flex-row items-center">
-              <Text className="text-xl mr-1">{fallbackIcons.pressure}</Text>
-              <Text className="text-gray-300 text-xs font-better-regular">
+              <MaterialCommunityIcons 
+                name="gauge" 
+                size={24} 
+                color="rgba(255, 255, 255, 0.8)" 
+              />
+              <Text className="text-gray-300 text-xs font-better-regular ml-2">
                 Pressure
               </Text>
             </View>
             
             {/* Center Value */}
             <Text className="text-white text-3xl font-better-bold text-center">
-              {Number(pressure).toFixed(1)}
+              {pressure}
             </Text>
             
             {/* Bottom Label */}

@@ -1,9 +1,10 @@
 import React from "react";
-import { Pressable, View, Text, StyleSheet } from "react-native";
+import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Market, MarketType, WinningDirection } from "shortx-sdk";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { RefractiveBgCard } from "./RefractiveBgCard";
+import { useRealTimeData } from '../../hooks/useRealTimeData';
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
   if (!endTimestamp) return "market ended";
@@ -45,8 +46,25 @@ function isLiveMarket(market: Market) {
   return market.marketType === MarketType.LIVE;
 }
 
-export function MarketCard({ market }: { market: Market }) {
+export function MarketCard({ market, index = 0, animatedValue }: { 
+  market: Market; 
+  index?: number;
+  animatedValue?: Animated.Value;
+}) {
   const navigation = useNavigation();
+
+  // Each card subscribes to its own market data
+  const { getMarketVolume, getMarketLiquidity, isMarketActive } = useRealTimeData();
+  
+  const marketId = Number(market.marketId);
+  const realTimeVolume = getMarketVolume(marketId);
+  const realTimeLiquidity = getMarketLiquidity(marketId);
+  const isActive = isMarketActive(marketId);
+
+  // Use real-time data with fallback to static data
+  const displayVolume = realTimeVolume || Number(market.volume);
+  const displayYesLiquidity = realTimeLiquidity?.yes || Number(market.yesLiquidity);
+  const displayNoLiquidity = realTimeLiquidity?.no || Number(market.noLiquidity);
 
   // Determine if this is a live or future market
   const isLive = isLiveMarket(market);
@@ -142,132 +160,148 @@ export function MarketCard({ market }: { market: Market }) {
   };
 
   return (
-    <Pressable onPress={handlePress}>
-      <RefractiveBgCard style={styles.card} borderRadius={16}>
-        {/* Header with status badge */}
-        <View style={styles.headerRow}>
-          <View style={styles.statusBadge}>
-            <MaterialCommunityIcons
-              name={status.icon as any}
-              size={16}
-              color={status.color}
-            />
-            <Text style={[styles.statusText, { color: status.color }]}>
-              {status.text}
-            </Text>
-          </View>
-          <Text style={styles.volume}>
-            ${parseFloat(market.volume || "0").toFixed(1)}
-          </Text>
-        </View>
-
-        {/* Question */}
-        <Text style={styles.question} numberOfLines={2}>
-          {market.question}
-        </Text>
-
-        {/* Interval and Time Details - always show time range */}
-        <View style={styles.intervalSection}>
-          <View style={styles.intervalRow}>
-            <MaterialCommunityIcons
-              name="clock-outline"
-              size={16}
-              color="rgba(255, 255, 255, 0.7)"
-            />
-            <Text style={styles.intervalLabel}>Time:</Text>
-            <Text style={styles.intervalValue}>
-              {new Date(Number(market.marketStart) * 1000).toLocaleTimeString(
-                "en-US",
-                {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: true,
-                }
-              )}{" "}
-              to{" "}
-              {new Date(Number(market.marketEnd) * 1000).toLocaleTimeString(
-                "en-US",
-                {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: true,
-                }
-              )}
-            </Text>
-          </View>
-        </View>
-
-        {/* Voting Bias section */}
-        <View style={styles.probabilitySection}>
-          <View style={styles.probabilityHeader}>
-            <Text style={styles.probabilityLabel}>Voting Bias</Text>
-            <Text style={styles.probabilityValue}>{probabilityPercent}%</Text>
-          </View>
-          <View style={styles.probabilityBarContainer}>
-            <View style={styles.probabilityBarBg}>
-              <View
-                style={[
-                  styles.probabilityBarFill,
-                  {
-                    width: `${probabilityPercent}%`,
-                    backgroundColor: status.color,
-                  },
-                ]}
+    <Animated.View
+      style={[
+        {
+          opacity: animatedValue || 1,
+          transform: [
+            {
+              translateY: animatedValue?.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              }) || 0,
+            },
+          ],
+        },
+      ]}
+    >
+      <Pressable onPress={handlePress}>
+        <RefractiveBgCard style={styles.card} borderRadius={16}>
+          {/* Header with status badge */}
+          <View style={styles.headerRow}>
+            <View style={styles.statusBadge}>
+              <MaterialCommunityIcons
+                name={status.icon as any}
+                size={16}
+                color={status.color}
               />
+              <Text style={[styles.statusText, { color: status.color }]}>
+                {status.text}
+              </Text>
             </View>
-            <View style={styles.probabilityLabels}>
-              <Text style={styles.probabilityLabelText}>NO</Text>
-              <Text style={styles.probabilityLabelText}>YES</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Bottom info */}
-        <View style={styles.bottomRow}>
-          <View style={styles.timeInfo}>
-            <MaterialCommunityIcons
-              name="clock-outline"
-              size={14}
-              color="rgba(255, 255, 255, 0.6)"
-            />
-            <Text style={styles.timeText}>
-              {isLive
-                ? getTimeLeft(market.marketEnd)
-                : getBettingTimeLeft(market.marketStart)}
+            <Text style={styles.volume}>
+              ${parseFloat(market.volume || "0").toFixed(1)}
             </Text>
           </View>
-          {(() => {
-            const startDate = new Date(Number(market.marketStart) * 1000);
-            const endDate = new Date(Number(market.marketEnd) * 1000);
-            const isSameDay =
-              startDate.toDateString() === endDate.toDateString();
 
-            // Check if betting is ending soon (less than 30 minutes)
-            const now = Date.now();
-            const bettingEndTime = Number(market.marketStart) * 1000;
-            const timeUntilBettingEnds = bettingEndTime - now;
-            const minutesLeft = Math.floor(timeUntilBettingEnds / (1000 * 60));
+          {/* Question */}
+          <Text style={styles.question} numberOfLines={2}>
+            {market.question}
+          </Text>
 
-            if (minutesLeft > 0 && minutesLeft <= 30) {
-              return (
-                <Text style={[styles.dateText, { color: "#f59e0b" }]}>
-                  {minutesLeft} mins left
-                </Text>
-              );
-            }
+          {/* Interval and Time Details - always show time range */}
+          <View style={styles.intervalSection}>
+            <View style={styles.intervalRow}>
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={16}
+                color="rgba(255, 255, 255, 0.7)"
+              />
+              <Text style={styles.intervalLabel}>Time:</Text>
+              <Text style={styles.intervalValue}>
+                {new Date(Number(market.marketStart) * 1000).toLocaleTimeString(
+                  "en-US",
+                  {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
+                  }
+                )}{" "}
+                to{" "}
+                {new Date(Number(market.marketEnd) * 1000).toLocaleTimeString(
+                  "en-US",
+                  {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
+                  }
+                )}
+              </Text>
+            </View>
+          </View>
 
-            if (isSameDay) {
-              return (
-                <Text style={styles.dateText}>
-                  {formatDate(market.marketStart)}
-                </Text>
-              );
-            }
-            return null;
-          })()}
-        </View>
-      </RefractiveBgCard>
-    </Pressable>
+          {/* Voting Bias section */}
+          <View style={styles.probabilitySection}>
+            <View style={styles.probabilityHeader}>
+              <Text style={styles.probabilityLabel}>Voting Bias</Text>
+              <Text style={styles.probabilityValue}>{probabilityPercent}%</Text>
+            </View>
+            <View style={styles.probabilityBarContainer}>
+              <View style={styles.probabilityBarBg}>
+                <View
+                  style={[
+                    styles.probabilityBarFill,
+                    {
+                      width: `${probabilityPercent}%`,
+                      backgroundColor: status.color,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.probabilityLabels}>
+                <Text style={styles.probabilityLabelText}>NO</Text>
+                <Text style={styles.probabilityLabelText}>YES</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Bottom info */}
+          <View style={styles.bottomRow}>
+            <View style={styles.timeInfo}>
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={14}
+                color="rgba(255, 255, 255, 0.6)"
+              />
+              <Text style={styles.timeText}>
+                {isLive
+                  ? getTimeLeft(market.marketEnd)
+                  : getBettingTimeLeft(market.marketStart)}
+              </Text>
+            </View>
+            {(() => {
+              const startDate = new Date(Number(market.marketStart) * 1000);
+              const endDate = new Date(Number(market.marketEnd) * 1000);
+              const isSameDay =
+                startDate.toDateString() === endDate.toDateString();
+
+              // Check if betting is ending soon (less than 30 minutes)
+              const now = Date.now();
+              const bettingEndTime = Number(market.marketStart) * 1000;
+              const timeUntilBettingEnds = bettingEndTime - now;
+              const minutesLeft = Math.floor(timeUntilBettingEnds / (1000 * 60));
+
+              if (minutesLeft > 0 && minutesLeft <= 30) {
+                return (
+                  <Text style={[styles.dateText, { color: "#f59e0b" }]}>
+                    {minutesLeft} mins left
+                  </Text>
+                );
+              }
+
+              if (isSameDay) {
+                return (
+                  <Text style={styles.dateText}>
+                    {formatDate(market.marketStart)}
+                  </Text>
+                );
+              }
+              return null;
+            })()}
+          </View>
+        </RefractiveBgCard>
+      </Pressable>
+    </Animated.View>
   );
 }
 

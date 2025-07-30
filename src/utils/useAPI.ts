@@ -4,12 +4,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 export function useAPI<T = any>(
   url: string,
   options?: RequestInit & { headers?: Record<string, string> },
-  queryOptions?: { enabled?: boolean }
+  queryOptions?: { 
+    enabled?: boolean;
+    staleTime?: number;
+    gcTime?: number;
+    [key: string]: any;
+  }
 ) {
   const queryClient = useQueryClient();
 
-  // Use the URL as the query key for uniqueness
-  const queryKey = [url, options?.headers];
+  // Use the URL and request body as the query key for uniqueness
+  const queryKey = [url, options?.body, options?.headers];
 
   const {
     data,
@@ -33,6 +38,7 @@ export function useAPI<T = any>(
       return res.json();
     },
     enabled: queryOptions?.enabled !== false, // Default to true if not specified
+    ...queryOptions, // Spread all other React Query options
   });
 
   // Invalidate this query

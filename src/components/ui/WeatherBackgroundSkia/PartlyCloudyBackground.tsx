@@ -23,7 +23,7 @@ const createAnimeCloud = (baseX: number, baseY: number, scale: number) => {
     { cx: baseX + 120 * scale, cy: baseY + 65 * scale, r: 38 * scale },
     { cx: baseX + 50 * scale, cy: baseY + 45 * scale, r: 25 * scale },
     { cx: baseX + 150 * scale, cy: baseY + 45 * scale, r: 25 * scale },
-  ];
+];
   return circles;
 };
 

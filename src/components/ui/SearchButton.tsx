@@ -35,13 +35,12 @@ const debounce = <T extends (...args: any[]) => ReturnType<T>>(
 export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<Location[]>([]);
+  const [suggestions, setSuggestions] = useState<Location[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
   // Animations
   const widthAnim = useRef(new Animated.Value(48)).current; // 48 = w-12
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const opacityAnim = useRef(new Animated.Value(1)).current;
   const inputOpacityAnim = useRef(new Animated.Value(0)).current;
   const suggestionsAnim = useRef(new Animated.Value(0)).current;
 
@@ -54,9 +53,8 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
         return;
       }
 
-      console.log('🔍 Searching for:', query);
       setIsLoading(true);
-      setSuggestions([]); // Clear previous suggestions immediately
+      setSuggestions(null); // Clear previous suggestions immediately
       
       try {
         const response = await fetch(
@@ -69,18 +67,16 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
             },
             body: JSON.stringify({
               input: query,
-              includedPrimaryTypes: ['locality', 'administrative_area_level_2', 'administrative_area_level_1', 'postal_code', 'school_district']
+              includedPrimaryTypes: ['(regions)'],
             }),
           }
         );
         
         const data = await response.json();
-        console.log('📍 Autocomplete response:', data);
         
         if (data.suggestions && data.suggestions.length > 0) {
-          console.log('✅ Found predictions:', data.suggestions.length);
           const locations: Location[] = await Promise.all(
-            data.suggestions.slice(0, 10).map(async (prediction: any) => {
+            data.suggestions.slice(0, 20).map(async (prediction: any) => {
               try {
                 const placeId = prediction.placePrediction.placeId;
                 const placeName = prediction.placePrediction.structuredFormat.mainText.text;
@@ -97,7 +93,6 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
                 );
                 
                 const detailsData = await detailsResponse.json();
-                console.log('📍 Details for:', placeName, detailsData);
                 
                 if (detailsData.location) {
                   const { latitude, longitude } = detailsData.location;
@@ -125,10 +120,8 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
           
           // Filter out null results
           const validLocations = locations.filter(location => location !== null) as Location[];
-          console.log('✅ Final locations:', validLocations);
           setSuggestions(validLocations);
         } else {
-          console.log('❌ No predictions found or API error:', data);
           setSuggestions([]);
         }
       } catch (error) {
@@ -144,10 +137,10 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
   // Trigger debounced search when query changes
   useEffect(() => {
     if (searchQuery.length >= 3) {
-      setSuggestions([]); // Clear immediately when query changes
+      setSuggestions(null); // Clear immediately when query changes
       debouncedSearch(searchQuery);
     } else {
-      setSuggestions([]);
+      setSuggestions(null);
       setIsLoading(false);
     }
   }, [searchQuery, debouncedSearch]);
@@ -176,7 +169,7 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
     setIsExpanded(false);
     onSearchToggle(false);
     setSearchQuery('');
-    setSuggestions([]);
+    setSuggestions(null);
     setIsLoading(false);
     
     // Animate width collapse back to original size
@@ -228,7 +221,7 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
   };
 
   const showSuggestions = () => {
-    if (suggestions.length > 0 || isLoading) {
+    if (suggestions && (suggestions.length > 0 || isLoading)) {
       Animated.timing(suggestionsAnim, {
         toValue: 1,
         duration: 200,
@@ -238,17 +231,17 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
   };
 
   useEffect(() => {
-    if (suggestions.length > 0 || isLoading) {
+    if (suggestions && (suggestions.length > 0 || isLoading)) {
       showSuggestions();
-    } else if (searchQuery.length >= 3) {
-      // Show "no results" state
+    } else if (searchQuery.length >= 3 && !isLoading) {
+      // Only show "no results" if we're not loading and have no suggestions
       Animated.timing(suggestionsAnim, {
         toValue: 1,
         duration: 200,
         useNativeDriver: false,
       }).start();
     } else {
-      // Hide dropdown only when query is too short
+      // Hide dropdown when query is too short or when loading
       Animated.timing(suggestionsAnim, {
         toValue: 0,
         duration: 150,
@@ -267,8 +260,11 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
     }
   }, [isExpanded]);
 
+  const noLocations = searchQuery.length >= 3 && !isLoading && suggestions && suggestions.length === 0;
+
+
   return (
-    <View className='relative min-h-full '>
+    <View className='relative min-h-full'>
       <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
         <Animated.View
           style={{
@@ -364,15 +360,15 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
           zIndex: 1000,
           borderWidth: 1,
           borderColor: 'rgba(255, 255, 255, 0.3)',
+          height: noLocations || isLoading || (suggestions &&suggestions?.length > 0) ? 'auto' : 0,
         }}
       >
         <ScrollView 
           style={{ height: '100%' }}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingVertical: 8 }}
         >
           {isLoading && (
-            <View style={{ padding: 16, alignItems: 'center' }}>
+            <View className='p-4 items-center my-4'>
               <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 14 }}>Searching...</Text>
             </View>
           )}
@@ -383,7 +379,7 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
             </View>
           )}
 
-          {suggestions.map((location, index) => (
+          {suggestions && suggestions.map((location, index) => (
             <TouchableOpacity
               key={`${location.name}-${location.country}-${index}`}
               onPress={() => handleLocationSelect(location)}
@@ -394,10 +390,10 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
               }}
               activeOpacity={0.7}
             >
-              <Text style={{ color: 'white', fontSize: 16, fontFamily: 'Poppins-Medium' }}>
+              <Text className='text-white text-base font-better-medium'>
                 {location.name}
               </Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 14, marginTop: 2 }}>
+              <Text className='text-white/60 text-base mt-1'>
                 {location.state ? `${location.state}, ` : ''}{location.country}
               </Text>
             </TouchableOpacity>

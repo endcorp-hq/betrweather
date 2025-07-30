@@ -190,8 +190,6 @@ import React, {
           
               "https://api.devnet.solana.com"
           );
-
-          console.log("this is connection", connection);
   
           if (
             !process.env.EXPO_PUBLIC_ADMIN_KEY ||
@@ -223,7 +221,6 @@ import React, {
       setError(null);
       try {
         if (client) {
-          console.log("this is client", client);
           const m = await client.trade.getAllMarkets();
           setMarkets(m || []);
         }
@@ -333,10 +330,8 @@ import React, {
     // --- SDK Methods ---
     const openPosition: ShortxContextType["openPosition"] = async (args) => {
       if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-      console.log("openPosition entered");
       try {
         const ixs = await client.trade.openPosition(args);
-        console.log("open order ixs", ixs);
         return ixs;
       } catch (err) {
         console.log("openPosition error", err);

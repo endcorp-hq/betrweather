@@ -10,6 +10,7 @@ import { HomeNavigator } from "./HomeNavigator";
 import { StatusBar } from "expo-status-bar";
 import MarketDetailScreen from "../screens/MarketDetailScreen";
 import { TopBar } from "../components/top-bar/top-bar-feature";
+import GuardedScreen from "../components/sign-in/guarded-scree";
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -39,6 +40,14 @@ declare global {
 
 const Stack = createNativeStackNavigator();
 
+const GuardedDetailScreen = () => {
+  return (
+    <GuardedScreen>
+      <MarketDetailScreen />
+    </GuardedScreen>
+  );
+};
+
 // Remove RouteGuard and just return the Stack.Navigator directly
 const AppStack = () => {
   return (
@@ -48,14 +57,14 @@ const AppStack = () => {
         component={HomeNavigator}
         options={{ headerShown: false }}
       />
-      <Stack.Screen
+      {/* <Stack.Screen
         name="Settings"
         component={Screens.SettingsScreen}
         options={{ headerShown: true, header: () => <TopBar /> }}
-      />
+      /> */}
       <Stack.Screen
         name="MarketDetail"
-        component={MarketDetailScreen}
+        component={GuardedDetailScreen}
         options={{ headerShown: true, header: () => <TopBar /> }}
       />
     </Stack.Navigator>

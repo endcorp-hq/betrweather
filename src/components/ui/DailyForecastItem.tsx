@@ -1,25 +1,33 @@
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { RefractiveBgCard } from './RefractiveBgCard';
+import { getWeatherXMIcon, mapWXMV1IconToWeatherType } from '../../utils/weatherDataProcessor';
 
 interface DailyForecastItemProps {
   day: string;
   highTemp: string;
   lowTemp: string;
-  description: string;
   icon?: string;
   iconUri?: string;
+  rawData?: any; // Raw data for detail screen
+  onPress?: (data: any) => void;
 }
 
 export function DailyForecastItem({
   day,
   highTemp,
   lowTemp,
-  description,
   icon,
   iconUri,
+  rawData,
+  onPress,
 }: DailyForecastItemProps) {
+
   return (
+    <TouchableOpacity
+      onPress={() => onPress?.(rawData)}
+      activeOpacity={0.8}
+    >
     <RefractiveBgCard
       style={{
         width: 160,
@@ -48,19 +56,15 @@ export function DailyForecastItem({
             resizeMode="contain"
           />
         ) : (
-          <Text className="text-2xl mb-4">{icon || '☀️'}</Text>
+          <Text className="text-sm font-better-light mb-4 text-center text-white">{icon || "☀️"}</Text>
         )}
       </View>
 
-      {/* Description */}
-      <Text className="text-gray-300 text-xs text-center font-better-light mb-4">
-        {description}
-      </Text>
-
       {/* High/Low Temperature */}
       <Text className="text-white text-lg font-better-medium text-center">
-        {highTemp}° / {lowTemp}°
+        {highTemp} / {lowTemp}
       </Text>
     </RefractiveBgCard>
+    </TouchableOpacity>
   );
 } 

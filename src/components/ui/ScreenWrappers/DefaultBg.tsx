@@ -4,13 +4,13 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WeatherBackgroundSkia } from "../WeatherBackgroundSkia";
 import theme from "../../../theme";
-import { useWeather } from "./WeatherBg";
+// import { useWeather } from "./WeatherBg";
 
 export function DefaultBg({ children }: { children: React.ReactNode }) {
-  const { weatherType, isLoading } = useWeather();
+  // const { weatherType, isLoading } = useWeather();
   const insets = useSafeAreaInsets();
   // Use a dark gradient background as the default/fallback
-  const backgroundType = (!weatherType || isLoading) ? "dark_gradient" : weatherType;
+  // const backgroundType = (!weatherType || isLoading) ? "dark_gradient" : weatherType;
   
   return (
     <View style={{ 
@@ -19,7 +19,7 @@ export function DefaultBg({ children }: { children: React.ReactNode }) {
 
     }}>
       {/* Weather animations layer - between background and content */}
-      <View style={{
+      {/* <View style={{
         position: 'absolute',
         top: 0,
         left: 0,
@@ -28,7 +28,7 @@ export function DefaultBg({ children }: { children: React.ReactNode }) {
         zIndex: 1,
       }}>
         <WeatherBackgroundSkia theme={theme} condition={backgroundType} />
-      </View>
+      </View> */}
       
       {/* Content layer - above animations */}
       <View style={{

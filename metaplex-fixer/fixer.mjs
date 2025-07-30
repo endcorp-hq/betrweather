@@ -7,13 +7,10 @@ const found = globSync(
 );
 
 found.forEach((file) => {
- console.log("file", file);
  const data = fs.readFileSync(file, "utf8");
  const result = data.replace(
    /@metaplex-foundation\/umi\/serializers/g,
    "@metaplex-foundation/umi-serializers",
  );
-
- console.log("writing", file);
  fs.writeFileSync(file, result, "utf8");
 });

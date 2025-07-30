@@ -9,12 +9,11 @@ import { AppNavigator } from "./src/navigators/AppNavigator";
 import { ClusterProvider } from "./src/components/cluster/cluster-data-access";
 import { ShortxProvider } from "./src/solana/useContract";
 import "./global.css";
-import { Toaster } from "sonner-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View } from "react-native";
-import { WeatherProvider } from "./src/components/ui/ScreenWrappers/WeatherBg";
 import { StatusBar } from "expo-status-bar";
 import { ToastProvider } from "./src/components/ui/ToastProvider";
+import { RealTimeProvider } from "./src/hooks/useRealTimeData";
 
 const queryClient = new QueryClient();
 
@@ -26,16 +25,15 @@ export default function App() {
         <ClusterProvider>
           <ConnectionProvider config={{ commitment: "processed" }}>
             <ShortxProvider>
-              <WeatherProvider>
+              <RealTimeProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
                   <SafeAreaProvider>
                     <ToastProvider>
-                    <AppNavigator />
-                    <Toaster richColors />
+                      <AppNavigator />
                     </ToastProvider>
                   </SafeAreaProvider>
                 </GestureHandlerRootView>
-              </WeatherProvider>
+              </RealTimeProvider>
             </ShortxProvider>
           </ConnectionProvider>
         </ClusterProvider>

@@ -1,14 +1,16 @@
-import React, { useState} from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   Modal,
-  Image,
   Animated,
+  Dimensions,
 } from "react-native";
-import { WeatherBg } from "../components/ui/ScreenWrappers/WeatherBg";
+import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode } from 'expo-av';
+import { MotiView } from 'moti';
 import { WeatherSourceIndicator } from "../components/ui/WeatherSourceIndicator";
 import { SearchButton } from "../components/ui/SearchButton";
 import { HourlyForecastItem } from "../components/ui/HourlyForecastItem";
@@ -19,14 +21,16 @@ import { MainWeatherDisplay } from "../components/weather/MainWeatherDisplay";
 import { CurrentConditions } from "../components/weather/CurrentConditions";
 import { useWeatherData } from "../utils/useWeatherData";
 import { useSearchWeather } from "../utils/useSearchWeather";
+import { useLocation } from "../utils/useLocation";
 import { 
   processWeatherData, 
   processHourlyForecast, 
   processDailyForecast,
-  formatDate 
+  getWeatherXMIcon,
 } from "../utils/weatherDataProcessor";
-import { DailyForecast } from "../types/weather";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { DefaultBg } from "../components/ui/ScreenWrappers/DefaultBg";
+import { DailyDetailScreen } from "./DailyDetailScreen";
 
 interface SearchedLocation {
   name: string;
@@ -36,27 +40,113 @@ interface SearchedLocation {
   lon: number;
 }
 
+// Function to get the appropriate background video based on weather and time
+function getBackgroundVideo(weatherType: any, timestamp?: string | Date): any {
+  // Extract base weather type from day/night variant (e.g., "sunny_day" -> "sunny")
+  const baseWeatherType = weatherType?.includes('_') ? weatherType.split('_')[0] : weatherType;
+  
+  // Determine if it's day or night based on timestamp or current time
+  const isDay = timestamp ? 
+    (new Date(timestamp).getHours() >= 6 && new Date(timestamp).getHours() < 18) :
+    (new Date().getHours() >= 6 && new Date().getHours() < 18);
+  
+  if (baseWeatherType === "sunny" || baseWeatherType === null) {
+    return isDay ? require("../../assets/weatherBg/clear-day.mp4") : require("../../assets/weatherBg/clear-night.mp4");
+  } else if (baseWeatherType === "cloudy" || baseWeatherType === "partly_cloudy" || baseWeatherType === "overcast") {
+    return isDay ? require("../../assets/weatherBg/cloudy-day.mp4") : require("../../assets/weatherBg/cloudy-night.mp4");
+  } else if (baseWeatherType === "rainy") {
+    return isDay ? require("../../assets/weatherBg/rainy-cloudy-day.mp4") : require("../../assets/weatherBg/rainy-cloudy-night.mp4");
+  }
+  // For other weather types, use cloudy backgrounds as fallback
+  return isDay ? require("../../assets/weatherBg/cloudy-day.mp4") : require("../../assets/weatherBg/cloudy-night.mp4");
+}
+
 export function HomeScreen() {
-  const [selectedDay, setSelectedDay] = useState<DailyForecast | null>(null);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchedLocation, setSearchedLocation] = useState<SearchedLocation | null>(null);
+  const [showAnimations, setShowAnimations] = useState(false);
+  const [selectedDayDetail, setSelectedDayDetail] = useState<any>(null);
+  const { height: screenHeight } = Dimensions.get('window');
+  const backgroundImageHeight = screenHeight * 0.70;
+  const [videoRef, setVideoRef] = useState<Video | null>(null);
 
-  // Animation for fading content
-  // const contentOpacity = useRef(new Animated.Value(1)).current;
 
   const {
-    mmForecastData,
+    wxmv1HourlyForecastData,
+    wxmv1DailyForecastData,
     weather,
     hourlyData,
     dailyData,
-    results,
-    nearestGoodStation,
     detailedLocation,
     isUsingLocalStation,
     isLoading,
     hasError,
     errorMessage,
+    weatherType,
   } = useWeatherData();
+
+  // Get current location coordinates
+  const { latitude, longitude } = useLocation();
+
+  // Get timezone for current or searched location
+  const [currentTimezone, setCurrentTimezone] = useState<string | null>(null);
+  const [searchedTimezone, setSearchedTimezone] = useState<string | null>(null);
+
+  // Fetch timezone for current location
+  useEffect(() => {
+    const fetchCurrentTimezone = async () => {
+      if (latitude && longitude) {
+        try {
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${Math.floor(Date.now() / 1000)}&key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          const data = await response.json();
+          if (data.status === 'OK') {
+            setCurrentTimezone(data.timeZoneId);
+          }
+        } catch (error) {
+          console.error('Error fetching current timezone:', error);
+        }
+      }
+    };
+
+    fetchCurrentTimezone();
+  }, [latitude, longitude]);
+
+  // Fetch timezone for searched location
+  useEffect(() => {
+    const fetchSearchedTimezone = async () => {
+      if (searchedLocation) {
+        try {
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/timezone/json?location=${searchedLocation.lat},${searchedLocation.lon}&timestamp=${Math.floor(Date.now() / 1000)}&key=${process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY}`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          const data = await response.json();
+          if (data.status === 'OK') {
+            setSearchedTimezone(data.timeZoneId);
+          }
+        } catch (error) {
+          console.error('Error fetching searched timezone:', error);
+        }
+      } else {
+        setSearchedTimezone(null);
+      }
+    };
+
+    fetchSearchedTimezone();
+  }, [searchedLocation]);
 
   // Search weather data
   const searchWeatherData = useSearchWeather(
@@ -65,122 +155,268 @@ export function HomeScreen() {
   );
 
   // Use search data if available, otherwise use current location data
-  const currentData = searchedLocation ? searchWeatherData : {
-    mmForecastData,
+  const currentData = searchedLocation ? {
+    wxmv1HourlyForecastData: searchWeatherData.wxmv1HourlyForecastData,
+    wxmv1DailyForecastData: searchWeatherData.wxmv1DailyForecastData,
+    weather: searchWeatherData.weather,
+    hourlyData: searchWeatherData.hourlyData,
+    dailyData: searchWeatherData.dailyData,
+    isUsingLocalStation: searchWeatherData.isUsingLocalStation,
+    isLoading: searchWeatherData.isLoading,
+    hasError: searchWeatherData.hasError,
+    errorMessage: searchWeatherData.errorMessage,
+    weatherType: searchWeatherData.weatherType,
+  } : {
+    wxmv1HourlyForecastData,
+    wxmv1DailyForecastData,
     weather,
     hourlyData,
     dailyData,
-    results,
-    nearestGoodStation,
     isUsingLocalStation,
     isLoading,
     hasError,
     errorMessage,
+    weatherType,
   };
+
+
+  // Get timestamp from weather data for background video selection
+  const getWeatherTimestamp = () => {
+    // Check if we're using search data or current location data
+    const weatherData = searchedLocation ? searchWeatherData : {
+      wxmv1HourlyForecastData,
+      isUsingLocalStation
+    };
+    
+    if (weatherData.isUsingLocalStation && weatherData.wxmv1HourlyForecastData?.forecast[0]?.hourly) {
+      const hourlyData = weatherData.wxmv1HourlyForecastData.forecast[0].hourly;
+      const currentUTC = new Date();
+      const currentHour = currentUTC.getUTCHours();
+      
+      // Find the hourly data point that matches the current hour
+      const currentHourData = hourlyData.find(h => {
+        const dataTime = new Date(h.timestamp);
+        return dataTime.getUTCHours() === currentHour;
+      });
+      
+      // If we found the current hour, use it; otherwise use the first available data
+      if (currentHourData) {
+        return currentHourData.timestamp;
+      } else {
+        console.log('Using first available data:', hourlyData[0]?.timestamp);
+        return hourlyData[0]?.timestamp;
+      }
+    }
+    // Fallback to current time if no timestamp available
+    return new Date();
+  };
+
+  // Video status change handler
+  const onVideoStatusUpdate = (status: any) => {
+    if (status.isLoaded && !status.isPlaying) {
+      videoRef?.playAsync();
+    }
+  };
+
+  // Trigger animations when data loads
+  React.useEffect(() => {
+    if (!currentData.isLoading && !currentData.hasError) {
+      // Small delay to ensure smooth transition from loading and stable background
+      const timer = setTimeout(() => {
+        setShowAnimations(true);
+      }, 200);
+      return () => clearTimeout(timer);
+    } else {
+      setShowAnimations(false);
+    }
+  }, [currentData.isLoading, currentData.hasError]);
 
   const handleLocationSelect = (location: SearchedLocation) => {
     setSearchedLocation(location);
     handleSearchToggle(false);
   };
 
-
   const handleSearchToggle = (isExpanded: boolean) => {
     setIsSearchActive(isExpanded);
-    //TODO: Add animation to fade content back in (this currently doesn't work)
-    // Animate content fade
-    // Animated.timing(contentOpacity, {
-    //   toValue: isExpanded ? 0 : 1,
-    //   duration: 300,
-    //   useNativeDriver: true,
-    // }).start();
+  };
+
+  const handleDailyForecastPress = (dayData: any) => {
+    setSelectedDayDetail(dayData);
+  };
+
+  const handleBackFromDetail = () => {
+    setSelectedDayDetail(null);
   };
 
   // Show loading state while getting location or fetching data
   if (currentData.isLoading) {
-      return (
-      <WeatherBg>
+    return (
+      <DefaultBg>
         <View className="flex-1 justify-center items-center p-6">
           <LogoLoader message="Loading weather data" />
         </View>
-      </WeatherBg>
+      </DefaultBg>
     );
   }
 
   // Show error if any API failed
   if (currentData.hasError) {
     return (
-      <View className="flex-1 justify-center items-center p-6">
-        <Text className="text-red-500 text-xl font-better-bold mb-4">
-          Error
-        </Text>
-        <Text className="text-white text-base text-center">{currentData.errorMessage}</Text>
-        <TouchableOpacity
-          className="mt-6 bg-purple-600 px-8 py-4 rounded-full"
-          onPress={() => {
-            // You might want to add a retry function to your useLocation hook
-            // or reload the component
-          }}
-        >
-          <Text className="text-white font-better-bold text-base">
-            Try Again
+      <DefaultBg>
+        <View className="flex-1 justify-center items-center p-6">
+          {/* Animated Error Icon */}
+          <Animated.View 
+            style={{
+              transform: [{ scale: 1.2 }],
+              marginBottom: 24,
+            }}
+          >
+            <View className="bg-red-500/20 rounded-full p-6 border border-red-400/30">
+              <MaterialCommunityIcons 
+                name="weather-cloudy-alert" 
+                size={48} 
+                color="gray" 
+              />
+            </View>
+          </Animated.View>
+
+          {/* Error Title */}
+          <Text className="text-white text-2xl font-better-bold mb-2 text-center">
+            Weather Unavailable
           </Text>
-        </TouchableOpacity>
-      </View>
+
+          {/* Error Message */}
+          <Text className="text-gray-300 text-base font-better-regular text-center mb-8 leading-6">
+            {currentData.errorMessage || "Unable to fetch weather data. Please check your connection and try again."}
+          </Text>
+
+          {/* Action Buttons */}
+          <View className="flex-row">
+          <TouchableOpacity
+              className="bg-emerald-500/80 px-6 py-3 mr-4 rounded-full border border-emerald-400/30"
+            onPress={() => {
+                // Refresh the data by clearing search and forcing re-render
+                setSearchedLocation(null);
+                // Force a re-render by updating state
+                setIsSearchActive(false);
+            }}
+              activeOpacity={0.8}
+          >
+            <Text className="text-white font-better-bold text-base">
+              Try Again
+            </Text>
+          </TouchableOpacity>
+
+            <TouchableOpacity
+              className="bg-gray-600/50 px-6 py-3 rounded-full border border-gray-400/30"
+              onPress={() => {
+                setSearchedLocation(null);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text className="text-gray-300 font-better-medium text-base">
+                Go Back
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Weather Status */}
+          <View className="mt-8 bg-white/10 rounded-2xl p-4 border border-white/20">
+            <Text className="text-gray-300 text-sm text-center font-better-light">
+              🌤️ Weather services are experiencing temporary issues
+            </Text>
+          </View>
+        </View>
+      </DefaultBg>
     );
   }
 
   // Fallbacks for missing data
   const city = searchedLocation ? searchedLocation.name : (detailedLocation?.[0]?.subregion || "Your City");
 
+  // Get current hour data from hourly forecast
+  const getCurrentHourData = () => {
+    if (currentData.isUsingLocalStation && currentData.wxmv1HourlyForecastData?.forecast[0]?.hourly) {
+      const hourlyData = currentData.wxmv1HourlyForecastData.forecast[0].hourly;
+      const currentUTC = new Date();
+      const currentHour = currentUTC.getUTCHours();
+      
+      // Find the hourly data point that matches the current hour
+      const currentHourData = hourlyData.find(h => {
+        const dataTime = new Date(h.timestamp);
+        return dataTime.getUTCHours() === currentHour;
+      });
+      
+      // If we found the current hour, use it; otherwise use the first available data
+      return currentHourData || hourlyData[0] || null;
+    }
+    return null;
+  };
+
   // Process weather data
   const weatherData = processWeatherData(
     currentData.isUsingLocalStation, 
-    currentData.mmForecastData || null, 
     currentData.weather || null, 
-    currentData.results
+    getCurrentHourData(),
+    currentData.wxmv1DailyForecastData?.forecast[0].daily || null
   );
   
   // Process forecast data
   const hourly = processHourlyForecast(
     currentData.isUsingLocalStation, 
-    currentData.mmForecastData || null, 
-    currentData.hourlyData || null, 
-    currentData.results
+    currentData.hourlyData || null,
+    currentData.wxmv1HourlyForecastData || null,
+    (searchedLocation ? searchedTimezone : currentTimezone) || undefined
   );
   const daily = processDailyForecast(
     currentData.isUsingLocalStation, 
-    currentData.mmForecastData || null, 
+    currentData.wxmv1DailyForecastData?.forecast ? { forecast: currentData.wxmv1DailyForecastData.forecast } as any : null, 
     currentData.dailyData || null
   );
 
+  // Get raw daily data for detail screen
+  const getRawDailyData = () => {
+    if (currentData.isUsingLocalStation && currentData.wxmv1DailyForecastData?.forecast) {
+      return currentData.wxmv1DailyForecastData.forecast;
+    } else if (currentData.dailyData?.forecastDays) {
+      return currentData.dailyData.forecastDays;
+    }
+    return [];
+  };
+
+  const rawDailyData = getRawDailyData();
+
   const weatherIcon = currentData.weather?.weatherCondition?.iconBaseUri
     ? `${currentData.weather.weatherCondition.iconBaseUri}.png`
-    : undefined;
+    : getWeatherXMIcon(currentData.weatherType);
+
+
 
   return (
-    <WeatherBg>
+    <View style={{ flex: 1, backgroundColor: 'black' }}>
+      {/* Top controls - fixed position */}
       <Animated.View style={{ 
         position: 'absolute', 
-        top: 0, 
+        top: 50, 
         left: 0, 
         right: 0, 
         zIndex: 1000,
-        opacity: isSearchActive ? 0 : 1, // Hide when search is active, show when content is visible
+        opacity: isSearchActive ? 0 : 1,
       }}>
         <View className="flex-row justify-between items-center p-4">
           <WeatherSourceIndicator
             isUsingLocalStation={currentData.isUsingLocalStation}
-            distance={currentData.nearestGoodStation?.distance}
+            distance={undefined}
           />
         </View>
       </Animated.View>
 
       <Animated.View style={{ 
         position: 'absolute', 
-        top: 16, 
+        top: 66, 
         right: 16, 
         zIndex: 1001,
-        opacity: 1, // Always visible
+        opacity: 1,
       }}>
         <SearchButton 
           onLocationSelect={handleLocationSelect}
@@ -188,192 +424,248 @@ export function HomeScreen() {
         />
       </Animated.View>
 
+      {/* Main scrollable content with background video */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        className="bg-transparent"
-        contentContainerStyle={{ padding: 16, paddingBottom: 100, paddingTop: 80 }}
+        style={{ backgroundColor: 'black' }}
+        contentContainerStyle={{ paddingBottom: 100 }}
       >
-         {/* Back Button - Only show when location is searched */}
-         {searchedLocation && (
-          <Animated.View 
+        {/* Background video section */}
+        <MotiView
+          from={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: showAnimations ? 1 : 0, scale: showAnimations ? 1 : 0.95 }}
+          transition={{ type: 'timing', duration: 300, delay: 0 }}
+          style={{ height: backgroundImageHeight, position: 'relative' }}
+        >
+          {/* Only show video when search is not active */}
+          {!isSearchActive && (
+            <>
+              <Video
+                key={`${searchedLocation?.name || 'current'}-${currentData.weatherType}`}
+                ref={setVideoRef}
+                source={getBackgroundVideo(currentData.weatherType, getWeatherTimestamp())}
+                style={{ 
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: '100%',
+                  height: backgroundImageHeight,
+                }}
+                resizeMode={ResizeMode.COVER}
+                shouldPlay={true}
+                isLooping={true}
+                isMuted={true}
+                onPlaybackStatusUpdate={onVideoStatusUpdate}
+              />
+
+              {/* Light tint overlay for better content visibility */}
+        <View
             style={{
-              opacity: isSearchActive ? 0 : 1,
-              width: 80,
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                  zIndex: 1,
             }}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                setSearchedLocation(null);
-              }}
+              />
+              
+              {/* Blur Gradient Overlay */}
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,1)']}
+                locations={[0, 1]}
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: backgroundImageHeight * 0.4,
+                  zIndex: 2,
+                }}
+              />
+            </>
+          )}
+        </MotiView>
+
+        {/* Main weather display over the video */}
+        <Animated.View style={{ 
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: backgroundImageHeight,
+          opacity: isSearchActive ? 0 : 1,
+          justifyContent: 'center',
+          paddingHorizontal: 16,
+          paddingTop: 80,
+          zIndex: 3,
+        }}>
+          {/* Back Button - Only show when location is searched */}
+          {searchedLocation && (
+            <MotiView
+              from={{ opacity: 0, translateY: -20 }}
+              animate={{ opacity: showAnimations ? 1 : 0, translateY: showAnimations ? 0 : -20 }}
+              transition={{ type: 'timing', duration: 600, delay: 200 }}
               style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                borderRadius: 20,
-                paddingHorizontal: 16,
-                paddingVertical: 8,
+                width: 80,
                 flexDirection: 'row',
+                justifyContent: 'center',
                 alignItems: 'center',
-                borderWidth: 1,
-                marginTop: 8,
-                marginBottom: 16,
-                borderColor: 'rgba(255, 255, 255, 0.3)',
+                marginBottom: 0,
+                marginTop: 40,
               }}
-              activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="arrow-left" size={16} color="white" />
-              <Text style={{ 
-                color: 'white', 
-                fontSize: 14, 
-                fontFamily: 'Poppins-Medium',
-                marginLeft: 6,
-              }}>
-                Back
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-        {/* Main Weather Display */}
-        <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
-          <MainWeatherDisplay
-            city={city}
-            temp={weatherData.temp}
-            description={weatherData.description}
-            high={weatherData.high}
-            low={weatherData.low}
-            feelsLike={weatherData.feelsLike}
-            isUsingLocalStation={currentData.isUsingLocalStation}
-            mmForecastData={currentData.mmForecastData}
-            weatherIcon={weatherIcon}
-          />
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchedLocation(null);
+                }}
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: 20,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                }}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="arrow-left" size={16} color="white" />
+                <Text style={{ 
+                  color: 'white', 
+                  fontSize: 14, 
+                  fontFamily: 'Poppins-Medium',
+                  marginLeft: 6,
+                }}>
+                  Back
+                </Text>
+              </TouchableOpacity>
+            </MotiView>
+          )}
+
+          <MotiView
+            from={{ opacity: 0, translateY: 30 }}
+            animate={{ opacity: showAnimations ? 1 : 0, translateY: showAnimations ? 0 : 30 }}
+            transition={{ type: 'timing', duration: 800, delay: 300 }}
+          >
+            <MainWeatherDisplay
+              city={city}
+              temp={weatherData.temp}
+              description={weatherData.description}
+              high={weatherData.high}
+              low={weatherData.low}
+              feelsLike={weatherData.feelsLike}
+              isUsingLocalStation={currentData.isUsingLocalStation}
+              mmForecastData={getCurrentHourData()}
+              weatherIcon={weatherIcon}
+              searchedLocation={searchedLocation}
+              currentLocationCoords={latitude && longitude ? { lat: latitude, lon: longitude } : null}
+            />
+          </MotiView>
         </Animated.View>
 
+        {/* Forecast content with black background */}
+        <View style={{ backgroundColor: 'black', padding: 16 }}>
         {/* Hourly Forecast */}
-        <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
-          <GlassyCard style={{ marginTop: 24, marginBottom: 16 }}>
-            <Text className="text-white text-xl font-better-semi-bold my-2">
-              Hourly Forecast
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className=""
-              contentContainerStyle={{ paddingHorizontal: 4 }}
+          <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
+            <MotiView
+              from={{ opacity: 0, translateY: 40 }}
+              animate={{ opacity: showAnimations ? 1 : 0, translateY: showAnimations ? 0 : 40 }}
+              transition={{ type: 'timing', duration: 700, delay: 500 }}
             >
-              {hourly.map((h: any, idx: number) => (
-                <HourlyForecastItem
-                  key={idx}
-                  time={h.time}
-                  temperature={h.temperature}
-                  description={h.description}
-                  icon={h.icon}
-                  iconUri={h.iconUri}
-                />
-              ))}
-            </ScrollView>
-          </GlassyCard>
-        </Animated.View>
+              <GlassyCard style={{ marginBottom: 16, }}>
+          <Text className="text-white text-xl font-better-semi-bold my-2">
+            Hourly Forecast
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: 10 }}
+          >
+                  {hourly.map((h: any, idx: number) => (
+                  <HourlyForecastItem
+                    key={idx}
+                      time={h.time}
+                      temperature={h.temperature?.degrees?.toString() || h.temperature || "--"}
+                      description={h.description}
+                      icon={h.icon}
+                      iconUri={h.iconUri}
+                  />
+                ))}
+          </ScrollView>
+        </GlassyCard>
+            </MotiView>
+          </Animated.View>
 
         {/* Daily Forecast */}
-        <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
-          <GlassyCard style={{ marginTop: 16, marginBottom: 16 }}>
-            <Text className="text-white text-xl font-better-semi-bold my-2">
-              {currentData.isUsingLocalStation ? "7 Day Forecast" : "10 Day Forecast"}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 4 }}
+          <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
+            <MotiView
+              from={{ opacity: 0, translateY: 40 }}
+              animate={{ opacity: showAnimations ? 1 : 0, translateY: showAnimations ? 0 : 40 }}
+              transition={{ type: 'timing', duration: 700, delay: 700 }}
             >
-              {daily.map((d: any, idx: number) => (
-                <DailyForecastItem
-                  key={idx}
-                  day={currentData.isUsingLocalStation ? String(d.day) : formatDate(d.displayDate)}
-                  highTemp={currentData.isUsingLocalStation ? String(d.highTemp) : String(d.maxTemperature?.degrees ?? "--")}
-                  lowTemp={currentData.isUsingLocalStation ? String(d.lowTemp) : String(d.minTemperature?.degrees ?? "--")}
-                  description={currentData.isUsingLocalStation ? String(d.description) : String(d.daytimeForecast?.weatherCondition?.description?.text ?? "Clear")}
-                  iconUri={currentData.isUsingLocalStation ? undefined : d.daytimeForecast?.weatherCondition?.iconBaseUri ? `${d.daytimeForecast.weatherCondition.iconBaseUri}.png` : undefined}
-                  icon={currentData.isUsingLocalStation ? String(d.icon) : (d.daytimeForecast?.weatherCondition?.iconBaseUri ? undefined : "☀️")}
-                />
-              ))}
-            </ScrollView>
-          </GlassyCard>
-        </Animated.View>
+              <GlassyCard style={{ marginBottom: 16 }}>
+          <Text className="text-white text-xl font-better-semi-bold my-2">
+                  {currentData.isUsingLocalStation ? "7 Day Forecast" : "10 Day Forecast"}
+          </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: 4 }}
+                >
+                  {daily.map((d: any, idx: number) => (
+                    <DailyForecastItem
+                      key={idx}
+                      day={d.day}
+                      highTemp={d.highTemp}
+                      lowTemp={d.lowTemp}
+                      iconUri={d.iconUri}
+                      icon={d.icon}
+                      rawData={rawDailyData[idx]}
+                      onPress={handleDailyForecastPress}
+                  />
+                ))}
+          </ScrollView>
+        </GlassyCard>
+            </MotiView>
+          </Animated.View>
 
         {/* Current Conditions */}
-        <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
-          <CurrentConditions
-            windSpeed={weatherData.windSpeed}
-            windDesc={weatherData.windDesc}
-            humidity={weatherData.humidity}
-            dewPoint={weatherData.dewPoint.toString()}
-            uv={weatherData.uv}
-            pressure={weatherData.pressure}
-          />
-        </Animated.View>
+          <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
+            <MotiView
+              from={{ opacity: 0, translateY: 40 }}
+              animate={{ opacity: showAnimations ? 1 : 0, translateY: showAnimations ? 0 : 40 }}
+              transition={{ type: 'timing', duration: 700, delay: 900 }}
+          >
+              <CurrentConditions
+                windSpeed={weatherData.windSpeed}
+                windDesc={weatherData.windDesc}
+                humidity={weatherData.humidity}
+                dewPoint={weatherData.dewPoint.toString()}
+                uv={weatherData.uv}
+                pressure={weatherData.pressure}
+              />
+            </MotiView>
+          </Animated.View>
+        </View>
       </ScrollView>
       
       {/* Modal for selected day */}
       <Modal
-        visible={!!selectedDay}
-        transparent
+        visible={!!selectedDayDetail}
         animationType="slide"
-        onRequestClose={() => setSelectedDay(null)}
+        onRequestClose={handleBackFromDetail}
       >
-        <View className="flex-1 justify-center items-center bg-black/60">
-          <View className="bg-gray-800 rounded-2xl p-6 w-[90%] max-w-sm">
-            <Text className="text-white text-xl font-better-bold mb-6 text-center">
-              {selectedDay ? formatDate(selectedDay.displayDate) : ""}
-            </Text>
-            {selectedDay?.daytimeForecast?.weatherCondition?.iconBaseUri && (
-              <Image
-                source={{
-                  uri: `${selectedDay.daytimeForecast.weatherCondition.iconBaseUri}.png`,
-                }}
-                className="w-12 h-12 self-center mb-4"
-                resizeMode="contain"
-              />
-            )}
-            <Text className="text-white text-base mb-1">
-              Day:{" "}
-              {selectedDay?.daytimeForecast?.weatherCondition?.description
-                ?.text ?? "--"}
-            </Text>
-            <Text className="text-white text-base mb-1">
-              Night:{" "}
-              {selectedDay?.nighttimeForecast?.weatherCondition?.description
-                ?.text ?? "--"}
-            </Text>
-            <Text className="text-white text-base mb-1">
-              Max Temp:{" "}
-              {selectedDay?.maxTemperature?.degrees !== undefined
-                ? `${selectedDay.maxTemperature.degrees}°`
-                : "--"}
-            </Text>
-            <Text className="text-white text-base mb-1">
-              Min Temp:{" "}
-              {selectedDay?.minTemperature?.degrees !== undefined
-                ? `${selectedDay.minTemperature.degrees}°`
-                : "--"}
-            </Text>
-            <Text className="text-white text-base mb-1">
-              Sunrise: {selectedDay?.sunEvents?.sunriseTime ?? "--"}
-            </Text>
-            <Text className="text-white text-base mb-1">
-              Sunset: {selectedDay?.sunEvents?.sunsetTime ?? "--"}
-            </Text>
-            <TouchableOpacity
-              className="mt-6 bg-purple-100 rounded-lg py-4 px-6 self-center"
-              onPress={() => setSelectedDay(null)}
-            >
-              <Text className="text-purple-600 font-better-bold text-base text-center">
-                Close
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <DailyDetailScreen
+          selectedDay={selectedDayDetail}
+          onBack={handleBackFromDetail}
+          isUsingLocalStation={currentData.isUsingLocalStation}
+        />
       </Modal>
-    </WeatherBg>
+    </View>
   );
 }

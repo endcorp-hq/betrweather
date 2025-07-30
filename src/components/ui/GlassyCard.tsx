@@ -46,8 +46,8 @@ const styles = StyleSheet.create({
   outer: {
     overflow: 'hidden',
     borderRadius: 20,
-    // borderWidth: 1.5, // Remove border
-    // borderColor: 'rgba(255,255,255,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
     backgroundColor: 'transparent',
     marginVertical: 8,
     marginHorizontal: 0,

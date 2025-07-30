@@ -3,7 +3,6 @@ import { TouchableOpacity, View } from "react-native";
 import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import theme from "../../theme";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -131,13 +130,9 @@ export function CustomTabBar({
               iconName = "finance";
               activeColor = "#10b981"; // Green for markets/betting
             }
-            if (route.name === "Profile") {
+            if (route.name === "Trades") {
               iconName = "face-man";
               activeColor = "#f59e0b"; // Amber for profile
-            }
-            if (route.name === "AI Models") {
-              iconName = "robot-excited";
-              activeColor = "#8b5cf6"; // Purple for AI
             }
 
             // Animate icon scale on focus

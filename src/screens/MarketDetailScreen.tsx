@@ -27,7 +27,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { RefractiveBgCard } from "../components/ui/RefractiveBgCard";
 import { LogoLoader } from "../components/ui/LoadingSpinner";
 import SwipeButton from "rn-swipe-button";
-import { useGlobalToast } from "../components/ui/ToastProvider";
+import { ToastProvider, useGlobalToast } from "../components/ui/ToastProvider";
 
 const SUGGESTED_BETS = [1, 3, 5, 10];
 
@@ -58,8 +58,13 @@ function SwipeableBetCard({
     extrapolate: "clamp",
   });
 
-  // Wobble animation on mount
+  // Wobble animation on mount - Only for swipeable markets
   useEffect(() => {
+    // Don't animate if market is not swipeable
+    if (!isMarketSwipeable()) {
+      return;
+    }
+    
     Animated.sequence([
       Animated.timing(pan.x, {
         toValue: -20,
@@ -77,7 +82,7 @@ function SwipeableBetCard({
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [market.winningDirection, market.marketStart, market.marketEnd, market.marketType]);
 
   const handleRelease = (_: any, gesture: any) => {
     if (gesture.dx > 80) {
@@ -119,14 +124,12 @@ function SwipeableBetCard({
 
     if (market.winningDirection !== WinningDirection.NONE) {
       return { text: "RESOLVED", color: "#8b5cf6", icon: "check-circle" };
-    } else if (market.marketType === MarketType.LIVE) {
-      return { text: "LIVE", color: "#3b82f6", icon: "radio-tower" };
-    } else if (now >= marketStart && now <= marketEnd) {
-      return { text: "ACTIVE", color: "#3b82f6", icon: "play-circle" };
     } else if (now < marketStart) {
       return { text: "BETTING", color: "#10b981", icon: "gavel" };
+    } else if (now > marketEnd) {
+      return { text: "RESOLVING", color: "#f59e0b", icon: "loading" };
     } else {
-      return { text: "BETTING", color: "#10b981", icon: "gavel" };
+      return { text: "ACTIVE", color: "#3b82f6", icon: "play-circle" };
     }
   };
 
@@ -142,6 +145,31 @@ function SwipeableBetCard({
     }
   };
 
+  // Helper function to determine if market should be swipeable
+  const isMarketSwipeable = () => {
+    const now = Date.now();
+    const marketStart = Number(market.marketStart) * 1000;
+    const marketEnd = Number(market.marketEnd) * 1000;
+
+    // Not swipeable if:
+    // 1. Market is resolved
+    // 2. Future market where betting time is over (ts > marketStart)
+    // 3. Any market where ts > marketEnd but not yet resolved
+    if (market.winningDirection !== WinningDirection.NONE) {
+      return false; // Resolved markets
+    }
+    
+    if (now > marketEnd) {
+      return false; // Market ended but not resolved
+    }
+    
+    if (market.marketType === MarketType.FUTURE && now > marketStart) {
+      return false; // Future market where betting time is over
+    }
+    
+    return true; // All other cases (betting, active live markets)
+  };
+
   return (
     <View
       style={{
@@ -153,6 +181,28 @@ function SwipeableBetCard({
         paddingBottom: insets.bottom + 16,
       }}
     >
+      {/* Swipe Direction Indicators - Only show for swipeable markets */}
+      {isMarketSwipeable() && (
+        <View className="flex flex-row justify-between items-center w-full mb-4 px-4">
+          <View className="flex flex-row items-center gap-2">
+            <MaterialCommunityIcons
+              name="chevron-left"
+              size={24}
+              color="rgba(255, 255, 255, 0.8)"
+            />
+            <Text className="text-white text-base font-better-semi-bold">No</Text>
+          </View>
+          <View className="flex flex-row items-center gap-2">
+            <Text className="text-white text-base font-better-semi-bold">Yes</Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color="rgba(255, 255, 255, 0.8)"
+            />
+          </View>
+        </View>
+      )}
+
       <Animated.View
         style={{
           width: "100%",
@@ -161,7 +211,7 @@ function SwipeableBetCard({
           borderRadius: 20,
           overflow: "hidden",
           backgroundColor: "transparent",
-          transform: [
+          transform: isMarketSwipeable() ? [
             { translateX: pan.x },
             { translateY: pan.y },
             {
@@ -171,10 +221,10 @@ function SwipeableBetCard({
                 extrapolate: "clamp",
               }),
             },
-          ],
+          ] : [], // No transforms for non-swipeable markets
         }}
-        {...{
-          ...require("react-native").PanResponder.create({
+        {...(isMarketSwipeable() ? 
+          require("react-native").PanResponder.create({
             onMoveShouldSetPanResponder: (_: any, g: any) =>
               Math.abs(g.dx) > 10,
             onPanResponderGrant: () => setSwiping(true),
@@ -184,30 +234,35 @@ function SwipeableBetCard({
             ),
             onPanResponderRelease: handleRelease,
             onPanResponderTerminate: () => setSwiping(false),
-          }).panHandlers,
-        }}
+          }).panHandlers : 
+          {} // No pan handlers for non-swipeable markets
+        )}
       >
         {/* Two overlays: green for right, red for left */}
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            ...StyleSheet.absoluteFillObject,
-            backgroundColor: "rgba(16, 185, 129, 0.3)",
-            opacity: yesOverlayOpacity,
-            borderRadius: 20,
-            zIndex: 2,
-          }}
-        />
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            ...StyleSheet.absoluteFillObject,
-            backgroundColor: "rgba(239, 68, 68, 0.3)",
-            opacity: noOverlayOpacity,
-            borderRadius: 20,
-            zIndex: 2,
-          }}
-        />
+        {isMarketSwipeable() && (
+          <>
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                ...StyleSheet.absoluteFillObject,
+                backgroundColor: "rgba(16, 185, 129, 0.3)",
+                opacity: yesOverlayOpacity,
+                borderRadius: 20,
+                zIndex: 2,
+              }}
+            />
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                ...StyleSheet.absoluteFillObject,
+                backgroundColor: "rgba(239, 68, 68, 0.3)",
+                opacity: noOverlayOpacity,
+                borderRadius: 20,
+                zIndex: 2,
+              }}
+            />
+          </>
+        )}
 
         <RefractiveBgCard style={{ flex: 1, minHeight: 420 }} borderRadius={20}>
           <View style={styles.swipeCardInner}>
@@ -223,8 +278,8 @@ function SwipeableBetCard({
               </Text>
             </View>
 
-            {/* Swipe Instructions or Winning Direction */}
-            {market.winningDirection !== WinningDirection.NONE ? (
+            {/* Winning Direction Display (only show if resolved) */}
+            {market.winningDirection !== WinningDirection.NONE && (
               <Text style={styles.swipeInstruction}>
                 Winning Direction:{" "}
                 <Text style={{ 
@@ -234,31 +289,23 @@ function SwipeableBetCard({
                   {market.winningDirection === WinningDirection.YES ? "YES" : "NO"}
                 </Text>
               </Text>
-            ) : (
-              <Text style={styles.swipeInstruction}>
-                Swipe{" "}
-                <Text style={{ color: "#059669", fontWeight: "bold" }}>
-                  right
-                </Text>{" "}
-                for{" "}
-                <Text style={{ color: "#059669", fontWeight: "bold" }}>YES</Text>,{" "}
-                <Text style={{ color: "#dc2626", fontWeight: "bold" }}>left</Text>{" "}
-                for{" "}
-                <Text style={{ color: "#dc2626", fontWeight: "bold" }}>NO</Text>
-              </Text>
             )}
 
-            {/* YES/NO overlays */}
-            <Animated.View
-              style={[styles.swipeOverlay, { opacity: yesOverlayOpacity }]}
-            >
-              <Text style={styles.swipeYesText}>YES</Text>
-            </Animated.View>
-            <Animated.View
-              style={[styles.swipeOverlay, { opacity: noOverlayOpacity }]}
-            >
-              <Text style={styles.swipeNoText}>NO</Text>
-            </Animated.View>
+            {/* YES/NO overlays - Only show for swipeable markets */}
+            {isMarketSwipeable() && (
+              <>
+                <Animated.View
+                  style={[styles.swipeOverlay, { opacity: yesOverlayOpacity }]}
+                >
+                  <Text style={styles.swipeYesText}>YES</Text>
+                </Animated.View>
+                <Animated.View
+                  style={[styles.swipeOverlay, { opacity: noOverlayOpacity }]}
+                >
+                  <Text style={styles.swipeNoText}>NO</Text>
+                </Animated.View>
+              </>
+            )}
 
             {/* Market Question */}
             <Text style={styles.swipeCardQuestion}>{market.question}</Text>
@@ -271,7 +318,7 @@ function SwipeableBetCard({
                   size={16}
                   color="rgba(255, 255, 255, 0.7)"
                 />
-                <Text style={styles.detailLabel}>Resolution Time:</Text>
+                <Text style={styles.detailLabel}>Market Time:</Text>
                 <Text style={styles.detailValue}>
                   {formatMarketDuration(market.marketStart, market.marketEnd)}
                 </Text>
@@ -283,8 +330,39 @@ function SwipeableBetCard({
                   size={16}
                   color="rgba(255, 255, 255, 0.7)"
                 />
-                <Text style={styles.detailLabel}>Betting Ends:</Text>
-                <Text style={styles.detailValue}>
+                <Text style={styles.detailLabel}>
+                  {(() => {
+                    const now = Date.now();
+                    const marketStart = Number(market.marketStart) * 1000;
+                    const marketEnd = Number(market.marketEnd) * 1000;
+                    
+                    // Show "Betting Ends" for betting state or active live markets
+                    if (market.winningDirection !== WinningDirection.NONE) {
+                      return "Betting period ended";
+                    } else if (now < marketStart) {
+                      return "Betting Ends:";
+                    } else if (market.marketType === MarketType.LIVE && now >= marketStart && now <= marketEnd) {
+                      return "Betting Ends:";
+                    } else {
+                      return "Betting period ended";
+                    }
+                  })()}
+                </Text>
+                <Text style={[
+                  styles.detailValue,
+                  (() => {
+                    const now = Date.now();
+                    const marketStart = Number(market.marketStart) * 1000;
+                    const marketEnd = Number(market.marketEnd) * 1000;
+                    
+                    // Apply orange color for ended betting periods
+                    if (market.winningDirection !== WinningDirection.NONE || 
+                        (now > marketEnd && market.marketType !== MarketType.LIVE)) {
+                      return { color: "#f59e0b" };
+                    }
+                    return {};
+                  })()
+                ]}>
                   {formatDate(market.marketEnd)}
                 </Text>
               </View>
@@ -510,7 +588,7 @@ export default function SlotMachineScreen() {
           duration: 4000
         });
         setBetStatus("error");
-        return;
+        return; // Don't navigate, just return
       }
       
       const buyIxs = await openPosition({
@@ -537,7 +615,7 @@ export default function SlotMachineScreen() {
           duration: 4000
         });
         setBetStatus("error");
-        return;
+        return; // Don't navigate, just return
       }
       
       const signature = await createAndSendTx(buyIxs.ixs, true, undefined, {
@@ -554,12 +632,13 @@ export default function SlotMachineScreen() {
       
       setBetStatus("success");
       
-      // Close modal after success toast
+      // Close modal and navigate ONLY on success
       setTimeout(() => {
         setShowBetModal(false);
         setBetStatus("idle");
         setBetAmount("");
         setSelectedDirection(null);
+        navigation.goBack();
       }, 2000);
       
     } catch (error) {
@@ -572,20 +651,9 @@ export default function SlotMachineScreen() {
         duration: 5000
       });
       setBetStatus("error");
+      // Don't navigate on error - modal stays open
     }
   };
-
-  useEffect(() => {
-    if (betStatus === "success" || betStatus === "error") {
-      const timeout = setTimeout(() => {
-        setBetStatus("idle");
-        setBetAmount("");
-        setSelectedDirection(null);
-        navigation.goBack();
-      }, 2000);
-      return () => clearTimeout(timeout);
-    }
-  }, [betStatus]);
 
   return (
     <DefaultBg>
@@ -648,25 +716,35 @@ export default function SlotMachineScreen() {
             </>
           )}
         </ScrollView>
-        {/* Bet Modal (restyled) */}
-        <Modal
-          visible={showBetModal}
-          animationType="fade"
-          transparent={true}
-          onRequestClose={() => setShowBetModal(false)}
-        >
-          <TouchableOpacity
+        {/* Bet Modal (restyled) - Custom Overlay */}
+        {showBetModal && (
+          <Animated.View
             style={{
-              flex: 1,
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               backgroundColor: "rgba(0,0,0,0.4)",
               justifyContent: "center",
               alignItems: "center",
               padding: 20,
-              zIndex: 20,
+              zIndex: 1000,
             }}
-            activeOpacity={1}
-            onPress={() => setShowBetModal(false)}
           >
+            {/* Add TouchableOpacity for click outside */}
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+              }}
+              activeOpacity={1}
+              onPress={() => setShowBetModal(false)}
+            />
+            
             <TouchableOpacity
               style={{
                 backgroundColor: "white",
@@ -901,8 +979,8 @@ export default function SlotMachineScreen() {
                 />
               </View>
             </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
+          </Animated.View>
+        )}
       </View>
     </DefaultBg>
   );
@@ -1448,7 +1526,7 @@ const styles = StyleSheet.create({
   },
   expandButton: {
     alignSelf: "center",
-    marginTop: 16,
+    marginTop: 32,
     marginBottom: 8,
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 25,
@@ -1541,5 +1619,47 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  swipeIndicators: {
+    position: 'absolute',
+    top: -40,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 20,
+    zIndex: 1,
+  },
+  indicatorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  indicatorRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  indicatorText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  claimContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  claimText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    fontFamily: 'Poppins-Regular',
   },
 });

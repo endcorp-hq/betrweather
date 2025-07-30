@@ -28,11 +28,9 @@ export type Station = {
   createdAt: string;
   id: string;
   lastDayQod: number;
-  location: {
-    elevation: number;
-    lat: number;
-    lon: number;
-  };
+  elevation: number;
+  lat: number;
+  lon: number;
   name: string;
 };
 
@@ -53,6 +51,60 @@ export type WeatherAPIResponse = {
   uvIndex?: number;
   airPressure?: { meanSeaLevelMillibars?: number };
 };
+
+// New WXMV1 API Types
+export type WXMV1HourlyData = {
+  precipitation: number;
+  precipitation_probability: number;
+  temperature: number;
+  icon: string;
+  wind_speed: number;
+  wind_direction: number;
+  humidity: number;
+  pressure: number;
+  uv_index: number;
+  timestamp: string;
+  feels_like: number;
+};
+
+export type WXMV1DailyData = {
+  temperature_max: number;
+  temperature_min: number;
+  precipitation_probability: number;
+  precipitation_intensity: number;
+  humidity: number;
+  uv_index: number;
+  pressure: number;
+  icon: string;
+  precipitation_type: string;
+  wind_speed: number;
+  wind_direction: number;
+  timestamp: string;
+};
+
+export type WXMV1ForecastDay = {
+  tz: string;
+  date: string;
+  daily?: WXMV1DailyData;
+};
+
+export type WXMV1ForecastDailyResponse = {
+  forecast: WXMV1ForecastDay[];
+  message: string;
+};
+
+export type WXMV1ForecastHourly = {
+  tz: string;
+  date: string;
+  hourly?: WXMV1HourlyData[];
+}
+
+export type WXMV1ForecastHourlyResponse = {
+  forecast: WXMV1ForecastHourly[];
+  message: string;
+};
+
+// Legacy MM Types (keeping for backward compatibility)
 export type MMForecastHourly = {
   timestamp: string;
   precipitation: number;
@@ -82,14 +134,21 @@ export type MMForecastDaily = {
   timestamp: string;
 };
 
-export type MMForecastResponse = Array<{
-  tz: string;
-  model: string;
-  date: string;
-  hourly: MMForecastHourly[];
-  daily: MMForecastDaily;
-}>;
+export type MMForecastResponse = {
+  forecast: Array<{
+    date: string;
+    hourly: MMForecastHourly[];
+    model: string;
+    tz: string;
+  }>;
+  message: string;
+};
 
 export type HourlyAPIResponse = { forecastHours?: HourlyForecast[] };
 export type DailyAPIResponse = { forecastDays?: DailyForecast[] };
-export type LocalStationsAPIResponse = { stations?: Station[] };
+export type LocalStationsAPIResponse = {
+  data: {
+    station: Station;
+    distance: number;
+  };
+};
