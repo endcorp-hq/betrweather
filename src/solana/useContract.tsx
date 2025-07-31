@@ -23,6 +23,7 @@ import React, {
   import { PositionAccount, Position } from "@endcorp/depredict";
   import BN from "bn.js";
   import { RpcOptions } from "@endcorp/depredict";
+  import { useCallback } from 'react';
   
   export enum ShortxErrorType {
     MARKET_CREATION = 'MARKET_CREATION',
@@ -233,7 +234,7 @@ import React, {
       }
     };
   
-    const getMarketById = async (id: number) => {
+    const getMarketById = useCallback(async (id: number) => {
       if (!client) return null;
       setLoadingMarket(true);
       setError(null);
@@ -249,7 +250,7 @@ import React, {
       } finally {
         setLoadingMarket(false);
       }
-    };
+    }, [client]);
   
     useEffect(() => {
       fetchAllMarkets();

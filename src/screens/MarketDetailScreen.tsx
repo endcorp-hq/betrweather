@@ -12,7 +12,7 @@ import { useShortx } from "../solana/useContract";
 import React, { useEffect, useRef, useState } from "react";
 import { Text } from "react-native";
 import { formatMarketDuration } from "../components/market/format-market-duration";
-import { WinningDirection, MarketType } from "@endcorp/depredict";
+import { WinningDirection, MarketType, Market } from "@endcorp/depredict";
 import { useAuthorization } from "../utils/useAuthorization";
 import axios from "axios";
 import { getMint, formatDate } from "../utils/helpers";
@@ -510,6 +510,11 @@ function SwipeableBetCard({
 }
 
 export default function SlotMachineScreen() {
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+  
+  console.log(`MarketDetailScreen: Render #${renderCount.current}`);
+  
   const route = useRoute();
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
@@ -517,10 +522,14 @@ export default function SlotMachineScreen() {
   const { toast } = useGlobalToast();
   // @ts-ignore
   const { id } = route.params || {};
+
+  useEffect(() => {
+    console.log('MarketDetailScreen: ID changed to:', id);
+  }, [id]); // Only log when id changes
+
   const {
     openPosition,
     getMarketById,
-    selectedMarket,
     loadingMarket,
     error: shortxError,
   } = useShortx();
@@ -529,6 +538,7 @@ export default function SlotMachineScreen() {
   const [selectedDirection, setSelectedDirection] = useState<
     "yes" | "no" | null
   >(null);
+  const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
   const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK">("USDC");
   const [showBetModal, setShowBetModal] = useState(false);
   const [betStatus, setBetStatus] = useState<
@@ -538,10 +548,20 @@ export default function SlotMachineScreen() {
 
   useEffect(() => {
     async function fetchMarket() {
-      await getMarketById(id);
+      console.log('MarketDetailScreen: useEffect triggered with id:', id);
+      const market = await getMarketById(id);
+      if(market) {
+        console.log('MarketDetailScreen: Setting market:', market.marketId);
+        setSelectedMarket(market);
+      } else {
+        console.log('MarketDetailScreen: No market found');
+        setSelectedMarket(null);
+      }
     }
-    if (id) fetchMarket();
-  }, [id]);
+    if(id) {
+      fetchMarket();
+    }
+  }, [id, getMarketById]); // Add getMarketById to dependencies
 
   const handleBet = async (bet: string) => {
     if (!selectedAccount || !selectedAccount.publicKey) {
