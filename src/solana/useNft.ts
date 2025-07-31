@@ -46,13 +46,14 @@ export function useNftMetadata() {
       );
 
       const { result } = await response.json();
+      console.log("result", result);
       // Find the NFT with name "SHORTX - {marketId}"
       const shortxNfts = result.items.filter((nft: any) =>
         marketId
-          ? nft.content.metadata.name.includes(`SHORTX MARKET:${marketId}`) &&
+          ? nft.content.metadata.name.includes(`DEPREDICT MARKET:${marketId}`) &&
             nft.burnt === false &&
             nft.interface === "MplCoreAsset"
-          : nft.content.metadata.name.includes(`SHORTX MARKET:`) &&
+          : nft.content.metadata.name.includes(`DEPREDICT MARKET:`) &&
             nft.burnt === false &&
             nft.interface === "MplCoreAsset"
       );

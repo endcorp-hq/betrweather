@@ -12,7 +12,7 @@ import { useShortx } from "../solana/useContract";
 import React, { useEffect, useRef, useState } from "react";
 import { Text } from "react-native";
 import { formatMarketDuration } from "../components/market/format-market-duration";
-import { WinningDirection, MarketType } from "shortx-sdk";
+import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { useAuthorization } from "../utils/useAuthorization";
 import axios from "axios";
 import { getMint, formatDate } from "../utils/helpers";
@@ -569,7 +569,7 @@ export default function SlotMachineScreen() {
       };
       
       const response = await axios.post(
-        "http://192.168.1.16:8001/nft/create",
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/nft/create`,
         metadata,
         {
           headers: {

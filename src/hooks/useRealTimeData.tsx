@@ -7,7 +7,7 @@ import {
 } from "react";
 import { useShortx } from "../solana/useContract";
 import * as Haptics from "expo-haptics";
-import { WinningDirection } from "shortx-sdk";
+import { WinningDirection } from "@endcorp/depredict";
 
 // Real-time market data interface
 interface RealTimeMarket {
@@ -216,6 +216,9 @@ export const RealTimeProvider = ({ children }: { children: ReactNode }) => {
     if (recentTrades.length > 0) {
       const latestPosition = recentTrades[0]; // Most recent position
 
+      // Trigger haptic feedback immediately when a new position is created
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       setRealTimeState((prev) => {
         const newPositions = [...prev.positions];
         const newRecentPositions = [...prev.recentPositions];
@@ -248,19 +251,43 @@ export const RealTimeProvider = ({ children }: { children: ReactNode }) => {
           newRecentPositions.pop(); // Keep only last 50
         }
 
-        // Trigger haptic feedback for new positions
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        // Update market volume immediately based on the new position
+        const newMarkets = new Map(prev.markets);
+        const existingMarket = newMarkets.get(realTimePosition.marketId);
 
-        return {
-          ...prev,
-          positions: newPositions,
-          recentPositions: newRecentPositions,
-          positionUpdates: new Map(prev.positionUpdates).set(
-            realTimePosition.positionId,
-            Date.now()
-          ),
-          totalPositions: newPositions.length,
-        };
+        if (existingMarket) {
+          const currentVolume = Number(existingMarket.volume);
+          const newVolume = currentVolume + realTimePosition.amount;
+          
+          const updatedMarket: RealTimeMarket = {
+            ...existingMarket,
+            volume: newVolume.toString(),
+            lastUpdated: Date.now(),
+          };
+
+          newMarkets.set(realTimePosition.marketId, updatedMarket);
+
+          // Update total volume
+          let totalVolume = 0;
+          newMarkets.forEach((market) => {
+            totalVolume += Number(market.volume);
+          });
+
+          return {
+            ...prev,
+            positions: newPositions.slice(0, 100), // Keep only last 100 positions
+            recentPositions: newRecentPositions.slice(0, 20), // Keep only last 20 recent positions
+            positionUpdates: new Map(prev.positionUpdates).set(
+              realTimePosition.positionId,
+              Date.now()
+            ),
+            markets: newMarkets, // Include the updated markets
+            totalVolume, // Include the updated total volume
+            totalPositions: newPositions.length,
+          };
+        }
+
+        return prev;
       });
     }
   }, [recentTrades]);

@@ -6,9 +6,8 @@ import { useFilters } from "../components/ui/useFilters";
 import { StatusFilterBar } from "../components/ui/StatusFilterBar";
 import { LogoLoader as LoadingSpinner } from "../components/ui/LoadingSpinner";
 import theme from '../theme';
-import { WinningDirection } from "shortx-sdk";
-import { MarketType } from "shortx-sdk";
-import { AnimatePresence, MotiView } from "moti";
+import { WinningDirection, MarketType } from "@endcorp/depredict";
+import { MotiView } from "moti";
 
 export default function MarketScreen() {
   const { markets, error, loadingMarkets } = useShortx();

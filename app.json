@@ -50,7 +50,6 @@
           "locationAlwaysAndWhenInUsePermission": "Allow BetrWeather to use your location."
         }
       ],
-      "expo-video",
       "expo-secure-store"
     ],
     "jsEngine": "hermes"

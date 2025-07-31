@@ -14,7 +14,7 @@ import { useShortx } from "../solana/useContract";
 import { DefaultBg } from "../components/ui/ScreenWrappers/DefaultBg";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { LogoLoader } from "../components/ui/LoadingSpinner";
-import { WinningDirection } from "shortx-sdk";
+import { WinningDirection } from "@endcorp/depredict";
 import { useAuthorization } from "../utils/useAuthorization";
 import { MotiView } from "moti";
 import theme from "../theme";
@@ -90,15 +90,33 @@ const calculatePayout = (position: PositionWithMarket) => {
         : position.market.winningDirection === WinningDirection.NO;
 
     if (userWon) {
-      // Calculate payout based on market odds
-      const amount = position.amount / 1000000; // Convert from lamports
-      // This is a simplified calculation - you might need to adjust based on your payout logic
-      return amount * 1.9; // Assuming 90% return rate
+      // Convert position amount from lamports to SOL
+      const userBetAmount = position.amount / 1000000;
+      
+      // Get market liquidity
+      const yesLiquidity = Number(position.market.yesLiquidity || 0) / 1000000;
+      const noLiquidity = Number(position.market.noLiquidity || 0) / 1000000;
+      
+      // Determine winning and losing side liquidity
+      const winningLiquidity = position.market.winningDirection === WinningDirection.YES 
+        ? yesLiquidity 
+        : noLiquidity;
+      const losingLiquidity = position.market.winningDirection === WinningDirection.YES 
+        ? noLiquidity 
+        : yesLiquidity;
+      
+      // Calculate user's share of the winning side
+      const userShare = userBetAmount / winningLiquidity;
+      
+      // Calculate payout: user's share of losing side + original bet
+      const payout = (userShare * losingLiquidity) + userBetAmount;
+      
+      return payout;
     } else {
-      return 0;
+      return 0; // Lost the bet
     }
   }
-  return null;
+  return null; // Market not resolved yet
 };
 
 // Check if position is claimable
@@ -303,16 +321,30 @@ function SwipeablePositionCard({
                 <Text
                   style={[
                     styles.payoutValue,
-                    position.market?.winningDirection !==
-                      WinningDirection.NONE &&
-                      !isClaimable &&
-                      styles.lostPayout,
+                    position.market?.winningDirection !== WinningDirection.NONE &&
+                    !isClaimable &&
+                    styles.lostPayout,
                   ]}
                 >
                   $
                   {position.market?.winningDirection !== WinningDirection.NONE
                     ? (calculatePayout(position) || 0).toFixed(2)
-                    : ((position.amount / 1000000) * 1.9).toFixed(2)}
+                    : (() => {
+                        // Calculate expected payout if user's side wins
+                        const userBetAmount = position.amount / 1000000;
+                        const yesLiquidity = Number(position.market?.yesLiquidity || 0) / 1000000;
+                        const noLiquidity = Number(position.market?.noLiquidity || 0) / 1000000;
+                        
+                        // Determine user's side liquidity and opposite side liquidity
+                        const userSideLiquidity = position.direction === "Yes" ? yesLiquidity : noLiquidity;
+                        const oppositeSideLiquidity = position.direction === "Yes" ? noLiquidity : yesLiquidity;
+                        
+                        // Calculate expected payout
+                        const userShare = userBetAmount / userSideLiquidity;
+                        const expectedPayout = (userShare * oppositeSideLiquidity) + userBetAmount;
+                        
+                        return expectedPayout.toFixed(2);
+                      })()}
                 </Text>
               </View>
             </View>
@@ -327,7 +359,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
   const { fetchNftMetadata, loading } = useNftMetadata();
-  const { getMarketById, payoutPosition } = useShortx();
+  const { selectedMarket,getMarketById, payoutPosition } = useShortx();
   const { toast } = useGlobalToast();
   const { createAndSendTx } = useCreateAndSendTx();
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
@@ -415,22 +447,19 @@ export default function ProfileScreen() {
     // Only fetch data if wallet is connected
     if (selectedAccount) {
       fetchNftMetadata().then(async (metadata) => {
-          if (metadata) {
+        if (metadata) {
           setLoadingMarkets(true);
 
           // Fetch market details for each position
           const positionsWithMarkets = await Promise.all(
             metadata.map(async (position) => {
+              console.log("position market id", position.marketId);
               try {
-                const market = await getMarketById(position.marketId);
-                if (!market)
-                  return {
-                    ...position,
-                    market: null,
-                  };
+                const market = await getMarketById(position.marketId); // Get market directly
+                
                 return {
                   ...position,
-                  market: market,
+                  market: market, // Use the returned market data
                 };
               } catch (error) {
                 console.error(

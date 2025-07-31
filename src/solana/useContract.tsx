@@ -5,7 +5,7 @@ import React, {
     useState,
     ReactNode,
   } from "react";
-  import ShortXClient from "shortx-sdk";
+  import ShortXClient from "@endcorp/depredict";
   import {
     AddressLookupTableAccount,
     Connection,
@@ -19,10 +19,10 @@ import React, {
     CreateMarketArgs,
     MarketStates,
     WinningDirection,
-  } from "shortx-sdk";
-  import { PositionAccount, Position } from "shortx-sdk";
+  } from "@endcorp/depredict";
+  import { PositionAccount, Position } from "@endcorp/depredict";
   import BN from "bn.js";
-  import { RpcOptions } from "shortx-sdk";
+  import { RpcOptions } from "@endcorp/depredict";
   
   export enum ShortxErrorType {
     MARKET_CREATION = 'MARKET_CREATION',
@@ -103,12 +103,12 @@ import React, {
       feeAmount: number,
       payer: PublicKey
     ) => Promise<TransactionInstruction[] | null>;
-    updateConfig: (
-      payer: PublicKey,
-      feeAmount?: number,
-      authority?: PublicKey,
-      feeVault?: PublicKey
-    ) => Promise<TransactionInstruction[] | null>;
+    // updateConfig: (
+    //   payer: PublicKey,
+    //   feeAmount?: number,
+    //   authority?: PublicKey,
+    //   feeVault?: PublicKey
+    // ) => Promise<TransactionInstruction[] | null>;
     closeConfig: (payer: PublicKey) => Promise<TransactionInstruction[] | null>;
     getConfig: () => Promise<ConfigAccount | null>;
     createMarket: (
@@ -240,10 +240,12 @@ import React, {
       try {
         const market = await client.trade.getMarketById(id);
         setSelectedMarket(market);
+        return market; // Return the market data directly
       } catch (e) {
         console.log('this is e', e);
         setError(createShortxError(ShortxErrorType.MARKET_FETCH, "Failed to fetch single market", e));
         setSelectedMarket(null);
+        return null;
       } finally {
         setLoadingMarket(false);
       }
@@ -357,29 +359,29 @@ import React, {
       }
     };
   
-    const updateConfig: ShortxContextType["updateConfig"] = async (
-      payer,
-      feeAmount,
-      authority,
-      feeVault
-    ) => {
-      if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-      setLoadingConfig(true);
-      try {
-        const ixs = await client.config.updateConfig(
-          payer,
-          feeAmount,
-          authority,
-          feeVault
-        );
-        return ixs || null;
-      } catch (err) {
-        setError(createShortxError(ShortxErrorType.CONFIG_UPDATE, "Unknown error", err));
-        throw err;
-      } finally {
-        setLoadingConfig(false);
-      }
-    };
+    // const updateConfig: ShortxContextType["updateConfig"] = async (
+    //   payer,
+    //   feeAmount,
+    //   authority,
+    //   feeVault
+    // ) => {
+    //   if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
+    //   setLoadingConfig(true);
+    //   try {
+    //     const ixs = await client.config.updateConfig(
+    //       payer,
+    //       feeAmount,
+    //       authority,
+    //       feeVault
+    //     );
+    //     return ixs || null;
+    //   } catch (err) {
+    //     setError(createShortxError(ShortxErrorType.CONFIG_UPDATE, "Unknown error", err));
+    //     throw err;
+    //   } finally {
+    //     setLoadingConfig(false);
+    //   }
+    // };
   
     const closeConfig: ShortxContextType["closeConfig"] = async (
       payer: PublicKey
@@ -527,7 +529,7 @@ import React, {
           getPositionAccountsForMarket,
           payoutPosition,
           createConfig,
-          updateConfig,
+          // updateConfig,
           closeConfig,
           getConfig,
           createMarket,

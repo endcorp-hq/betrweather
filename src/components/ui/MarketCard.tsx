@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Market, MarketType, WinningDirection } from "shortx-sdk";
+import { Market, MarketType, WinningDirection } from "@endcorp/depredict";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { RefractiveBgCard } from "./RefractiveBgCard";
 import { useRealTimeData } from '../../hooks/useRealTimeData';

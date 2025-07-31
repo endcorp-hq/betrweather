@@ -1,7 +1,7 @@
 import { View, Text } from "react-native";
 import { useAuthorization } from "../../utils/useAuthorization";
 import { DefaultBg } from "../ui/ScreenWrappers/DefaultBg";
-import { SignInButton } from "./sign-in-ui";
+import { ConnectButton, SignInButton } from "./sign-in-ui";
 
 // GuardedScreen: renders children if wallet connected, else shows centered connect button
 export default function GuardedScreen({
@@ -40,7 +40,8 @@ export default function GuardedScreen({
             Connect your wallet for further access
           </Text>
           <View style={{ flexDirection: "row", gap: 16 }}>
-            <SignInButton />
+            <ConnectButton />
+            {/* <SignInButton /> */}
           </View>
         </View>
       </View>
