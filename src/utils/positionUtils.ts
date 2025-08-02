@@ -128,6 +128,12 @@ export const calculateExpectedPayout = (position: PositionWithMarket) => {
   const userSideLiquidity = position.direction === "Yes" ? yesLiquidity : noLiquidity;
   const oppositeSideLiquidity = position.direction === "Yes" ? noLiquidity : yesLiquidity;
   
+  // If there's no liquidity on the user's side (they're the only one who bet),
+  // they just get their money back
+  if (userSideLiquidity === 0) {
+    return userBetAmount;
+  }
+  
   // Calculate expected payout
   const userShare = userBetAmount / userSideLiquidity;
   const expectedPayout = (userShare * oppositeSideLiquidity) + userBetAmount;
