@@ -4,7 +4,6 @@ import { useNavigation } from "@react-navigation/native";
 import { Market, MarketType, WinningDirection } from "@endcorp/depredict";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { RefractiveBgCard } from "./RefractiveBgCard";
-import { useRealTimeData } from '../../hooks/useRealTimeData';
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
   if (!endTimestamp) return "market ended";
@@ -53,50 +52,58 @@ export function MarketCard({ market, index = 0, animatedValue }: {
 }) {
   const navigation = useNavigation();
 
-  // Each card subscribes to its own market data
-  const { getMarketVolume, getMarketLiquidity, isMarketActive } = useRealTimeData();
-  
-  const marketId = Number(market.marketId);
-  const realTimeVolume = getMarketVolume(marketId);
-  const realTimeLiquidity = getMarketLiquidity(marketId);
-  const isActive = isMarketActive(marketId);
+  // Use real-time data directly from the market prop (already updated by useRealTimeMarkets)
+  const displayVolume = Number(market.volume);
+  const displayYesLiquidity = Number(market.yesLiquidity);
+  const displayNoLiquidity = Number(market.noLiquidity);
 
-  // Use real-time data with fallback to static data
-  const displayVolume = realTimeVolume || Number(market.volume);
-  const displayYesLiquidity = realTimeLiquidity?.yes || Number(market.yesLiquidity);
-  const displayNoLiquidity = realTimeLiquidity?.no || Number(market.noLiquidity);
+  // Add a subtle animation for real-time updates
+  const [isUpdating, setIsUpdating] = React.useState(false);
+  
+  React.useEffect(() => {
+    // Show a brief update indicator when volume changes
+    setIsUpdating(true);
+    const timer = setTimeout(() => setIsUpdating(false), 500);
+    return () => clearTimeout(timer);
+  }, [displayVolume, displayYesLiquidity, displayNoLiquidity]);
 
   // Determine if this is a live or future market
   const isLive = isLiveMarket(market);
-
-  // Determine if resolved
-  const winningDirection = market.winningDirection?.toLowerCase?.() || "none";
   // Check if market is resolved
   const isResolved = market.winningDirection !== WinningDirection.NONE;
 
   // Get market status and styling - matching StatusFilterBar colors
   const getMarketStatus = () => {
     if (isResolved) {
-      if (winningDirection === "yes") {
+      // Check the actual WinningDirection enum values
+      if (market.winningDirection === WinningDirection.YES) {
         return {
           text: "YES WON",
           color: "#8b5cf6",
           bgColor: "rgba(139, 92, 246, 0.1)",
           icon: "check-circle",
         };
-      } else if (winningDirection === "no") {
+      } else if (market.winningDirection === WinningDirection.NO) {
         return {
           text: "NO WON",
           color: "#8b5cf6",
           bgColor: "rgba(139, 92, 246, 0.1)",
           icon: "close-circle",
         };
-      } else {
+      } else if (market.winningDirection === WinningDirection.DRAW) {
         return {
           text: "DRAW",
           color: "#8b5cf6",
           bgColor: "rgba(139, 92, 246, 0.1)",
           icon: "minus-circle",
+        };
+      } else {
+        // Fallback for any other resolved state
+        return {
+          text: "RESOLVED",
+          color: "#8b5cf6",
+          bgColor: "rgba(139, 92, 246, 0.1)",
+          icon: "check-circle",
         };
       }
     } else {
@@ -190,7 +197,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
               </Text>
             </View>
             <Text style={styles.volume}>
-              ${parseFloat(market.volume || "0").toFixed(1)}
+              ${(parseFloat(market.volume || "0")/ 10**6).toFixed(1)}
             </Text>
           </View>
 

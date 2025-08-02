@@ -1,10 +1,9 @@
 import React, { useState } from "react";
-import { Account, useAuthorization } from "../../utils/useAuthorization";
-import { useMobileWallet } from "../../utils/useMobileWallet";
+import { Account, useAuthorization } from "../../solana/useAuthorization";
+import { useMobileWallet } from "../../hooks/useMobileWallet";
 import { useNavigation } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import { Linking, Text, TouchableOpacity, View, Modal } from "react-native";
-import { useCluster } from "../cluster/cluster-data-access";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 export function TopBarWalletButton({
@@ -55,7 +54,6 @@ export function TopBarSettingsButton() {
 
 export function TopBarWalletMenu() {
   const { selectedAccount } = useAuthorization();
-  const { getExplorerUrl } = useCluster();
   const [visible, setVisible] = useState(false);
   const openMenu = () => setVisible(true);
   const closeMenu = () => setVisible(false);
@@ -70,9 +68,7 @@ export function TopBarWalletMenu() {
 
   const viewExplorer = () => {
     if (selectedAccount) {
-      const explorerUrl = getExplorerUrl(
-        `account/${selectedAccount.publicKey.toBase58()}`
-      );
+      const explorerUrl = `https://solscan.io/account/${selectedAccount.publicKey.toBase58()}`;
       Linking.openURL(explorerUrl);
     }
     closeMenu();

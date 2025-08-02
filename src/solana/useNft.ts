@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { fetchAllAssets } from "@metaplex-foundation/mpl-core";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import { useAuthorization } from "../utils/useAuthorization";
+import { useAuthorization } from "./useAuthorization";
 
 export interface NftMetadata {
   positionId: number;
@@ -13,7 +13,7 @@ export interface NftMetadata {
 
 export function useNftMetadata() {
   const umi = createUmi(
-    process.env.EXPO_PUBLIC_RPC_URL || "https://api.devnet.solana.com"
+    process.env.EXPO_PUBLIC_SOLANA_RPC_URL!
   );
   const { selectedAccount } = useAuthorization();
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,6 @@ export function useNftMetadata() {
       );
 
       const { result } = await response.json();
-      console.log("result", result);
       // Find the NFT with name "SHORTX - {marketId}"
       const shortxNfts = result.items.filter((nft: any) =>
         marketId

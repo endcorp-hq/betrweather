@@ -3,7 +3,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Modal,
   Switch,
   Animated,
 } from "react-native";
@@ -13,11 +12,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { Text } from "react-native";
 import { formatMarketDuration } from "../components/market/format-market-duration";
 import { WinningDirection, MarketType, Market } from "@endcorp/depredict";
-import { useAuthorization } from "../utils/useAuthorization";
+import { useAuthorization } from "../solana/useAuthorization";
 import axios from "axios";
-import { getMint, formatDate } from "../utils/helpers";
+import { getMint, formatDate, extractErrorMessage } from "../utils/helpers";
 import { PublicKey } from "@solana/web3.js";
-import { useCreateAndSendTx } from "../utils/useCreateAndSendTx";
+import { useCreateAndSendTx } from "../solana/useCreateAndSendTx";
 import { DynamicTextInput } from "../components/ui/dynamicTextInput";
 import MaterialCard from "../components/ui/MaterialCard";
 import theme from "../theme";
@@ -27,7 +26,9 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { RefractiveBgCard } from "../components/ui/RefractiveBgCard";
 import { LogoLoader } from "../components/ui/LoadingSpinner";
 import SwipeButton from "rn-swipe-button";
-import { ToastProvider, useGlobalToast } from "../components/ui/ToastProvider";
+import { useGlobalToast } from "../components/ui/ToastProvider";
+import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
+import { BN } from "@coral-xyz/anchor";
 
 const SUGGESTED_BETS = [1, 3, 5, 10];
 
@@ -35,10 +36,12 @@ function SwipeableBetCard({
   market,
   onSelect,
   scrollViewRef,
+  marketEvents,
 }: {
   market: any;
   onSelect: (dir: "yes" | "no") => void;
   scrollViewRef: React.RefObject<ScrollView>;
+  marketEvents: any[];
 }) {
   const pan = useRef(new Animated.ValueXY()).current;
   const [swiping, setSwiping] = useState(false);
@@ -376,6 +379,9 @@ function SwipeableBetCard({
                 <Text style={styles.detailLabel}>Volume:</Text>
                 <Text style={styles.detailValue}>
                   ${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(1)}
+                  {marketEvents.some(event => event.marketId.toString() === market.marketId) && (
+                    <Text style={{ color: "#10b981", fontSize: 12 }}> ●</Text>
+                  )}
                 </Text>
               </View>
             </View>
@@ -384,17 +390,22 @@ function SwipeableBetCard({
       </Animated.View>
 
       {/* Expand/Collapse Arrow - Outside animated container */}
-      <TouchableOpacity
-        onPress={handleExpand}
-        style={styles.expandButton}
-        activeOpacity={0.7}
-      >
-        <MaterialCommunityIcons
-          name={isExpanded ? "chevron-up" : "chevron-down"}
-          size={24}
-          color="rgba(255, 255, 255, 0.8)"
-        />
-      </TouchableOpacity>
+      <View style={styles.expandButtonContainer}>
+        <Text className="text-white text-lg font-better-regular">
+          {!isExpanded && "Market Details"}
+        </Text>
+        <TouchableOpacity
+          onPress={handleExpand}
+          style={styles.expandButton}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name={isExpanded ? "chevron-up" : "chevron-down"}
+            size={24}
+            color="rgba(255, 255, 255, 0.8)"
+          />
+        </TouchableOpacity>
+      </View>
 
       {/* Full Screen Details Section */}
       {isExpanded && (
@@ -510,11 +521,6 @@ function SwipeableBetCard({
 }
 
 export default function SlotMachineScreen() {
-  const renderCount = useRef(0);
-  renderCount.current += 1;
-  
-  console.log(`MarketDetailScreen: Render #${renderCount.current}`);
-  
   const route = useRoute();
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
@@ -523,10 +529,6 @@ export default function SlotMachineScreen() {
   // @ts-ignore
   const { id } = route.params || {};
 
-  useEffect(() => {
-    console.log('MarketDetailScreen: ID changed to:', id);
-  }, [id]); // Only log when id changes
-
   const {
     openPosition,
     getMarketById,
@@ -534,6 +536,8 @@ export default function SlotMachineScreen() {
     error: shortxError,
   } = useShortx();
 
+  // Get real-time markets data
+  const { markets: realTimeMarkets, marketEvents, loadingMarkets } = useRealTimeMarkets();
   const [betAmount, setBetAmount] = useState("");
   const [selectedDirection, setSelectedDirection] = useState<
     "yes" | "no" | null
@@ -546,22 +550,39 @@ export default function SlotMachineScreen() {
   >("idle");
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // Determine if we're still loading
+  const isLoading = loadingMarkets || (!selectedMarket && !shortxError);
+  
+
+
   useEffect(() => {
     async function fetchMarket() {
-      console.log('MarketDetailScreen: useEffect triggered with id:', id);
-      const market = await getMarketById(id);
-      if(market) {
-        console.log('MarketDetailScreen: Setting market:', market.marketId);
-        setSelectedMarket(market);
-      } else {
-        console.log('MarketDetailScreen: No market found');
+      // First try to get from real-time markets
+      const realTimeMarket = realTimeMarkets.find(market => market.marketId === id);
+      if (realTimeMarket) {
+        setSelectedMarket(realTimeMarket);
+        return;
+      }
+      
+      
+      // Fallback to fetching from blockchain
+      try {
+        const market = await getMarketById(id);
+        if(market) {
+          setSelectedMarket(market);
+        } else {
+          setSelectedMarket(null);
+        }
+      } catch (error) {
+        console.error(`MarketDetailScreen: Error fetching market ${id}:`, error);
         setSelectedMarket(null);
       }
     }
+    
     if(id) {
       fetchMarket();
     }
-  }, [id, getMarketById]); // Add getMarketById to dependencies
+  }, [id, realTimeMarkets, getMarketById]);
 
   const handleBet = async (bet: string) => {
     if (!selectedAccount || !selectedAccount.publicKey) {
@@ -615,14 +636,12 @@ export default function SlotMachineScreen() {
         marketId: parseInt(selectedMarket.marketId),
         direction: bet === "yes" ? { yes: {} } : { no: {} },
         amount: parseFloat(betAmount),
-        mint: getMint(selectedToken, "devnet"),
         token: getMint(selectedToken, "devnet").toBase58(),
         payer: selectedAccount.publicKey,
         feeVaultAccount: new PublicKey(
           process.env.EXPO_PUBLIC_FEE_VAULT ||
             "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"
         ),
-        usdcMintAddress: new PublicKey(process.env.EXPO_PUBLIC_USDC_MINT || ""),
         metadataUri: metadataUri,
       });
       
@@ -667,10 +686,10 @@ export default function SlotMachineScreen() {
       toast.update(loadingToastId, {
         type: "error",
         title: "Bet Failed",
-        message: "An error occurred while placing your bet. Please try again.",
+        message: extractErrorMessage(error, "An error occurred while placing your bet. Please try again."),
         duration: 5000
       });
-      setBetStatus("error");
+      setBetStatus("idle"); // Reset immediately so user can try again
       // Don't navigate on error - modal stays open
     }
   };
@@ -700,26 +719,26 @@ export default function SlotMachineScreen() {
             </Text>
           </TouchableOpacity>
 
-          {loadingMarket && (
+          {isLoading && (
             <View className="flex-1 items-center justify-center h-full mt-20">
               <LogoLoader message="Loading market" />
             </View>
           )}
 
-          {shortxError && (
+          {shortxError && !loadingMarket && (
             <MaterialCard variant="filled" style={styles.errorCard}>
               <Text style={styles.errorTitle}>Error</Text>
-              <Text style={styles.errorMessage}>{shortxError.message}</Text>
+              <Text style={styles.errorMessage}>{extractErrorMessage(shortxError)}</Text>
             </MaterialCard>
           )}
 
-          {!loadingMarket && !shortxError && !selectedMarket && (
+          {!isLoading && !shortxError && !selectedMarket && (
             <MaterialCard variant="filled" style={styles.errorCard}>
               <Text style={styles.errorMessage}>No market found.</Text>
             </MaterialCard>
           )}
 
-          {!loadingMarket && !shortxError && selectedMarket && (
+          {!isLoading && !shortxError && selectedMarket && (
             <>
               {/* Single Swipeable Card with all info */}
               <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 600 }}>
@@ -730,6 +749,7 @@ export default function SlotMachineScreen() {
                     setShowBetModal(true);
                   }}
                   scrollViewRef={scrollViewRef}
+                  marketEvents={marketEvents}
                 />
               </View>
               {/* Slot Machine, Aggregated outcome, etc. can go here if desired */}
@@ -923,7 +943,7 @@ export default function SlotMachineScreen() {
                 </View>
 
                 {/* Manual success/failure toggle */}
-                <View style={styles.manualToggleRow}>
+                {/* <View style={styles.manualToggleRow}>
                   <Text style={styles.manualToggleLabel}>Bet NO</Text>
                   <Switch
                     value={selectedDirection === "yes"}
@@ -937,7 +957,7 @@ export default function SlotMachineScreen() {
                     disabled={betStatus === "loading"}
                   />
                   <Text style={styles.manualToggleLabel}>Bet YES</Text>
-                </View>
+                </View> */}
                 <SwipeButton
                   disabled={
                     betStatus !== "idle" ||
@@ -995,6 +1015,7 @@ export default function SlotMachineScreen() {
                   finishRemainingSwipeAnimationDuration={300}
                   containerStyles={{
                     marginBottom: 18,
+                    marginTop: 18,
                   }}
                 />
               </View>
@@ -1546,7 +1567,7 @@ const styles = StyleSheet.create({
   },
   expandButton: {
     alignSelf: "center",
-    marginTop: 32,
+    marginTop: 8,
     marginBottom: 8,
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 25,
@@ -1681,5 +1702,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
     fontFamily: 'Poppins-Regular',
+  },
+  expandButtonContainer: {
+    alignSelf: "center",
+    marginTop: 32,
+    alignItems: "center",
   },
 });

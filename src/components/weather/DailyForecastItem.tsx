@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
-import { RefractiveBgCard } from './RefractiveBgCard';
-import { getWeatherXMIcon, mapWXMV1IconToWeatherType } from '../../utils/weatherDataProcessor';
+import {RefractiveBgCard} from '../ui/RefractiveBgCard';
 
 interface DailyForecastItemProps {
   day: string;

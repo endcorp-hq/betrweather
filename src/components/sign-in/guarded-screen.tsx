@@ -1,5 +1,5 @@
 import { View, Text } from "react-native";
-import { useAuthorization } from "../../utils/useAuthorization";
+import { useAuthorization } from "../../solana/useAuthorization";
 import { DefaultBg } from "../ui/ScreenWrappers/DefaultBg";
 import { ConnectButton, SignInButton } from "./sign-in-ui";
 
@@ -40,8 +40,8 @@ export default function GuardedScreen({
             Connect your wallet for further access
           </Text>
           <View style={{ flexDirection: "row", gap: 16 }}>
-            <ConnectButton />
-            {/* <SignInButton /> */}
+            {/* <ConnectButton /> */}
+            <SignInButton />
           </View>
         </View>
       </View>

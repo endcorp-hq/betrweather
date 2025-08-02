@@ -155,7 +155,7 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
               <Text className="text-white text-lg font-better-medium">
                 {high}
               </Text>{" "}
-              - Low:{" "}
+              | Low:{" "}
               <Text className="text-white text-lg font-better-medium">
                 {low}
               </Text>

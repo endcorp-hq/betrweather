@@ -10,7 +10,7 @@ import { HomeNavigator } from "./HomeNavigator";
 import { StatusBar } from "expo-status-bar";
 import MarketDetailScreen from "../screens/MarketDetailScreen";
 import { TopBar } from "../components/top-bar/top-bar-feature";
-import GuardedScreen from "../components/sign-in/guarded-scree";
+import GuardedScreen from "../components/sign-in/guarded-screen";
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator

@@ -10,7 +10,7 @@ import {
   WXMV1ForecastDailyResponse,
   WXMV1ForecastDay,
 } from "../types/weather";
-import { WeatherType, isDayTime, getTimeOfDaySuffix } from "./useWeatherData";
+import { WeatherType, isDayTime, getTimeOfDaySuffix } from "../hooks/useWeatherData";
 import weatherModelAverage from "./weatherModelAverage";
 
 // Fallback icons (emoji or local asset)
@@ -32,9 +32,9 @@ export const mapWXMV1IconToWeatherType = (iconString: string, timestamp?: string
   if (icon.includes('clear') || icon.includes('sunny')) baseWeatherType = "sunny";
   else if (icon.includes('partly-cloudy')) baseWeatherType = "partly_cloudy";
   else if (icon.includes('cloudy') || icon.includes('overcast')) baseWeatherType = "cloudy";
-  else if (icon.includes('rain') || icon.includes('drizzle') || icon.includes('shower')) baseWeatherType = "rainy";
+  else if (icon.includes('rain') || icon.includes('drizzle') || icon.includes('sleet') ||  icon.includes('shower')) baseWeatherType = "rainy";
   else if (icon.includes('storm') || icon.includes('thunder') || icon.includes('lightning')) baseWeatherType = "stormy";
-  else if (icon.includes('snow') || icon.includes('sleet') || icon.includes('blizzard')) baseWeatherType = "snowy";
+  else if (icon.includes('snow') || icon.includes('blizzard')) baseWeatherType = "snowy";
   else if (icon.includes('fog') || icon.includes('mist') || icon.includes('haze')) baseWeatherType = "foggy";
   else if (icon.includes('wind') || icon.includes('breeze') || icon.includes('gust')) baseWeatherType = "windy";
   else if (icon.includes('hail') || icon.includes('ice')) baseWeatherType = "stormy"; // Hail/ice storms

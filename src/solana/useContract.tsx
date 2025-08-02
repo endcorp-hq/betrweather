@@ -104,12 +104,6 @@ import React, {
       feeAmount: number,
       payer: PublicKey
     ) => Promise<TransactionInstruction[] | null>;
-    // updateConfig: (
-    //   payer: PublicKey,
-    //   feeAmount?: number,
-    //   authority?: PublicKey,
-    //   feeVault?: PublicKey
-    // ) => Promise<TransactionInstruction[] | null>;
     closeConfig: (payer: PublicKey) => Promise<TransactionInstruction[] | null>;
     getConfig: () => Promise<ConfigAccount | null>;
     createMarket: (
@@ -133,13 +127,7 @@ import React, {
       payer: PublicKey;
     }) => Promise<VersionedTransaction | null>;
     loadingConfig: boolean;
-  
-    // getUserPositionsForMarket: (
-    //   user: PublicKey,
-    //   marketId: number
-    // ) => Promise<Position[]>;
     getMarketById: (id: number) => Promise<Market | null | undefined>;
-    selectedMarket: Market | null;
     closeMarket: (
       marketId: number,
       payer: PublicKey
@@ -173,9 +161,6 @@ import React, {
     }[]>([]);
     const [eventSubscriptions, setEventSubscriptions] = useState<number[]>([]);
     const refresh = () => setRefreshCount((c) => c + 1);
-    const [selectedMarket, setSelectedMarket] = useState<Market | null>(
-      null
-    );
   
     const createShortxError = (type: ShortxErrorType, message: string, originalError?: unknown): ShortxError => {
       const error = new Error(message) as ShortxError;
@@ -188,8 +173,7 @@ import React, {
       const initializeSDK = async () => {
         try {
           const connection = new Connection(
-          
-              "https://api.devnet.solana.com"
+            process.env.EXPO_PUBLIC_SOLANA_RPC_URL!
           );
   
           if (
@@ -203,7 +187,6 @@ import React, {
             connection,
             new PublicKey(process.env.EXPO_PUBLIC_ADMIN_KEY || ""),
             new PublicKey(process.env.EXPO_PUBLIC_FEE_VAULT || "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"),
-            new PublicKey(process.env.EXPO_PUBLIC_USDC_MINT || "")
           );
 
           setClient(shortxClient);
@@ -235,18 +218,15 @@ import React, {
     };
   
     const getMarketById = useCallback(async (id: number) => {
-      if (!client) return null;
+      if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "Client not initialized");
       setLoadingMarket(true);
       setError(null);
       try {
         const market = await client.trade.getMarketById(id);
-        setSelectedMarket(market);
-        return market; // Return the market data directly
+        return market;
       } catch (e) {
-        console.log('this is e', e);
-        setError(createShortxError(ShortxErrorType.MARKET_FETCH, "Failed to fetch single market", e));
-        setSelectedMarket(null);
-        return null;
+        console.error('Error fetching market:', e);
+        throw createShortxError(ShortxErrorType.MARKET_FETCH, "Failed to fetch market", e);
       } finally {
         setLoadingMarket(false);
       }
@@ -256,6 +236,93 @@ import React, {
       fetchAllMarkets();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [client, refreshCount]);
+
+    // Update markets in real-time when market events are received
+    useEffect(() => {
+      if (marketEvents.length === 0) return;
+
+      const latestEvent = marketEvents[0]; // Get the most recent event
+      
+      setMarkets(prevMarkets => {
+        const existingMarketIndex = prevMarkets.findIndex(market => market.marketId === latestEvent.marketId.toString());
+        
+        if (existingMarketIndex !== -1) {
+          // Update existing market with new data from event
+          const updatedMarkets = [...prevMarkets];
+          const existingMarket = updatedMarkets[existingMarketIndex];
+          
+          // Convert winningDirection from object format to enum
+          let winningDirection: WinningDirection;
+          if (latestEvent.winningDirection && typeof latestEvent.winningDirection === 'object') {
+            if ('yes' in latestEvent.winningDirection) {
+              winningDirection = WinningDirection.YES;
+            } else if ('no' in latestEvent.winningDirection) {
+              winningDirection = WinningDirection.NO;
+            } else if ('draw' in latestEvent.winningDirection) {
+              winningDirection = WinningDirection.DRAW;
+            } else if ('none' in latestEvent.winningDirection) {
+              winningDirection = WinningDirection.NONE;
+            } else {
+              winningDirection = WinningDirection.NONE;
+            }
+          } else {
+            winningDirection = latestEvent.winningDirection as WinningDirection;
+          }
+          
+          updatedMarkets[existingMarketIndex] = {
+            ...existingMarket,
+            yesLiquidity: latestEvent.yesLiquidity.toString(),
+            noLiquidity: latestEvent.noLiquidity.toString(),
+            volume: latestEvent.volume.toString(),
+            marketStart: latestEvent.marketStart.toString(),
+            marketEnd: latestEvent.marketEnd.toString(),
+            // Preserve the original winningDirection unless the event indicates a resolution
+            winningDirection: winningDirection,
+            marketState: latestEvent.state as any,
+            nextPositionId: latestEvent.nextPositionId.toString(),
+          };
+          
+          console.log(`Updated market ${latestEvent.marketId} with real-time data:`, {
+            volume: latestEvent.volume,
+            yesLiquidity: latestEvent.yesLiquidity,
+            noLiquidity: latestEvent.noLiquidity,
+            winningDirection: latestEvent.winningDirection,
+            originalWinningDirection: existingMarket.winningDirection
+          });
+          
+          return updatedMarkets;
+        } else {
+          // This is a new market, fetch it from the blockchain
+          console.log(`New market detected: ${latestEvent.marketId}, fetching details...`);
+          
+          // Fetch the new market and add it to the list
+          const fetchNewMarket = async () => {
+            try {
+              if (client) {
+                const newMarket = await client.trade.getMarketById(latestEvent.marketId);
+                if (newMarket) {
+                  setMarkets(prev => {
+                    // Check if market already exists to prevent duplicates
+                    const marketExists = prev.some(market => market.marketId === latestEvent.marketId.toString());
+                    if (marketExists) {
+                      console.log(`Market ${latestEvent.marketId} already exists in list, skipping...`);
+                      return prev;
+                    }
+                    console.log(`Added new market ${latestEvent.marketId} to the list`);
+                    return [newMarket, ...prev];
+                  });
+                }
+              }
+            } catch (error) {
+              console.error(`Error fetching new market ${latestEvent.marketId}:`, error);
+            }
+          };
+          
+          fetchNewMarket();
+          return prevMarkets; // Return current markets while fetching
+        }
+      });
+    }, [marketEvents, client]);
   
     useEffect(() => {
       if (!isInitialized || !client) return;
@@ -267,7 +334,7 @@ import React, {
             "positionEvent",
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (event: any) => {
-              console.log("positionEvent", event);
+              console.log("positionEvent received:", event);
               setRecentTrades((prev) => [
                 {
                   positionId: event.positionId.toNumber(),
@@ -290,28 +357,66 @@ import React, {
             "marketEvent",
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (event: any) => {
-              console.log("marketEvent", event);
-              setMarketEvents((prev) => [
-                {
-                  marketId: event.marketId.toNumber(),
-                  state: event.marketState.toString(),
-                  yesLiquidity: event.yesLiquidity.toNumber(),
-                  noLiquidity: event.noLiquidity.toNumber(),
-                  volume: event.volume.toNumber(),
-                  updateTs: event.updateTs.toNumber(),
-                  nextPositionId: event.nextPositionId.toNumber(),
-                  marketStart: event.marketStart.toNumber(),
-                  marketEnd: event.marketEnd.toNumber(),
-                  winningDirection: event.winningDirection,
-                },
-                ...prev,
-              ]);
+              console.log("=== MARKET EVENT RECEIVED ===");
+              console.log("Raw event:", event);
+              console.log("Event type:", typeof event);
+              console.log("Event keys:", Object.keys(event));
+              console.log("Market ID:", event.marketId?.toNumber());
+              console.log("Volume:", event.volume?.toNumber());
+              console.log("State:", event.marketState?.toString());
+              console.log("================================");
+              
+              setMarketEvents((prev) => {
+                // Temporarily remove duplicate checking to debug
+                console.log(`Processing market event for market ${event.marketId.toNumber()} with volume ${event.volume.toNumber()}`);
+                
+                // Convert winningDirection from object format to enum
+                let winningDirection: WinningDirection;
+                if (event.winningDirection && typeof event.winningDirection === 'object') {
+                  if ('yes' in event.winningDirection) {
+                    winningDirection = WinningDirection.YES;
+                  } else if ('no' in event.winningDirection) {
+                    winningDirection = WinningDirection.NO;
+                  } else if ('draw' in event.winningDirection) {
+                    winningDirection = WinningDirection.DRAW;
+                  } else if ('none' in event.winningDirection) {
+                    winningDirection = WinningDirection.NONE;
+                  } else {
+                    winningDirection = WinningDirection.NONE;
+                  }
+                } else {
+                  winningDirection = event.winningDirection as WinningDirection;
+                }
+                
+                console.log(`Adding market event for market ${event.marketId.toNumber()} with volume ${event.volume.toNumber()}`);
+                
+                return [
+                  {
+                    marketId: event.marketId.toNumber(),
+                    state: event.marketState.toString(),
+                    yesLiquidity: event.yesLiquidity.toNumber(),
+                    noLiquidity: event.noLiquidity.toNumber(),
+                    volume: event.volume.toNumber(),
+                    updateTs: event.updateTs.toNumber(),
+                    nextPositionId: event.nextPositionId.toNumber(),
+                    marketStart: event.marketStart.toNumber(),
+                    marketEnd: event.marketEnd.toNumber(),
+                    winningDirection: winningDirection,
+                  },
+                  ...prev,
+                ];
+              });
             }
           );
   
           setEventSubscriptions([positionListener, marketListener]);
         } catch (error) {
           console.error("Error subscribing to events:", error);
+          // Retry subscription after a delay
+          setTimeout(() => {
+            console.log("Retrying event subscription...");
+            subscribeToEvents();
+          }, 5000);
         }
       };
   
@@ -537,7 +642,6 @@ import React, {
           updateMarket,
           resolveMarket,
           loadingConfig,
-          selectedMarket,
           closeMarket,
         }}
       >

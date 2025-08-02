@@ -7,7 +7,7 @@ import {
   WXMV1ForecastDailyResponse,
   WXMV1ForecastHourlyResponse,
 } from "../types/weather";
-import { getH3Index } from "./h3";
+import { getH3Index } from "../utils/h3";
 
 export type WeatherType = 
   | "sunny_day" | "sunny_night"

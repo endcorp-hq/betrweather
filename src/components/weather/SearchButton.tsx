@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Animated, TextInput, Dimensions, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, TextInput, Dimensions, ScrollView, Keyboard } from 'react-native';
 import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
 
 interface Location {
@@ -43,6 +43,9 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const inputOpacityAnim = useRef(new Animated.Value(0)).current;
   const suggestionsAnim = useRef(new Animated.Value(0)).current;
+
+  // Add ref for TextInput
+  const inputRef = useRef<TextInput>(null);
 
   // Debounced search function
   const debouncedSearch = useCallback(
@@ -172,6 +175,10 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
     setSuggestions(null);
     setIsLoading(false);
     
+    // Ensure keyboard is dismissed
+    Keyboard.dismiss();
+    inputRef.current?.blur();
+    
     // Animate width collapse back to original size
     Animated.parallel([
       Animated.timing(widthAnim, {
@@ -196,6 +203,10 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
   };
 
   const handleLocationSelect = (location: Location) => {
+    // Ensure keyboard is dismissed
+    Keyboard.dismiss();
+    // Blur the input to prevent keyboard from reappearing
+    inputRef.current?.blur();
     onLocationSelect(location);
     collapseSearch();
   };
@@ -232,9 +243,12 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
 
   useEffect(() => {
     if (suggestions && (suggestions.length > 0 || isLoading)) {
+      // Dismiss keyboard when suggestions appear
+      Keyboard.dismiss();
       showSuggestions();
     } else if (searchQuery.length >= 3 && !isLoading) {
-      // Only show "no results" if we're not loading and have no suggestions
+      // Dismiss keyboard when showing "no results"
+      Keyboard.dismiss();
       Animated.timing(suggestionsAnim, {
         toValue: 1,
         duration: 200,
@@ -306,6 +320,7 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
               marginRight: 12,
             }}>
               <TextInput
+                ref={inputRef}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search for a city..."
@@ -317,6 +332,15 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
                   height: 48,
                 }}
                 autoFocus={isExpanded}
+                // Add these props to improve keyboard behavior
+                returnKeyType="search"
+                blurOnSubmit={false}
+                onSubmitEditing={() => {
+                  // If there are suggestions, select the first one
+                  if (suggestions && suggestions.length > 0) {
+                    handleLocationSelect(suggestions[0]);
+                  }
+                }}
               />
             </Animated.View>
 

@@ -9,7 +9,7 @@ import {
 } from "@solana/web3.js";
 import { useCallback, useState } from "react";
 import axios from "axios";
-import { useMobileWallet } from "./useMobileWallet";
+import { useMobileWallet } from "../hooks/useMobileWallet";
 import { useAuthorization } from "./useAuthorization";
 
 const getPriorityFee = async () => {
@@ -21,7 +21,6 @@ const getPriorityFee = async () => {
     >("https://solanacompass.com/api/fees");
     fee = response.data[1].priorityTx;
   } catch (e) {
-    console.log("error getting priority fee", e);
     fee = 1000;
   }
 
@@ -61,12 +60,11 @@ export function useCreateAndSendTx() {
 
       try {
         const connection = new Connection(
-          process.env.EXPO_PUBLIC_RPC_URL || "https://api.devnet.solana.com"
+          process.env.EXPO_PUBLIC_SOLANA_RPC_URL!
         );
 
         // If a signed versioned transaction is provided, send it directly
         if (signedVersionedTransaction) {
-          console.log(Buffer.from(signedVersionedTransaction.serialize()).toString("base64"));
           if (signatureRequired) {
             // Use signAndSendTransaction for the signed transaction
             let result = await signTransaction(signedVersionedTransaction);
@@ -106,7 +104,6 @@ export function useCreateAndSendTx() {
         // Get latest blockhash
         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
 
-        console.log("this is blockhash", blockhash);
         // Create versioned transaction
         const tx = new VersionedTransaction(
           new TransactionMessage({
@@ -116,11 +113,8 @@ export function useCreateAndSendTx() {
           }).compileToV0Message(addressLookupTableAccounts)
         );
 
-        console.log("this is tx", tx);
-
         if (signatureRequired) {
           // Use signAndSendTransaction from wallet
-          console.log("this is await signAndSendTransaction");
           const signedTransaction = await signTransaction(tx);
           let signature: string | undefined;
           if (signedTransaction) {

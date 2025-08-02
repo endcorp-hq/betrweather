@@ -5,7 +5,7 @@ import { HomeScreen } from "../screens/HomeScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import MarketScreen from "../screens/MarketScreen";
 import { CustomTabBar } from "../components/ui/CustomTabBar";
-import GuardedScreen from "../components/sign-in/guarded-scree";
+import GuardedScreen from "../components/sign-in/guarded-screen";
 
 const Tab = createBottomTabNavigator();
 function MarketsGuarded() {

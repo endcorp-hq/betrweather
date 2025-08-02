@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Text, TouchableOpacity } from "react-native";
-import { useAuthorization } from "../../utils/useAuthorization";
-import { useMobileWallet } from "../../utils/useMobileWallet";
+import { useAuthorization } from "../../solana/useAuthorization";
+import { useMobileWallet } from "../../hooks/useMobileWallet";
 import { useToast } from "../ui/CustomToast";
 
 export function ConnectButton() {
@@ -74,7 +74,7 @@ export function SignInButton() {
       await signIn({
         domain: "BetrWeather",
         statement: "Sign into BetrWeather",
-        uri: "https://yourdomain.com",
+        uri: "https://endcorp.co",
       });
     } catch (err: any) {
       toast.error("Error during sign in", err instanceof Error ? err.message : err);

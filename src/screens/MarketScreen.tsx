@@ -1,6 +1,5 @@
 import React, { useState, useRef } from "react";
 import { ScrollView, Text, StyleSheet, View, Animated } from "react-native";
-import { useShortx } from "../solana/useContract";
 import { MarketCard } from "../components/ui/MarketCard";
 import { useFilters } from "../components/ui/useFilters";
 import { StatusFilterBar } from "../components/ui/StatusFilterBar";
@@ -8,9 +7,10 @@ import { LogoLoader as LoadingSpinner } from "../components/ui/LoadingSpinner";
 import theme from '../theme';
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
+import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
 
 export default function MarketScreen() {
-  const { markets, error, loadingMarkets } = useShortx();
+  const { markets, loadingMarkets, error } = useRealTimeMarkets();
 
   // Use the filter hook for time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([
@@ -21,7 +21,7 @@ export default function MarketScreen() {
   ]);
 
   // Use separate state for status filter
-  const [statusFilter, setStatusFilter] = useState("active");
+  const [statusFilter, setStatusFilter] = useState("betting");
 
   // Filter markets based on selected filters
   const filteredMarkets = markets.filter((market) => {
@@ -154,7 +154,7 @@ export default function MarketScreen() {
             )}
             {!loadingMarkets && !error && filteredMarkets.length === 0 && (
               <View className="flex-1 justify-center items-center py-20">
-                <Text style={styles.emptyText}>No markets found for the selected filters.</Text>  
+                <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
               </View>
             )}
             
@@ -162,7 +162,7 @@ export default function MarketScreen() {
             <View>
               {filteredMarkets.map((market, idx) => (
                 <MotiView
-                  key={`market-${market.marketId}`}
+                  key={`market-${market.marketId}-${market.marketStart}`}
                   from={{
                     opacity: 0,
                     translateY: 10,
