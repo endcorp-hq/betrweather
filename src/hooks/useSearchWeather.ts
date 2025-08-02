@@ -280,6 +280,7 @@ export const useSearchWeather = (latitude: number | null, longitude: number | nu
     latitude,
     longitude,
     hasValidLocation,
+    userH3Index,
 
     // Weather Type for background
     weatherType,

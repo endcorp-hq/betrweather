@@ -5,9 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface WeatherSourceIndicatorProps {
   isUsingLocalStation: boolean;
   distance?: number;
+  cellId?: string | null;
 }
 
-export function WeatherSourceIndicator({ isUsingLocalStation, distance }: WeatherSourceIndicatorProps) {
+export function WeatherSourceIndicator({ isUsingLocalStation, distance, cellId }: WeatherSourceIndicatorProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [scaleAnim] = useState(new Animated.Value(1));
   const [opacityAnim] = useState(new Animated.Value(0));
@@ -94,8 +95,8 @@ export function WeatherSourceIndicator({ isUsingLocalStation, distance }: Weathe
       <Animated.View
         style={{
           position: 'absolute',
-          top: 4,
-          left: 45,
+          top: 14,
+          left: 70,
           opacity: opacityAnim,
           transform: [{ scale: scaleAnim }],
           alignSelf: 'flex-start',
@@ -108,6 +109,11 @@ export function WeatherSourceIndicator({ isUsingLocalStation, distance }: Weathe
             : 'Google Weather'
           }
         </Text>
+        {isUsingLocalStation && cellId && (
+          <Text className="text-gray-600 text-xs font-better-medium mt-1">
+            Cell ID: {cellId}
+          </Text>
+        )}
       </Animated.View>
     </>
   );

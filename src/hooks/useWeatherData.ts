@@ -301,6 +301,7 @@ export const useWeatherData = () => {
     latitude,
     longitude,
     hasValidLocation,
+    userH3Index,
 
     // Weather Type for background
     weatherType,

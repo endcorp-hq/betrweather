@@ -82,6 +82,7 @@ export function HomeScreen() {
     hasError,
     errorMessage,
     weatherType,
+    userH3Index,
   } = useWeatherData();
 
   // Get current location coordinates
@@ -211,6 +212,7 @@ export function HomeScreen() {
     hasError: searchWeatherData.hasError,
     errorMessage: searchWeatherData.errorMessage,
     weatherType: searchWeatherData.weatherType,
+    userH3Index: searchWeatherData.userH3Index,
   } : {
     wxmv1HourlyForecastData,
     wxmv1DailyForecastData,
@@ -222,6 +224,7 @@ export function HomeScreen() {
     hasError,
     errorMessage,
     weatherType,
+    userH3Index,
   };
 
 
@@ -510,6 +513,7 @@ export function HomeScreen() {
           <WeatherSourceIndicator
             isUsingLocalStation={currentData.isUsingLocalStation}
             distance={undefined}
+            cellId={currentData.userH3Index}
           />
         </View>
       </Animated.View>
