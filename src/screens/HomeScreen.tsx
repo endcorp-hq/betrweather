@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { MotiView } from 'moti';
 import { WeatherSourceIndicator } from "../components/weather/WeatherSourceIndicator";
 import { SearchButton } from "../components/weather/SearchButton";
@@ -32,6 +32,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { DefaultBg } from "../components/ui/ScreenWrappers/DefaultBg";
 import { DailyDetailScreen } from "./DailyDetailScreen";
 import { calculateLocalTimeForCoordinates } from "../utils/timezoneUtils";
+import { useFocusEffect } from '@react-navigation/native';
 
 interface SearchedLocation {
   name: string;
@@ -64,10 +65,41 @@ export function HomeScreen() {
   const [selectedDayDetail, setSelectedDayDetail] = useState<any>(null);
   const { height: screenHeight } = Dimensions.get('window');
   const backgroundImageHeight = screenHeight * 0.70;
-  const [videoRef, setVideoRef] = useState<Video | null>(null);
+  const [videoRef, setVideoRef] = useState<any>(null);
 
   // Add state for background video source
   const [backgroundVideoSource, setBackgroundVideoSource] = useState<any>(null);
+  
+  // Create video player for expo-video - always available on HomeScreen
+  const player = useVideoPlayer(null, player => {
+    player.loop = true;
+    player.muted = true;
+  });
+
+  // Handle screen focus/unfocus to pause/play video for performance
+  useFocusEffect(
+    React.useCallback(() => {
+      // Screen is focused - play video if we have a source
+      if (player && backgroundVideoSource) {
+        try {
+          player.play();
+        } catch (error) {
+          console.log('Error playing video:', error);
+        }
+      }
+      
+      return () => {
+        // Screen is unfocused - pause video to save resources
+        if (player) {
+          try {
+            player.pause();
+          } catch (error) {
+            console.log('Error pausing video:', error);
+          }
+        }
+      };
+    }, [player, backgroundVideoSource])
+  );
 
 
   const {
@@ -296,19 +328,20 @@ export function HomeScreen() {
     return new Date();
   };
 
-  // Video status change handler
-  const onVideoStatusUpdate = (status: any) => {
-    if (status.isLoaded && !status.isPlaying) {
-      videoRef?.playAsync();
-    }
-  };
 
-  // Update the useEffect to use the new function
+
+  // Update the useEffect to load video source into existing player
   useEffect(() => {
     const updateBackgroundVideo = async () => {
       try {
         const source = await getBackgroundVideoSource();
         setBackgroundVideoSource(source);
+        
+        // Load the new source into the existing player
+        if (player && source) {
+          player.replace(source);
+          player.play();
+        }
       } catch (error) {
         console.error('Error getting background video source:', error);
         // Fallback to current time
@@ -316,13 +349,19 @@ export function HomeScreen() {
         const isDay = deviceHours >= 6 && deviceHours < 18;
         const fallbackSource = getBackgroundVideo(currentData.weatherType, isDay);
         setBackgroundVideoSource(fallbackSource);
+        
+        // Load fallback source into player
+        if (player && fallbackSource) {
+          player.replace(fallbackSource);
+          player.play();
+        }
       }
     };
 
     if (!currentData.isLoading && !currentData.hasError) {
       updateBackgroundVideo();
     }
-  }, [currentData.weatherType, searchedLocation, currentData.isLoading, currentData.hasError]);
+  }, [currentData.weatherType, searchedLocation, currentData.isLoading, currentData.hasError, player]);
 
   // Trigger animations when data loads
   React.useEffect(() => {
@@ -544,13 +583,13 @@ export function HomeScreen() {
           transition={{ type: 'timing', duration: 300, delay: 0 }}
           style={{ height: backgroundImageHeight, position: 'relative' }}
         >
-          {/* Only show video when search is not active */}
-          {!isSearchActive && (
+          {/* Only show video when search is not active and we have a source */}
+          {!isSearchActive && player && backgroundVideoSource && (
             <>
-              <Video
+              <VideoView
                 key={`${searchedLocation?.name || 'current'}-${currentData.weatherType}`}
                 ref={setVideoRef}
-                source={backgroundVideoSource}
+                player={player}
                 style={{ 
                   position: 'absolute',
                   top: 0,
@@ -560,11 +599,10 @@ export function HomeScreen() {
                   width: '100%',
                   height: backgroundImageHeight,
                 }}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={true}
-                isLooping={true}
-                isMuted={true}
-                onPlaybackStatusUpdate={onVideoStatusUpdate}
+                contentFit="cover"
+                allowsFullscreen={false}
+                allowsPictureInPicture={false}
+                nativeControls={false}
               />
 
               {/* Light tint overlay for better content visibility */}

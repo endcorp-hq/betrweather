@@ -3834,6 +3834,7 @@ __metadata:
     expo-sensors: "npm:~14.0.2"
     expo-status-bar: "npm:~2.0.1"
     expo-system-ui: "npm:~4.0.9"
+    expo-video: "npm:~2.0.6"
     h3-reactnative: "https://github.com/endcorp-hq/h3-reactnative.git"
     moti: "npm:^0.30.0"
     nativewind: "npm:^4.1.23"
@@ -3846,7 +3847,7 @@ __metadata:
     react-native-gesture-handler: "npm:~2.20.2"
     react-native-reanimated: "npm:~3.16.1"
     react-native-safe-area-context: "npm:4.12.0"
-    react-native-screens: "npm:^4.13.1"
+    react-native-screens: "npm:~4.4.0"
     react-native-svg: "npm:15.8.0"
     react-native-url-polyfill: "npm:^2.0.0"
     react-native-webview: "npm:13.12.5"
@@ -5564,6 +5565,17 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10c0/cff99edd68670bfa28a98870d52b423a860cf59603493b8e914dea3a455d2d7f0f25c7b45724d7238aa4727e8c9c50686378b748f6856feedd1758d0bf3cc350
+  languageName: node
+  linkType: hard
+
+"expo-video@npm:~2.0.6":
+  version: 2.0.6
+  resolution: "expo-video@npm:2.0.6"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+  checksum: 10c0/46c5efea19c693ec4b3f1218acb499aa259fd4ae164e5301e09c81a7c577f3a5df3fd259f3bf94e75c89e463c466c81acaea66a55c7bbd47dcd725b9115c8684
   languageName: node
   linkType: hard
 
@@ -9021,16 +9033,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-is-edge-to-edge@npm:^1.2.1":
-  version: 1.2.1
-  resolution: "react-native-is-edge-to-edge@npm:1.2.1"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10c0/87d20b900aded7d44c90afb946a7aa03c23a94ca3dd547bdddc2303b85357e4aab22567a57b19f1558d6c8be7058e3dcf34faa1e15182d1604f90974266d9a1d
-  languageName: node
-  linkType: hard
-
 "react-native-reanimated@npm:~3.16.1":
   version: 3.16.7
   resolution: "react-native-reanimated@npm:3.16.7"
@@ -9064,17 +9066,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-screens@npm:^4.13.1":
-  version: 4.13.1
-  resolution: "react-native-screens@npm:4.13.1"
+"react-native-screens@npm:~4.4.0":
+  version: 4.4.0
+  resolution: "react-native-screens@npm:4.4.0"
   dependencies:
     react-freeze: "npm:^1.0.0"
-    react-native-is-edge-to-edge: "npm:^1.2.1"
     warn-once: "npm:^0.1.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10c0/7168228da8fe54fce59a31a15ace5b83d91e2cf205d5be4e6306cc749151cee50162bd0c74e163f38d25bf957153a5ea9e6d91cf9ef6aac8a0c0d5b4ba0d93af
+  checksum: 10c0/63eff2f7761109ed05b0656c28bf34c83d5d7ebbcd92931202a250cab0e54109c764fac3471db7ae52f5c6c782bfca5caf5d8f1dc9a4a27a4b9889aeec7a4dcc
   languageName: node
   linkType: hard
 
