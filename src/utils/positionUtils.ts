@@ -89,13 +89,19 @@ export const calculatePayout = (position: PositionWithMarket) => {
         ? noLiquidity 
         : yesLiquidity;
       
+      // If there's no liquidity on the losing side, user just gets their bet back
+      if (losingLiquidity === 0) {
+        return userBetAmount;
+      }
+      
       // Calculate user's share of the winning side
       const userShare = userBetAmount / winningLiquidity;
       
       // Calculate payout: user's share of losing side + original bet
       const payout = (userShare * losingLiquidity) + userBetAmount;
       
-      return payout;
+      // Ensure user gets at least their original bet back
+      return Math.max(payout, userBetAmount);
     } else {
       return 0; // Lost the bet
     }
@@ -138,5 +144,6 @@ export const calculateExpectedPayout = (position: PositionWithMarket) => {
   const userShare = userBetAmount / userSideLiquidity;
   const expectedPayout = (userShare * oppositeSideLiquidity) + userBetAmount;
   
-  return expectedPayout;
+  // Ensure user gets at least their original bet back
+  return Math.max(expectedPayout, userBetAmount);
 }; 
