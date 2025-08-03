@@ -1,83 +1,38 @@
 // Polyfills
 import "./src/polyfills";
 
-import { StyleSheet, useColorScheme } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ConnectionProvider } from "./src/utils/ConnectionProvider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  DarkTheme as NavigationDarkTheme,
-  DefaultTheme as NavigationDefaultTheme,
-} from "@react-navigation/native";
-import {
-  PaperProvider,
-  MD3DarkTheme,
-  MD3LightTheme,
-  adaptNavigationTheme,
-} from "react-native-paper";
 import { AppNavigator } from "./src/navigators/AppNavigator";
-import { ClusterProvider } from "./src/components/cluster/cluster-data-access";
+import { ShortxProvider } from "./src/solana/useContract";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { ToastProvider } from "./src/components/ui/ToastProvider";
+
 import "./global.css";
+import "react-native-reanimated";
 
 const queryClient = new QueryClient();
 
 export default function App() {
-  const colorScheme = useColorScheme();
-  const { LightTheme, DarkTheme } = adaptNavigationTheme({
-    reactNavigationLight: NavigationDefaultTheme,
-    reactNavigationDark: NavigationDarkTheme,
-  });
-
-  const CombinedDefaultTheme = {
-    ...MD3LightTheme,
-    ...LightTheme,
-    colors: {
-      ...MD3LightTheme.colors,
-      ...LightTheme.colors,
-    },
-  };
-  const CombinedDarkTheme = {
-    ...MD3DarkTheme,
-    ...DarkTheme,
-    colors: {
-      ...MD3DarkTheme.colors,
-      ...DarkTheme.colors,
-    },
-  };
   return (
-    <QueryClientProvider client={queryClient}>
-      <ClusterProvider>
-        <ConnectionProvider config={{ commitment: "processed" }}>
-          <SafeAreaView
-            style={[
-              styles.shell,
-              {
-                backgroundColor:
-                  colorScheme === "dark"
-                    ? MD3DarkTheme.colors.background
-                    : MD3LightTheme.colors.background,
-              },
-            ]}
-          >
-            <PaperProvider
-              theme={
-                colorScheme === "dark"
-                  ? CombinedDarkTheme
-                  : CombinedDefaultTheme
-              }
-            >
-              <AppNavigator />
-            </PaperProvider>
-          </SafeAreaView>
-        </ConnectionProvider>
-      </ClusterProvider>
-    </QueryClientProvider>
+    <View style={{ flex: 1 }}>
+      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <QueryClientProvider client={queryClient}>
+          <ConnectionProvider config={{ commitment: "processed" }}>
+            <ShortxProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <SafeAreaProvider>
+                  <ToastProvider>
+                    <AppNavigator />
+                  </ToastProvider>
+                </SafeAreaProvider>
+              </GestureHandlerRootView>
+            </ShortxProvider>
+          </ConnectionProvider>
+      </QueryClientProvider>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  shell: {
-    flex: 1,
-  },
-});

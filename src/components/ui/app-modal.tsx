@@ -1,5 +1,4 @@
-import { ViewStyle, View, StyleSheet } from "react-native";
-import { Modal, Text, Button, Portal, useTheme } from "react-native-paper";
+import { ViewStyle, View, StyleSheet, Text, Modal, TouchableOpacity } from "react-native";
 
 interface AppModalProps {
   children: React.ReactNode;
@@ -19,65 +18,107 @@ export function AppModal({
   show,
   submit,
   submitDisabled,
-  submitLabel = "Save", // Defaulting submitLabel to "Save" here
+  submitLabel = "Save",
+  contentContainerStyle,
 }: AppModalProps) {
-  const theme = useTheme();
   return (
-    <Portal>
-      <Modal
-        visible={show}
-        onDismiss={hide}
-        contentContainerStyle={[
-          styles.container,
-          { backgroundColor: theme.colors.elevation.level4 },
-        ]}
-      >
-        <View>
+    <Modal
+      visible={show}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={hide}
+    >
+      <View style={styles.overlay}>
+        <View style={[styles.container, contentContainerStyle]}>
           <Text style={styles.title}>{title}</Text>
           {children}
           <View style={styles.action}>
             <View style={styles.buttonGroup}>
               {submit && (
-                <Button
-                  mode="contained"
+                <TouchableOpacity
                   onPress={submit}
                   disabled={submitDisabled}
-                  style={styles.button}
+                  style={[
+                    styles.button,
+                    styles.submitButton,
+                    submitDisabled && styles.disabledButton
+                  ]}
                 >
-                  {submitLabel}
-                </Button>
+                  <Text style={[styles.buttonText, styles.submitButtonText]}>
+                    {submitLabel}
+                  </Text>
+                </TouchableOpacity>
               )}
-              <Button onPress={hide} style={styles.button}>
-                Close
-              </Button>
+              <TouchableOpacity
+                onPress={hide}
+                style={[styles.button, styles.closeButton]}
+              >
+                <Text style={[styles.buttonText, styles.closeButtonText]}>
+                  Close
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
-      </Modal>
-    </Portal>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
+    backgroundColor: 'white',
     padding: 20,
     marginLeft: 20,
     marginRight: 20,
-    borderRadius: 5,
+    borderRadius: 10,
+    minWidth: 300,
+    maxWidth: '90%',
   },
   title: {
     fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 16, // Adjust spacing as needed
+    marginBottom: 16,
+    color: '#333',
   },
   action: {
-    marginTop: 16, // Adjust spacing as needed
+    marginTop: 16,
   },
   buttonGroup: {
     flexDirection: "row",
-    justifyContent: "space-around", // Adjust based on your design requirements
+    justifyContent: "space-around",
+    gap: 12,
   },
   button: {
-    margin: 4, // Adjust as needed
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  submitButton: {
+    backgroundColor: '#007AFF',
+  },
+  closeButton: {
+    backgroundColor: '#F2F2F7',
+  },
+  disabledButton: {
+    backgroundColor: '#C7C7CC',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  submitButtonText: {
+    color: 'white',
+  },
+  closeButtonText: {
+    color: '#007AFF',
   },
 });

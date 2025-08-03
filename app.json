@@ -1,38 +1,64 @@
 {
   "expo": {
-    "name": "solana-dapp",
-    "slug": "solana-dapp",
+    "name": "BetrWeather",
+    "slug": "BetrWeather",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo/betrCloud.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/logo/betrCloud.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.solana.mobile.expo.template"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.betrweather.app",
+      "infoPlist": {
+        "UIStatusBarStyle": "light-content",
+        "UIViewControllerBasedStatusBarAppearance": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/logo/betrCloud.png",
+        "backgroundColor": "#000000"
       },
-      "package": "com.solana.mobile.expo.template"
+      "package": "com.betrweather.app",
+      "statusBar": {
+        "backgroundColor": "transparent",
+        "barStyle": "light-content",
+        "translucent": true
+      }
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/logo/betrCloud.png",
       "bundler": "metro"
     },
     "extra": {
       "eas": {
         "projectId": "c3a05e4f-e013-4e57-9631-3eb01b3044fb"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow BetrWeather to use your location."
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ]
+    ],
+    "jsEngine": "hermes"
   }
 }

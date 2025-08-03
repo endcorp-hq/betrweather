@@ -1,30 +1,13 @@
-import { StyleSheet } from "react-native";
-import { Appbar, useTheme } from "react-native-paper";
-import { TopBarWalletButton, TopBarWalletMenu } from "./top-bar-ui";
-import { useNavigation } from "@react-navigation/core";
+import { View, Text } from "react-native";
+import { TopBarWalletMenu } from "./top-bar-ui";
+import { useAuthorization } from "../../solana/useAuthorization";
 
 export function TopBar() {
-  const navigation = useNavigation();
-  const theme = useTheme();
-
+  const { selectedAccount } = useAuthorization();
   return (
-    <Appbar.Header mode="small" style={styles.topBar}>
-      <TopBarWalletMenu />
-
-      <Appbar.Action
-        icon="cog"
-        mode="contained-tonal"
-        onPress={() => {
-          navigation.navigate("Settings");
-        }}
-      />
-    </Appbar.Header>
+    <View className="flex-row justify-between items-center px-4 py-2 pt-20 bg-black">
+      <Text className="text-white text-[24px] font-better-bold">BetrWeather</Text>
+      {selectedAccount && <TopBarWalletMenu />}
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  topBar: {
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-});

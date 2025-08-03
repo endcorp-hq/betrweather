@@ -6,7 +6,6 @@ import React, {
   createContext,
   useContext,
 } from "react";
-import { useCluster } from "../components/cluster/cluster-data-access";
 
 export interface ConnectionProviderProps {
   children: ReactNode;
@@ -17,11 +16,14 @@ export const ConnectionProvider: FC<ConnectionProviderProps> = ({
   children,
   config = { commitment: "confirmed" },
 }) => {
-  const { selectedCluster } = useCluster();
+
+  if(!process.env.EXPO_PUBLIC_SOLANA_RPC_URL) {
+    throw new Error("EXPO_PUBLIC_SOLANA_RPC_URL is not set");
+  }
 
   const connection = useMemo(
-    () => new Connection(selectedCluster.endpoint, config),
-    [selectedCluster, config]
+    () => new Connection(process.env.EXPO_PUBLIC_SOLANA_RPC_URL!, config),
+    [config]
   );
 
   return (

@@ -1,105 +1,121 @@
-# Solana Mobile Expo Template
+<img src="./screenshots/betrWeather_logo.png" alt="BetrWeather Logo" />
 
-This template is a ready-to-go Android Expo dApp that offers:
+# Weather app with prediction markets on Solana Mobile
 
-- Solana libraries: `web3.js`, Mobile Wallet Adapter, and `spl-token`.
-- Required polyfills like `crypto` and `Buffer` configured.
-- Pre-built React UI and re-usable hooks and code patterns like `useMobileWallet`.
+**BetrWeather is the default weather app for Solana Mobile.**
+It's also a mobile-first weather prediction platform that lets users bet on weather outcomes using Solana. Get real-time weather data, place predictions, and earn rewards for accurate forecasts.
 
-**This is only fully functional on Android.**
+## 🏆 Solana Mobile Hackathon Entry
+
+This project is submitted to the [Solana Mobile Hackathon](https://solanamobile.radiant.nexus/).
+
+## 📱 Download & Setup
+
+### APK Download
+**[Download APK here]** *(Link to be added)*
+
+### Installation Instructions
+1. Download the APK file
+2. Enable "Install from Unknown Sources" in your Android settings
+3. Install the APK
+4. Open the app and connect your Solana wallet
+5. Get some devnet USDC/BONK: [Compatible USDC Faucet](https://faucet.circle.com/)
+
+### Prerequisites
+- Android device running Android 8.0+
+- Solana wallet app (Phantom, Solflare, etc.)
+- Internet connection for weather data and blockchain transactions
+
+## 🚀 Features
+
+- **Real-time Weather Data**: Live weather conditions and forecasts
+- **Prediction Markets**: Bet on weather outcomes (temperature, precipitation, etc.)
+- **Solana Integration**: Seamless wallet connection and transactions
+- **Location-based**: Automatic location detection for local weather
+- **Market Filters**: Browse by time period (daily, weekly, monthly)
+- **Position Management**: Track your active bets and earnings
+
+## 🛠 Tech Stack
+
+- **Frontend**: React Native + Expo
+- **Blockchain**: Solana (web3.js, Mobile Wallet Adapter)
+- **Weather API**: Integration with weather data providers
+- **Prediction Markets**: [DePredict protocol](https://github.com/endcorp-hq/depredict)
+- **UI**: NativeWind (Tailwind CSS) + Custom components
+- **State Management**: React Query + AsyncStorage
+
+## 📸 Screenshots
 
 <table>
   <tr>
     <td align="center">
-      <img src="./screenshots/screenshot1.png" alt="Scaffold dApp Screenshot 1" width=300 />
+      <img src="./screenshots/screenshot1.png" alt="Weather Dashboard" width=300 />
     </td>
     <td align="center">
-      <img src="./screenshots/screenshot2.png" alt="Scaffold dApp Screenshot 2" width=300 />
+      <img src="./screenshots/screenshot2.png" alt="Market Selection" width=300 />
     </td>
     <td align="center">
-      <img src="./screenshots/screenshot3.png" alt="Scaffold dApp Screenshot 3" width=300 />
+      <img src="./screenshots/screenshot3.png" alt="Position Management" width=300 />
     </td>
   </tr>
 </table>
 
-## Tech Stack
+## 🚀 Roadmap
+- **Verified Weather Observations using TEE**: Use the Seeker's TEE to detect weather from photos and videos taken from the phone, for hyper local weather observation data. Users can be rewarded for providing this information.  
+- **Add more data sources**: Ingest more data from decentralised climate and weather projects to improve weather prediction and forecasting. 
+- **Rewards and gamification**: Implement rewards, streaks, achievements for people who predict the weather!
 
-| Library               | Category          | Version | Description                                           |
-| --------------------- | ----------------- | ------- | ----------------------------------------------------- |
-| React Native          | Mobile Framework  | v0.76   | The best cross-platform mobile framework              |
-| Expo                  | SDK               | v52     | Allows (optional) Expo modules                        |
-| React                 | UI Framework      | v18.3   | The most popular UI framework in the world            |
-| Mobile Wallet Adapter | SDK               | v2.1    | Connect and request signing from mobile wallet apps   |
-| Solana web3.js        | SDK               | v1.78   | General Solana library for transactions and RPCs      |
-| spl-token             | SDK               | v0.4    | Library for building with Solana SPL tokens           |
-| React Native Paper    | Component Library | v5.12   | Production-ready components following Material Design |
-| React Navigation      | Navigation        | v6      | Performant and consistent navigation framework        |
-| React Query           | State management  | v5.24   | Async query management                                |
-| TypeScript            | Language          | v5      | Static typechecking                                   |
-| AsyncStorage          | Persistence       | v1.23   | State persistence                                     |
 
-## Quick Start
+## 🔧 Development Setup
 
 ### Prerequisites
+- Node.js 18+
+- Yarn package manager
+- Android Studio (for local builds)
+- Expo CLI
 
-- A free [Expo](https://expo.dev/) account.
-- An Android device/emulator to test your app
-  - Install an MWA compliant wallet app on your device/emulator.
-- If using Expo's cloud service `eas build`, no further setup is required.
-- If building locally:
-  - React Native and Android Envrionment [setup](https://docs.solanamobile.com/getting-started/development-setup)
+### Quick Start
+```bash
+# Clone the repository
+git clone <repository-url>
+cd betrweather
 
-### Initialize
+# Install dependencies
+yarn install
 
-Run the CLI command:
+# Start development server
+yarn start
+
+# Build for Android
+yarn build
+```
+
+### Environment Setup
+1. Install Expo CLI: `npm install -g @expo/cli`
+2. Install Android Studio and configure Android SDK
+3. Set up Android emulator or connect physical device
+4. Install Solana wallet app on device/emulator
+
+## 🎯 Solana Mobile Features
+
+- **Mobile Wallet Adapter**: Seamless wallet integration
+- **Native Android**: Optimized for Android performance
+- **Offline Support**: Core functionality works without internet
+- **Push Notifications**: Market updates and position alerts
+- **Biometric Auth**: Secure wallet access
+
+## 📊 Project Structure
 
 ```
-yarn create expo-app --template @solana-mobile/solana-mobile-expo-template
+src/
+├── components/          # Reusable UI components
+├── hooks/              # Custom React hooks
+├── screens/            # Main app screens
+├── solana/             # Solana integration
+├── utils/              # Utility functions
+└── types/              # TypeScript definitions
 ```
 
-Choose your project name then navigate into the directory.
+---
 
-### Build and run the app
-
-Once your app is initialized, follow the **["Running the app"](https://docs.solanamobile.com/react-native/expo#running-the-app)** guide to launch the template as a custom development build.
-
-## Troubleshooting
-
-- `Metro has encountered an error: While trying to resolve module @solana-mobile/mobile-wallet-adapter-protocol...`
-
-  - This is an on-going issue when using `npm install` to install the Expo template.
-  - To mitigate, clean your project dependencies and reinstall with `yarn install`
-
-- `The package 'solana-mobile-wallet-adapter-protocol' doesn't seem to be linked. Make sure: ...`
-
-  - Ensure you are _NOT_ using Expo Go to run your app.
-  - You need to be using an [Expo custom development build](https://docs.solanamobile.com/react-native/expo#custom-development-build), rather than Expo Go.
-
-- `failed to connect to...`
-
-  - This is an Expo error that can occur when trying to connect to the dev server on certain Wifi networks.
-  - To fix, try starting the dev server with the `--tunnel` command (`npx expo start --dev-client --tunnel`)
-
-- `Error: crypto.getRandomValues() not supported`
-  - This is a polyfill issue when trying to use certain functions from the `@solana/web3.js` in a React Native/Expo environment.
-  - To fix, ensure your App properly imports and uses the polyfills like in this [guide](http://docs.solanamobile.com/react-native/expo#step-3-update-appjs-with-polyfills).
-
-<br>
-
-- `error Failed to load configuration of your project.`
-  - Same as above, but for `yarn`. [Uninstall and reinstall](https://github.com/react-native-community/cli#updating-the-cli) the CLI through yarn.
-
-<br>
-
-- `Looks like your iOS environment is not properly set`:
-  - You can ignore this during template initialization and build the Android app as normal. This template is only compatible with Android.
-
-<br>
-
-- `Usage Error: It seems you are trying to add a package using a https:... url; we now require package names to be explicitly specified.`
-  - This error happens on certain versions of `yarn`, and occurs if you try to initialize the template through the Github repo URL, rather than the npm package. To avoid this, use the `@solana-mobile/solana-mobile-dapp-scaffold` package as specified, or downgrade your `yarn` version to classic (1.22.x).
-
-<br>
-
-- `error Couldn't find the ".../@solana-mobile/solana-mobile-dapp-scaffold/template.config.js file inside "@solana-mobile/solana-mobile-dapp-scaffold" template.`
-  - This is a [known error](https://github.com/react-native-community/cli/issues/1924) that occurs with certain versions of `yarn` (>= 3.5.0). It is fixed by running the cli command with the `--npm` flag or downgrading your version of `yarn`.
+**Built for Solana Mobile Hackathon 2025** 🚀

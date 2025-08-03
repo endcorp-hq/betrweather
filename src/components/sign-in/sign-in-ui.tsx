@@ -1,14 +1,14 @@
-import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import { useState, useCallback } from "react";
-import { Button } from "react-native-paper";
-import { alertAndLog } from "../../utils/alertAndLog";
-import { useAuthorization } from "../../utils/useAuthorization";
-import { useMobileWallet } from "../../utils/useMobileWallet";
+import { Text, TouchableOpacity } from "react-native";
+import { useAuthorization } from "../../solana/useAuthorization";
+import { useMobileWallet } from "../../hooks/useMobileWallet";
+import { useToast } from "../ui/CustomToast";
 
 export function ConnectButton() {
   const { authorizeSession } = useAuthorization();
   const { connect } = useMobileWallet();
   const [authorizationInProgress, setAuthorizationInProgress] = useState(false);
+  const { toast } = useToast();
   const handleConnectPress = useCallback(async () => {
     try {
       if (authorizationInProgress) {
@@ -17,30 +17,54 @@ export function ConnectButton() {
       setAuthorizationInProgress(true);
       await connect();
     } catch (err: any) {
-      alertAndLog(
-        "Error during connect",
-        err instanceof Error ? err.message : err
-      );
+      toast.error("Error during connect", err instanceof Error ? err.message : err);
     } finally {
       setAuthorizationInProgress(false);
     }
   }, [authorizationInProgress, authorizeSession]);
+
   return (
-    <Button
-      mode="contained"
-      disabled={authorizationInProgress}
+    <TouchableOpacity
       onPress={handleConnectPress}
-      style={{ flex: 1 }}
+      disabled={authorizationInProgress}
+      activeOpacity={0.8}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+        backgroundColor: 'transparent',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        minWidth: 120,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
-      Connect
-    </Button>
+      {/* Button text */}
+      <Text
+        style={{
+          color: 'white',
+          fontSize: 16,
+          fontWeight: '600',
+          zIndex: 1,
+        }}
+        className="font-better-medium"
+      >
+        {authorizationInProgress ? 'Connecting...' : 'Connect'}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
 export function SignInButton() {
   const { authorizeSession } = useAuthorization();
   const { signIn } = useMobileWallet();
+  const { toast } = useToast();
   const [signInInProgress, setSignInInProgress] = useState(false);
+
+
   const handleConnectPress = useCallback(async () => {
     try {
       if (signInInProgress) {
@@ -48,27 +72,30 @@ export function SignInButton() {
       }
       setSignInInProgress(true);
       await signIn({
-        domain: "yourdomain.com",
-        statement: "Sign into Expo Template App",
-        uri: "https://yourdomain.com",
+        domain: "BetrWeather",
+        statement: "Sign into BetrWeather",
+        uri: "https://endcorp.co",
       });
     } catch (err: any) {
-      alertAndLog(
-        "Error during sign in",
-        err instanceof Error ? err.message : err
-      );
+      toast.error("Error during sign in", err instanceof Error ? err.message : err);
     } finally {
       setSignInInProgress(false);
     }
   }, [signInInProgress, authorizeSession]);
+
   return (
-    <Button
-      mode="outlined"
-      disabled={signInInProgress}
+    <TouchableOpacity
       onPress={handleConnectPress}
-      style={{ marginLeft: 4, flex: 1 }}
-    >
-      Sign in
-    </Button>
+      disabled={signInInProgress}
+      activeOpacity={0.8}
+      className="relative overflow-hidden w-[120px] flex items-center justify-center rounded-lg border border-white/30 bg-white/10 p-3 text-center"
+    >      
+      {/* Button text */}
+      <Text
+        className="font-better-medium text-white text-base text-nowrap"
+      >
+        {signInInProgress ? 'Signing in...' : 'Sign in'}
+      </Text>
+    </TouchableOpacity>
   );
 }
