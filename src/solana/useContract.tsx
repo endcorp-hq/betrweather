@@ -595,6 +595,7 @@ import React, {
         );
         return tx;
       } catch (err) {
+        console.log("payoutPosition error", err);
         setError(createShortxError(ShortxErrorType.PAYOUT, "Failed to payout position", err));
         return null;
       }

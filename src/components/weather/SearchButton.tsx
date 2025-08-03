@@ -243,12 +243,10 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
 
   useEffect(() => {
     if (suggestions && (suggestions.length > 0 || isLoading)) {
-      // Dismiss keyboard when suggestions appear
-      Keyboard.dismiss();
+      // Don't dismiss keyboard here - let user continue typing
       showSuggestions();
     } else if (searchQuery.length >= 3 && !isLoading) {
-      // Dismiss keyboard when showing "no results"
-      Keyboard.dismiss();
+      // Don't dismiss keyboard here either - let user continue typing
       Animated.timing(suggestionsAnim, {
         toValue: 1,
         duration: 200,
