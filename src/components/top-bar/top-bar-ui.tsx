@@ -105,7 +105,7 @@ export function TopBarWalletMenu() {
         >
           <TouchableOpacity 
             style={{
-              backgroundColor: 'white',
+              backgroundColor: '#2d3748',
               borderRadius: 16,
               width: '100%',
               maxWidth: 350,
@@ -139,7 +139,7 @@ export function TopBarWalletMenu() {
                 <MaterialCommunityIcons 
                   name="close" 
                   size={20} 
-                  color="#666" 
+                  color="#e2e8f0" 
                 />
               </TouchableOpacity>
 
@@ -152,7 +152,7 @@ export function TopBarWalletMenu() {
                 {/* Wallet Address */}
                 <View style={{ flex: 1, marginRight: 12 }}>
                   <Text style={{ 
-                    color: '#666', 
+                    color: '#a0aec0', 
                     fontSize: 12, 
                     marginBottom: 4,
                     fontFamily: 'Poppins-Regular',
@@ -160,7 +160,7 @@ export function TopBarWalletMenu() {
                     Wallet Address
                   </Text>
                   <Text style={{ 
-                    color: '#000', 
+                    color: '#ffffff', 
                     fontSize: 14, 
                     fontFamily: 'Poppins-SemiBold',
                   }}>
@@ -175,17 +175,17 @@ export function TopBarWalletMenu() {
                     closeMenu();
                   }}
                   style={{
-                    backgroundColor: '#fee2e2',
+                    backgroundColor: '#fed7d7',
                     paddingHorizontal: 16,
                     paddingVertical: 8,
                     borderRadius: 8,
                     borderWidth: 1,
-                    borderColor: '#fecaca',
+                    borderColor: '#feb2b2',
                   }}
                   activeOpacity={0.8}
                 >
                   <Text style={{ 
-                    color: '#dc2626', 
+                    color: '#c53030', 
                     fontSize: 14, 
                     fontFamily: 'Poppins-SemiBold',
                   }}>
@@ -203,24 +203,24 @@ export function TopBarWalletMenu() {
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: '#f8f9fa',
+                  backgroundColor: '#4a5568',
                   borderRadius: 12,
                   paddingVertical: 16,
                   paddingHorizontal: 20,
                   marginBottom: 12,
                   borderWidth: 1,
-                  borderColor: '#e9ecef',
+                  borderColor: '#718096',
                 }}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons 
                   name="content-copy" 
                   size={20} 
-                  color="#000" 
+                  color="#ffffff" 
                   style={{ marginRight: 12 }} 
                 />
                 <Text style={{ 
-                  color: '#000', 
+                  color: '#ffffff', 
                   fontSize: 16, 
                   fontFamily: 'Poppins-SemiBold',
                 }}>
@@ -234,23 +234,23 @@ export function TopBarWalletMenu() {
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: '#f8f9fa',
+                  backgroundColor: '#4a5568',
                   borderRadius: 12,
                   paddingVertical: 16,
                   paddingHorizontal: 20,
                   borderWidth: 1,
-                  borderColor: '#e9ecef',
+                  borderColor: '#718096',
                 }}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons 
                   name="open-in-new" 
                   size={20} 
-                  color="#000" 
+                  color="#ffffff" 
                   style={{ marginRight: 12 }} 
                 />
                 <Text style={{ 
-                  color: '#000', 
+                  color: '#ffffff', 
                   fontSize: 16, 
                   fontFamily: 'Poppins-SemiBold',
                 }}>
