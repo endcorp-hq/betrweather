@@ -29,6 +29,7 @@ import SwipeButton from "rn-swipe-button";
 import { useGlobalToast } from "../components/ui/ToastProvider";
 import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
 import { BN } from "@coral-xyz/anchor";
+import { clearUserNftCache } from "../utils/cacheUtils";
 
 const SUGGESTED_BETS = [1, 3, 5, 10];
 
@@ -670,6 +671,11 @@ export default function SlotMachineScreen() {
       });
       
       setBetStatus("success");
+      
+      // Clear user's NFT cache since they now have a new position
+      if (selectedAccount?.publicKey) {
+        clearUserNftCache(selectedAccount.publicKey.toBase58());
+      }
       
       // Close modal and navigate ONLY on success
       setTimeout(() => {

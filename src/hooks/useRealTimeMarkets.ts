@@ -7,6 +7,10 @@ export function useRealTimeMarkets() {
 
   // Create a real-time markets array that updates immediately when events are received
   const realTimeMarkets = useMemo(() => {
+    if (!markets || markets.length === 0) {
+      return [];
+    }
+
     if (marketEvents.length === 0) {
       return markets;
     }

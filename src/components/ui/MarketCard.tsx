@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Market, MarketType, WinningDirection } from "@endcorp/depredict";
@@ -53,28 +53,36 @@ export function MarketCard({ market, index = 0, animatedValue }: {
   const navigation = useNavigation();
   const [isNavigating, setIsNavigating] = React.useState(false);
 
-  // Use real-time data directly from the market prop (already updated by useRealTimeMarkets)
-  const displayVolume = Number(market.volume);
-  const displayYesLiquidity = Number(market.yesLiquidity);
-  const displayNoLiquidity = Number(market.noLiquidity);
+  // Memoize expensive calculations
+  const displayData = useMemo(() => {
+    const displayVolume = Number(market.volume);
+    const displayYesLiquidity = Number(market.yesLiquidity);
+    const displayNoLiquidity = Number(market.noLiquidity);
+    
+    // Calculate probability from yesLiquidity and noLiquidity
+    const yes = Number(market.yesLiquidity || 0);
+    const no = Number(market.noLiquidity || 0);
+    let probability = 0.5;
+    if (yes + no > 0) {
+      probability = yes / (yes + no);
+    }
+    const probabilityPercent = Math.round(probability * 100);
+    
+    return {
+      displayVolume,
+      displayYesLiquidity,
+      displayNoLiquidity,
+      probabilityPercent,
+      probability
+    };
+  }, [market.volume, market.yesLiquidity, market.noLiquidity]);
 
-  // Add a subtle animation for real-time updates
-  const [isUpdating, setIsUpdating] = React.useState(false);
-  
-  React.useEffect(() => {
-    // Show a brief update indicator when volume changes
-    setIsUpdating(true);
-    const timer = setTimeout(() => setIsUpdating(false), 500);
-    return () => clearTimeout(timer);
-  }, [displayVolume, displayYesLiquidity, displayNoLiquidity]);
+  // Memoize market status calculations
+  const marketStatus = useMemo(() => {
+    const isLive = isLiveMarket(market);
+    const isResolved = market.winningDirection !== WinningDirection.NONE;
 
-  // Determine if this is a live or future market
-  const isLive = isLiveMarket(market);
-  // Check if market is resolved
-  const isResolved = market.winningDirection !== WinningDirection.NONE;
-
-  // Get market status and styling - matching StatusFilterBar colors
-  const getMarketStatus = () => {
+    // Get market status and styling - matching StatusFilterBar colors
     if (isResolved) {
       // Check the actual WinningDirection enum values
       if (market.winningDirection === WinningDirection.YES) {
@@ -150,18 +158,41 @@ export function MarketCard({ market, index = 0, animatedValue }: {
         }
       }
     }
-  };
+  }, [market.winningDirection, market.marketStart, market.marketEnd, market.marketType]);
 
-  const status = getMarketStatus();
+  // Memoize time-related calculations
+  const timeInfo = useMemo(() => {
+    const isLive = isLiveMarket(market);
+    const timeLeft = isLive
+      ? getTimeLeft(market.marketEnd)
+      : getBettingTimeLeft(market.marketStart);
+    
+    const startDate = new Date(Number(market.marketStart) * 1000);
+    const endDate = new Date(Number(market.marketEnd) * 1000);
+    const isSameDay = startDate.toDateString() === endDate.toDateString();
 
-  // Calculate probability from yesLiquidity and noLiquidity
-  const yes = Number(market.yesLiquidity || 0);
-  const no = Number(market.noLiquidity || 0);
-  let probability = 0.5;
-  if (yes + no > 0) {
-    probability = yes / (yes + no);
-  }
-  const probabilityPercent = Math.round(probability * 100);
+    // Check if betting is ending soon (less than 30 minutes)
+    const now = Date.now();
+    const bettingEndTime = Number(market.marketStart) * 1000;
+    const timeUntilBettingEnds = bettingEndTime - now;
+    const minutesLeft = Math.floor(timeUntilBettingEnds / (1000 * 60));
+
+    let dateText = null;
+    let dateTextStyle = {};
+
+    if (minutesLeft > 0 && minutesLeft <= 30) {
+      dateText = `${minutesLeft} mins left`;
+      dateTextStyle = { color: "#f59e0b" };
+    } else if (isSameDay) {
+      dateText = formatDate(market.marketStart);
+    }
+
+    return {
+      timeLeft,
+      dateText,
+      dateTextStyle
+    };
+  }, [market.marketStart, market.marketEnd, market.marketType]);
 
   // Optimize the press handler with useCallback to prevent unnecessary re-renders
   const handlePress = useCallback(() => {
@@ -210,16 +241,16 @@ export function MarketCard({ market, index = 0, animatedValue }: {
           <View style={styles.headerRow}>
             <View style={styles.statusBadge}>
               <MaterialCommunityIcons
-                name={status.icon as any}
+                name={marketStatus.icon as any}
                 size={16}
-                color={status.color}
+                color={marketStatus.color}
               />
-              <Text style={[styles.statusText, { color: status.color }]}>
-                {status.text}
+              <Text style={[styles.statusText, { color: marketStatus.color }]}>
+                {marketStatus.text}
               </Text>
             </View>
             <Text style={styles.volume}>
-              ${(parseFloat(market.volume || "0")/ 10**6).toFixed(1)}
+              ${(displayData.displayVolume / 10**6).toFixed(1)}
             </Text>
           </View>
 
@@ -236,7 +267,6 @@ export function MarketCard({ market, index = 0, animatedValue }: {
                 size={16}
                 color="rgba(255, 255, 255, 0.7)"
               />
-              {/* <Text style={styles.intervalLabel}>Time:</Text> */}
               <Text style={styles.intervalValue}>
                 {new Date(Number(market.marketStart) * 1000).toLocaleTimeString(
                   "en-US",
@@ -262,7 +292,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
           {/* Voting Bias section */}
           <View style={styles.probabilitySection}>
             <View style={styles.probabilityHeader}>
-              <Text style={styles.probabilityValue}>{100 -probabilityPercent}/{probabilityPercent}</Text>
+              <Text style={styles.probabilityValue}>{100 - displayData.probabilityPercent}/{displayData.probabilityPercent}</Text>
             </View>
             <View style={styles.probabilityBarContainer}>
               <View style={styles.probabilityBarBg}>
@@ -270,8 +300,8 @@ export function MarketCard({ market, index = 0, animatedValue }: {
                   style={[
                     styles.probabilityBarFill,
                     {
-                      width: `${probabilityPercent}%`,
-                      backgroundColor: status.color,
+                      width: `${displayData.probabilityPercent}%`,
+                      backgroundColor: marketStatus.color,
                     },
                   ]}
                 />
@@ -292,40 +322,14 @@ export function MarketCard({ market, index = 0, animatedValue }: {
                 color="rgba(255, 255, 255, 0.6)"
               />
               <Text style={styles.timeText}>
-                {isLive
-                  ? getTimeLeft(market.marketEnd)
-                  : getBettingTimeLeft(market.marketStart)}
+                {timeInfo.timeLeft}
               </Text>
             </View>
-            {(() => {
-              const startDate = new Date(Number(market.marketStart) * 1000);
-              const endDate = new Date(Number(market.marketEnd) * 1000);
-              const isSameDay =
-                startDate.toDateString() === endDate.toDateString();
-
-              // Check if betting is ending soon (less than 30 minutes)
-              const now = Date.now();
-              const bettingEndTime = Number(market.marketStart) * 1000;
-              const timeUntilBettingEnds = bettingEndTime - now;
-              const minutesLeft = Math.floor(timeUntilBettingEnds / (1000 * 60));
-
-              if (minutesLeft > 0 && minutesLeft <= 30) {
-                return (
-                  <Text style={[styles.dateText, { color: "#f59e0b" }]}>
-                    {minutesLeft} mins left
-                  </Text>
-                );
-              }
-
-              if (isSameDay) {
-                return (
-                  <Text style={styles.dateText}>
-                    {formatDate(market.marketStart)}
-                  </Text>
-                );
-              }
-              return null;
-            })()}
+            {timeInfo.dateText && (
+              <Text style={[styles.dateText, timeInfo.dateTextStyle]}>
+                {timeInfo.dateText}
+              </Text>
+            )}
           </View>
         </RefractiveBgCard>
       </Pressable>

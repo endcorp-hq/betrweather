@@ -4,6 +4,7 @@ import { MarketCard } from "../components/ui/MarketCard";
 import { useFilters } from "../components/ui/useFilters";
 import { StatusFilterBar } from "../components/ui/StatusFilterBar";
 import { LogoLoader as LoadingSpinner } from "../components/ui/LoadingSpinner";
+import ErrorBoundary from "../components/ui/ErrorBoundary";
 import theme from '../theme';
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
@@ -35,7 +36,7 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
   </MotiView>
 ));
 
-export default function MarketScreen() {
+function MarketScreenContent() {
   const { markets, loadingMarkets, error } = useRealTimeMarkets();
 
   // Use the filter hook for time filters
@@ -56,6 +57,10 @@ export default function MarketScreen() {
 
   // Memoize filtered markets to prevent recalculation on every render
   const filteredMarkets = useMemo(() => {
+    if (!markets || markets.length === 0) {
+      return [];
+    }
+
     return markets.filter((market) => {
       const now = Date.now();
       const marketStart = Number(market.marketStart) * 1000;
@@ -158,6 +163,11 @@ export default function MarketScreen() {
     });
   }, [markets, statusFilter, timeFilter]);
 
+  // Memoize the empty state to prevent unnecessary re-renders
+  const showEmptyState = useMemo(() => {
+    return !loadingMarkets && !error && filteredMarkets.length === 0;
+  }, [loadingMarkets, error, filteredMarkets.length]);
+
   return (
     <View className="flex-1">
       {loadingMarkets ? (
@@ -185,7 +195,7 @@ export default function MarketScreen() {
             {error && (
               <Text style={styles.errorText}>{error.message}</Text>
             )}
-            {!loadingMarkets && !error && filteredMarkets.length === 0 && (
+            {showEmptyState && (
               <View className="flex-1 justify-center items-center py-20">
                 <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
               </View>
@@ -205,6 +215,14 @@ export default function MarketScreen() {
         </View>
       )}
     </View>
+  );
+}
+
+export default function MarketScreen() {
+  return (
+    <ErrorBoundary>
+      <MarketScreenContent />
+    </ErrorBoundary>
   );
 }
 

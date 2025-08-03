@@ -269,6 +269,17 @@ import React, {
             winningDirection = latestEvent.winningDirection as WinningDirection;
           }
           
+          // Only update if there are actual changes to prevent unnecessary re-renders
+          const hasChanges = 
+            existingMarket.yesLiquidity !== latestEvent.yesLiquidity.toString() ||
+            existingMarket.noLiquidity !== latestEvent.noLiquidity.toString() ||
+            existingMarket.volume !== latestEvent.volume.toString() ||
+            existingMarket.winningDirection !== winningDirection;
+          
+          if (!hasChanges) {
+            return prevMarkets; // No changes, return same array to prevent re-render
+          }
+          
           updatedMarkets[existingMarketIndex] = {
             ...existingMarket,
             yesLiquidity: latestEvent.yesLiquidity.toString(),

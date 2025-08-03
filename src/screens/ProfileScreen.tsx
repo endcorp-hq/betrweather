@@ -20,6 +20,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
   const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout } = usePositions();
+  
   // Refresh data when screen comes into focus (e.g., after returning from Phantom)
   useFocusEffect(
     useCallback(() => {
@@ -28,13 +29,6 @@ export default function ProfileScreen() {
       }
     }, [selectedAccount, refreshPositions])
   );
-
-  useEffect(() => {
-    // Only fetch data if wallet is connected
-    if (selectedAccount) {
-      refreshPositions();
-    }
-  }, [selectedAccount, refreshPositions]);
 
   const handleCardPress = useCallback((marketId: number) => {
     navigation.navigate("MarketDetail", { id: marketId.toString() });
@@ -99,17 +93,15 @@ export default function ProfileScreen() {
               duration: 350,
               delay: 0 * 50,
             }}
-            style={{ flex: 1, height: 70 }}
+            style={styles.statCard}
           >
-            <View
-              style={[
-                styles.statCard,
-                { borderColor: "rgba(255, 255, 255, 0.6)" },
-              ]}
-            >
-              <Text style={styles.statNumber}>{positions.length}</Text>
-              <Text style={styles.statLabel}>Total Positions</Text>
-            </View>
+            <MaterialCommunityIcons
+              name="chart-line"
+              size={24}
+              color={theme.colors.primary}
+            />
+            <Text style={styles.statValue}>{positions.length}</Text>
+            <Text style={styles.statLabel}>Total Positions</Text>
           </MotiView>
 
           <MotiView
@@ -126,75 +118,34 @@ export default function ProfileScreen() {
               duration: 350,
               delay: 1 * 50,
             }}
-            style={{ flex: 1 }}
+            style={styles.statCard}
           >
-            <View
-              style={[
-                styles.statCard,
-                { borderColor: "rgba(139, 92, 246, 0.6)" },
-              ]}
-            >
-              <Text style={styles.statNumber}>
-                $
-                {positions
-                  .reduce((sum, position) => sum + position.amount / 1000000, 0)
-                  .toFixed(0)}
-              </Text>
-              <Text style={styles.statLabel}>Total Wagered</Text>
-            </View>
-          </MotiView>
-
-          <MotiView
-            from={{
-              opacity: 0,
-              translateY: 10,
-            }}
-            animate={{
-              opacity: 1,
-              translateY: 0,
-            }}
-            transition={{
-              type: "timing",
-              duration: 350,
-              delay: 2 * 50,
-            }}
-            style={{ flex: 1 }}
-          >
-            <View
-              style={[
-                styles.statCard,
-                { borderColor: "rgba(16, 185, 129, 0.6)" },
-              ]}
-            >
-              <Text style={styles.statNumber}>
-                $
-                {positions
-                  .filter((position) => {
-                    const payout = calculatePayout(position);
-                    return payout && payout > 0;
-                  })
-                  .reduce((sum, position) => {
-                    const payout = calculatePayout(position);
-                    return sum + (payout || 0);
-                  }, 0)
-                  .toFixed(0)}
-              </Text>
-              <Text style={styles.statLabel}>Unclaimed</Text>
-            </View>
+            <MaterialCommunityIcons
+              name="cash-multiple"
+              size={24}
+              color={theme.colors.primary}
+            />
+            <Text style={styles.statValue}>
+              ${positions
+                .reduce((total, position) => total + (calculatePayout(position) || 0), 0)
+                .toFixed(2)}
+            </Text>
+            <Text style={styles.statLabel}>Total Value</Text>
           </MotiView>
         </View>
 
-        {/* Positions Section with Moti animations */}
+        {/* Positions List */}
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={styles.positionsList}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.positionsListContent}
         >
-          {positions.length === 0 ? (
+          {positions.map((position, index) => (
             <MotiView
+              key={`${position.positionId}-${position.positionNonce}`}
               from={{
                 opacity: 0,
-                translateY: 10,
+                translateY: 20,
               }}
               animate={{
                 opacity: 1,
@@ -203,51 +154,18 @@ export default function ProfileScreen() {
               transition={{
                 type: "timing",
                 duration: 350,
-                delay: 3 * 50,
+                delay: (index + 2) * 50,
               }}
+              style={styles.positionCard}
             >
-              <View style={styles.emptyContainer}>
-                <MaterialCommunityIcons
-                  name="wallet-outline"
-                  size={48}
-                  color="rgba(255, 255, 255, 0.5)"
-                />
-                <Text style={styles.emptyText}>No positions found</Text>
-                <Text style={styles.emptySubtext}>
-                  Start betting on markets to see your positions here
-                </Text>
-              </View>
+              <SwipeablePositionCard
+                position={position}
+                onPress={() => handleCardPress(position.marketId)}
+                onClaim={() => handleClaimPayout(position)}
+                isClaiming={false}
+              />
             </MotiView>
-          ) : (
-            positions.map((position, idx) => (
-              <MotiView
-                key={`${idx}`}
-                from={{
-                  opacity: 0,
-                  translateY: 10,
-                }}
-                animate={{
-                  opacity: 1,
-                  translateY: 0,
-                }}
-                transition={{
-                  type: "timing",
-                  duration: 350,
-                  delay: (3 + idx) * 50, // Start after stats (3) + staggered for each card
-                }}
-                style={{ marginBottom: 16 }}
-              >
-                <SwipeablePositionCard
-                  position={position}
-                  onClaim={async () => {
-                    await handleClaimPayout(position);
-                  }}
-                  onPress={() => handleCardPress(position.marketId)}
-                  isClaiming={position.isClaiming || false}
-                />
-              </MotiView>
-            ))
-          )}
+          ))}
         </ScrollView>
       </View>
     </DefaultBg>
@@ -287,9 +205,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 2,
   },
-  statNumber: {
+  statValue: {
     color: theme.colors.onSurface,
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: "700",
     fontFamily: "Poppins-Bold",
     marginBottom: 4,
@@ -300,31 +218,14 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins-Regular",
     textAlign: "center",
   },
-  scrollView: {
+  positionsList: {
     flex: 1,
-  },
-  scrollContent: {
     paddingHorizontal: 20,
+  },
+  positionsListContent: {
     paddingBottom: 80,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 60,
-  },
-  emptyText: {
-    color: theme.colors.onSurface,
-    fontSize: 18,
-    fontWeight: "600",
-    fontFamily: "Poppins-SemiBold",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    color: theme.colors.onSurfaceVariant,
-    fontSize: 14,
-    fontFamily: "Poppins-Regular",
-    textAlign: "center",
+  positionCard: {
+    marginBottom: 16,
   },
 });
