@@ -179,7 +179,7 @@ export default function ProfileScreen() {
                   }, 0)
                   .toFixed(0)}
               </Text>
-              <Text style={styles.statLabel}>Total Won</Text>
+              <Text style={styles.statLabel}>Unclaimed</Text>
             </View>
           </MotiView>
         </View>

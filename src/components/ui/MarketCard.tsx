@@ -78,14 +78,14 @@ export function MarketCard({ market, index = 0, animatedValue }: {
       // Check the actual WinningDirection enum values
       if (market.winningDirection === WinningDirection.YES) {
         return {
-          text: "YES WON",
+          text: "YES",
           color: "#8b5cf6",
           bgColor: "rgba(139, 92, 246, 0.1)",
           icon: "check-circle",
         };
       } else if (market.winningDirection === WinningDirection.NO) {
         return {
-          text: "NO WON",
+          text: "NO",
           color: "#8b5cf6",
           bgColor: "rgba(139, 92, 246, 0.1)",
           icon: "close-circle",
@@ -133,7 +133,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
         } else if (now < marketStart) {
           // Betting period
           return {
-            text: "BETTING",
+            text: "Predicting",
             color: "#10b981",
             bgColor: "rgba(16, 185, 129, 0.1)",
             icon: "gavel",
@@ -202,7 +202,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
           </View>
 
           {/* Question */}
-          <Text style={styles.question} numberOfLines={2}>
+          <Text style={styles.question} numberOfLines={3}>
             {market.question}
           </Text>
 
@@ -214,7 +214,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
                 size={16}
                 color="rgba(255, 255, 255, 0.7)"
               />
-              <Text style={styles.intervalLabel}>Time:</Text>
+              {/* <Text style={styles.intervalLabel}>Time:</Text> */}
               <Text style={styles.intervalValue}>
                 {new Date(Number(market.marketStart) * 1000).toLocaleTimeString(
                   "en-US",
@@ -240,8 +240,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
           {/* Voting Bias section */}
           <View style={styles.probabilitySection}>
             <View style={styles.probabilityHeader}>
-              <Text style={styles.probabilityLabel}>Voting Bias</Text>
-              <Text style={styles.probabilityValue}>{probabilityPercent}%</Text>
+              <Text style={styles.probabilityValue}>{100 -probabilityPercent}/{probabilityPercent}</Text>
             </View>
             <View style={styles.probabilityBarContainer}>
               <View style={styles.probabilityBarBg}>
