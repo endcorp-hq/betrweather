@@ -80,7 +80,7 @@ function SwipeableBetCard({
     } else if (now > marketEnd) {
       return { text: "RESOLVING", color: "#f59e0b", icon: "loading" };
     } else {
-      return { text: "ACTIVE", color: "#3b82f6", icon: "play-circle" };
+      return { text: "OBSERVING", color: "#3b82f6", icon: "play-circle" };
     }
   }, [market.winningDirection, market.marketStart, market.marketEnd]);
 

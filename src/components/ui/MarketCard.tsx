@@ -126,7 +126,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
         if (now >= marketStart && now <= marketEnd) {
           // Market is currently running (active)
           return {
-            text: "ACTIVE",
+            text: "Observing",
             color: "#3b82f6",
             bgColor: "rgba(59, 130, 246, 0.1)",
             icon: "play-circle",
@@ -142,7 +142,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
         } else {
           // Market has ended but not resolved
           return {
-            text: "ACTIVE",
+            text: "Observing",
             color: "#3b82f6",
             bgColor: "rgba(59, 130, 246, 0.1)",
             icon: "play-circle",

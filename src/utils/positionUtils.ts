@@ -37,7 +37,7 @@ export const getStatusColor = (position: PositionWithMarket) => {
 };
 
 export const getStatusText = (position: PositionWithMarket) => {
-  if (!position.market) return "ACTIVE";
+  if (!position.market) return "OBSERVING";
 
   if (position.market.winningDirection !== WinningDirection.NONE) {
     const userWon =
@@ -47,7 +47,7 @@ export const getStatusText = (position: PositionWithMarket) => {
 
     return userWon ? "WON" : "LOST";
   }
-  return "ACTIVE";
+  return "OBSERVING";
 };
 
 export const getStatusIcon = (position: PositionWithMarket) => {
