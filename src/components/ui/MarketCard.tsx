@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Market, MarketType, WinningDirection } from "@endcorp/depredict";
@@ -51,6 +51,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
   animatedValue?: Animated.Value;
 }) {
   const navigation = useNavigation();
+  const [isNavigating, setIsNavigating] = React.useState(false);
 
   // Use real-time data directly from the market prop (already updated by useRealTimeMarkets)
   const displayVolume = Number(market.volume);
@@ -162,9 +163,18 @@ export function MarketCard({ market, index = 0, animatedValue }: {
   }
   const probabilityPercent = Math.round(probability * 100);
 
-  const handlePress = () => {
+  // Optimize the press handler with useCallback to prevent unnecessary re-renders
+  const handlePress = useCallback(() => {
+    if (isNavigating) return; // Prevent multiple presses
+    
+    setIsNavigating(true);
     navigation.navigate("MarketDetail", { id: market.marketId });
-  };
+    
+    // Reset navigation state after a short delay
+    setTimeout(() => {
+      setIsNavigating(false);
+    }, 1000);
+  }, [navigation, market.marketId, isNavigating]);
 
   return (
     <Animated.View
@@ -182,7 +192,19 @@ export function MarketCard({ market, index = 0, animatedValue }: {
         },
       ]}
     >
-      <Pressable onPress={handlePress}>
+      <Pressable 
+        onPress={handlePress}
+        style={({ pressed }) => [
+          styles.pressableContainer,
+          pressed && styles.pressed,
+          isNavigating && styles.navigating
+        ]}
+        android_ripple={{ 
+          color: 'rgba(255, 255, 255, 0.1)', 
+          borderless: false
+        }}
+        disabled={isNavigating}
+      >
         <RefractiveBgCard style={styles.card} borderRadius={16}>
           {/* Header with status badge */}
           <View style={styles.headerRow}>
@@ -312,6 +334,19 @@ export function MarketCard({ market, index = 0, animatedValue }: {
 }
 
 const styles = StyleSheet.create({
+  pressableContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
+  },
+  navigating: {
+    opacity: 0.6,
+    transform: [{ scale: 0.95 }],
+  },
   card: {
     position: "relative",
     overflow: "hidden",

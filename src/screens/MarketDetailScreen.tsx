@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useShortx } from "../solana/useContract";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { Text } from "react-native";
 import { formatMarketDuration } from "../components/market/format-market-duration";
 import { WinningDirection, MarketType, Market } from "@endcorp/depredict";
@@ -49,45 +49,44 @@ function SwipeableBetCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { bottom: 24 };
 
-  // Opacity for each overlay
-  const yesOverlayOpacity = pan.x.interpolate({
-    inputRange: [0, 80, 200],
-    outputRange: [0, 0.5, 1],
-    extrapolate: "clamp",
-  });
-  const noOverlayOpacity = pan.x.interpolate({
-    inputRange: [-200, -80, 0],
-    outputRange: [1, 0.5, 0],
-    extrapolate: "clamp",
-  });
+  // Memoize expensive calculations
+  const isSwipeable = useMemo(() => {
+    const now = Date.now();
+    const marketStart = Number(market.marketStart) * 1000;
+    const marketEnd = Number(market.marketEnd) * 1000;
 
-  // Wobble animation on mount - Only for swipeable markets
-  useEffect(() => {
-    // Don't animate if market is not swipeable
-    if (!isMarketSwipeable()) {
-      return;
+    if (market.winningDirection !== WinningDirection.NONE) {
+      return false; // Resolved markets
     }
     
-    Animated.sequence([
-      Animated.timing(pan.x, {
-        toValue: -20,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-      Animated.timing(pan.x, {
-        toValue: 20,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-      Animated.timing(pan.x, {
-        toValue: 0,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (now > marketEnd) {
+      return false; // Market ended but not resolved
+    }
+    
+    if (market.marketType === MarketType.FUTURE && now > marketStart) {
+      return false; // Future market where betting time is over
+    }
+    
+    return true; // All other cases (betting, active live markets)
   }, [market.winningDirection, market.marketStart, market.marketEnd, market.marketType]);
 
-  const handleRelease = (_: any, gesture: any) => {
+  const marketStatus = useMemo(() => {
+    const now = Date.now();
+    const marketStart = Number(market.marketStart) * 1000;
+    const marketEnd = Number(market.marketEnd) * 1000;
+
+    if (market.winningDirection !== WinningDirection.NONE) {
+      return { text: "RESOLVED", color: "#8b5cf6", icon: "check-circle" };
+    } else if (now < marketStart) {
+      return { text: "BETTING", color: "#10b981", icon: "gavel" };
+    } else if (now > marketEnd) {
+      return { text: "RESOLVING", color: "#f59e0b", icon: "loading" };
+    } else {
+      return { text: "ACTIVE", color: "#3b82f6", icon: "play-circle" };
+    }
+  }, [market.winningDirection, market.marketStart, market.marketEnd]);
+
+  const handleRelease = useCallback((_: any, gesture: any) => {
     if (gesture.dx > 80) {
       setSwipeDir("yes");
       Animated.timing(pan, {
@@ -117,28 +116,25 @@ function SwipeableBetCard({
       }).start();
       setSwipeDir(null);
     }
-  };
+  }, [pan, onSelect]);
 
-  // Get market status for styling
-  const getMarketStatus = () => {
-    const now = Date.now();
-    const marketStart = Number(market.marketStart) * 1000;
-    const marketEnd = Number(market.marketEnd) * 1000;
+  // Memoize PanResponder to prevent recreation on every render
+  const panResponder = useMemo(() => {
+    if (!isSwipeable) return {};
+    
+    return require("react-native").PanResponder.create({
+      onMoveShouldSetPanResponder: (_: any, g: any) =>
+        Math.abs(g.dx) > 10,
+      onPanResponderGrant: () => setSwiping(true),
+      onPanResponderMove: (_: any, gesture: any) => {
+        pan.setValue({ x: gesture.dx, y: gesture.dy });
+      },
+      onPanResponderRelease: handleRelease,
+      onPanResponderTerminate: () => setSwiping(false),
+    }).panHandlers;
+  }, [isSwipeable, handleRelease, pan]);
 
-    if (market.winningDirection !== WinningDirection.NONE) {
-      return { text: "RESOLVED", color: "#8b5cf6", icon: "check-circle" };
-    } else if (now < marketStart) {
-      return { text: "BETTING", color: "#10b981", icon: "gavel" };
-    } else if (now > marketEnd) {
-      return { text: "RESOLVING", color: "#f59e0b", icon: "loading" };
-    } else {
-      return { text: "ACTIVE", color: "#3b82f6", icon: "play-circle" };
-    }
-  };
-
-  const status = getMarketStatus();
-
-  const handleExpand = () => {
+  const handleExpand = useCallback(() => {
     setIsExpanded(!isExpanded);
     if (!isExpanded && scrollViewRef.current) {
       // Scroll to completely hide the back button and market card
@@ -146,32 +142,7 @@ function SwipeableBetCard({
         scrollViewRef.current?.scrollTo({ y: 400, animated: true });
       }, 100);
     }
-  };
-
-  // Helper function to determine if market should be swipeable
-  const isMarketSwipeable = () => {
-    const now = Date.now();
-    const marketStart = Number(market.marketStart) * 1000;
-    const marketEnd = Number(market.marketEnd) * 1000;
-
-    // Not swipeable if:
-    // 1. Market is resolved
-    // 2. Future market where betting time is over (ts > marketStart)
-    // 3. Any market where ts > marketEnd but not yet resolved
-    if (market.winningDirection !== WinningDirection.NONE) {
-      return false; // Resolved markets
-    }
-    
-    if (now > marketEnd) {
-      return false; // Market ended but not resolved
-    }
-    
-    if (market.marketType === MarketType.FUTURE && now > marketStart) {
-      return false; // Future market where betting time is over
-    }
-    
-    return true; // All other cases (betting, active live markets)
-  };
+  }, [isExpanded, scrollViewRef]);
 
   return (
     <View
@@ -185,7 +156,7 @@ function SwipeableBetCard({
       }}
     >
       {/* Swipe Direction Indicators - Only show for swipeable markets */}
-      {isMarketSwipeable() && (
+      {isSwipeable && (
         <View className="flex flex-row justify-between items-center w-full mb-4 px-4">
           <View className="flex flex-row items-center gap-2">
             <MaterialCommunityIcons
@@ -193,10 +164,24 @@ function SwipeableBetCard({
               size={24}
               color="rgba(255, 255, 255, 0.8)"
             />
-            <Text className="text-white text-base font-better-semi-bold">No</Text>
+            <Text 
+              className="text-base font-better-semi-bold"
+              style={{
+                color: "white"
+              }}
+            >
+              No
+            </Text>
           </View>
           <View className="flex flex-row items-center gap-2">
-            <Text className="text-white text-base font-better-semi-bold">Yes</Text>
+            <Text 
+              className="text-base font-better-semi-bold"
+              style={{
+                color: "white"
+              }}
+            >
+              Yes
+            </Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={24}
@@ -214,7 +199,7 @@ function SwipeableBetCard({
           borderRadius: 20,
           overflow: "hidden",
           backgroundColor: "transparent",
-          transform: isMarketSwipeable() ? [
+          transform: isSwipeable ? [
             { translateX: pan.x },
             { translateY: pan.y },
             {
@@ -226,45 +211,29 @@ function SwipeableBetCard({
             },
           ] : [], // No transforms for non-swipeable markets
         }}
-        {...(isMarketSwipeable() ? 
-          require("react-native").PanResponder.create({
-            onMoveShouldSetPanResponder: (_: any, g: any) =>
-              Math.abs(g.dx) > 10,
-            onPanResponderGrant: () => setSwiping(true),
-            onPanResponderMove: Animated.event(
-              [null, { dx: pan.x, dy: pan.y }],
-              { useNativeDriver: false }
-            ),
-            onPanResponderRelease: handleRelease,
-            onPanResponderTerminate: () => setSwiping(false),
-          }).panHandlers : 
-          {} // No pan handlers for non-swipeable markets
-        )}
+        {...panResponder}
       >
-        {/* Two overlays: green for right, red for left */}
-        {isMarketSwipeable() && (
-          <>
-            <Animated.View
-              pointerEvents="none"
-              style={{
-                ...StyleSheet.absoluteFillObject,
-                backgroundColor: "rgba(16, 185, 129, 0.3)",
-                opacity: yesOverlayOpacity,
-                borderRadius: 20,
-                zIndex: 2,
-              }}
-            />
-            <Animated.View
-              pointerEvents="none"
-              style={{
-                ...StyleSheet.absoluteFillObject,
-                backgroundColor: "rgba(239, 68, 68, 0.3)",
-                opacity: noOverlayOpacity,
-                borderRadius: 20,
-                zIndex: 2,
-              }}
-            />
-          </>
+        {/* Combined overlay for better performance */}
+        {isSwipeable && (
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              ...StyleSheet.absoluteFillObject,
+              borderRadius: 20,
+              zIndex: 2,
+              backgroundColor: pan.x.interpolate({
+                inputRange: [-200, -80, 0, 80, 200],
+                outputRange: [
+                  "rgba(239, 68, 68, 0.3)", // Red for left
+                  "rgba(239, 68, 68, 0.15)", // Light red
+                  "transparent", // No color
+                  "rgba(16, 185, 129, 0.15)", // Light green
+                  "rgba(16, 185, 129, 0.3)", // Green for right
+                ],
+                extrapolate: "clamp",
+              }),
+            }}
+          />
         )}
 
         <RefractiveBgCard style={{ flex: 1, minHeight: 420 }} borderRadius={20}>
@@ -272,12 +241,12 @@ function SwipeableBetCard({
             {/* Status Badge */}
             <View style={styles.statusBadge}>
               <MaterialCommunityIcons
-                name={status.icon as any}
+                name={marketStatus.icon as any}
                 size={16}
-                color={status.color}
+                color={marketStatus.color}
               />
-              <Text style={[styles.statusText, { color: status.color }]}>
-                {status.text}
+              <Text style={[styles.statusText, { color: marketStatus.color }]}>
+                {marketStatus.text}
               </Text>
             </View>
 
@@ -294,20 +263,49 @@ function SwipeableBetCard({
               </Text>
             )}
 
-            {/* YES/NO overlays - Only show for swipeable markets */}
-            {isMarketSwipeable() && (
-              <>
-                <Animated.View
-                  style={[styles.swipeOverlay, { opacity: yesOverlayOpacity }]}
+            {/* Combined YES/NO overlay for better performance */}
+            {isSwipeable && (
+              <Animated.View
+                style={[
+                  styles.swipeOverlay,
+                  {
+                    opacity: pan.x.interpolate({
+                      inputRange: [-200, -80, 0, 80, 200],
+                      outputRange: [1, 0.5, 0, 0.5, 1],
+                      extrapolate: "clamp",
+                    }),
+                  }
+                ]}
+              >
+                <Animated.Text
+                  style={[
+                    styles.swipeNoText,
+                    {
+                      opacity: pan.x.interpolate({
+                        inputRange: [-200, -80, 0],
+                        outputRange: [1, 0.5, 0],
+                        extrapolate: "clamp",
+                      }),
+                    }
+                  ]}
                 >
-                  <Text style={styles.swipeYesText}>YES</Text>
-                </Animated.View>
-                <Animated.View
-                  style={[styles.swipeOverlay, { opacity: noOverlayOpacity }]}
+                  NO
+                </Animated.Text>
+                <Animated.Text
+                  style={[
+                    styles.swipeYesText,
+                    {
+                      opacity: pan.x.interpolate({
+                        inputRange: [0, 80, 200],
+                        outputRange: [0, 0.5, 1],
+                        extrapolate: "clamp",
+                      }),
+                    }
+                  ]}
                 >
-                  <Text style={styles.swipeNoText}>NO</Text>
-                </Animated.View>
-              </>
+                  YES
+                </Animated.Text>
+              </Animated.View>
             )}
 
             {/* Market Question */}
@@ -550,20 +548,22 @@ export default function SlotMachineScreen() {
   >("idle");
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // Memoize real-time market lookup
+  const realTimeMarket = useMemo(() => 
+    realTimeMarkets.find(market => market.marketId === id), 
+    [realTimeMarkets, id]
+  );
+
   // Determine if we're still loading
   const isLoading = loadingMarkets || (!selectedMarket && !shortxError);
-  
-
 
   useEffect(() => {
     async function fetchMarket() {
       // First try to get from real-time markets
-      const realTimeMarket = realTimeMarkets.find(market => market.marketId === id);
       if (realTimeMarket) {
         setSelectedMarket(realTimeMarket);
         return;
       }
-      
       
       // Fallback to fetching from blockchain
       try {
@@ -582,7 +582,7 @@ export default function SlotMachineScreen() {
     if(id) {
       fetchMarket();
     }
-  }, [id, realTimeMarkets, getMarketById]);
+  }, [id, realTimeMarket, getMarketById]);
 
   const handleBet = async (bet: string) => {
     if (!selectedAccount || !selectedAccount.publicKey) {
@@ -715,7 +715,7 @@ export default function SlotMachineScreen() {
             activeOpacity={0.85}
           >
             <Text className="font-better-regular text-white text-lg">
-              All Markets
+              Back to markets
             </Text>
           </TouchableOpacity>
 
