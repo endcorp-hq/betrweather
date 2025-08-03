@@ -3,7 +3,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Switch,
   Animated,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -28,7 +27,6 @@ import { LogoLoader } from "../components/ui/LoadingSpinner";
 import SwipeButton from "rn-swipe-button";
 import { useGlobalToast } from "../components/ui/ToastProvider";
 import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
-import { BN } from "@coral-xyz/anchor";
 
 const SUGGESTED_BETS = [1, 3, 5, 10];
 
@@ -531,7 +529,6 @@ export default function SlotMachineScreen() {
     openPosition,
     getMarketById,
     loadingMarket,
-    error: shortxError,
   } = useShortx();
 
   // Get real-time markets data
@@ -541,11 +538,13 @@ export default function SlotMachineScreen() {
     "yes" | "no" | null
   >(null);
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
-  const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK">("USDC");
+  // Comment out BONK in the token selection
+  const [selectedToken, setSelectedToken] = useState<"USDC" /* | "BONK" */>("USDC");
   const [showBetModal, setShowBetModal] = useState(false);
   const [betStatus, setBetStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
+  const [error, setError] = useState<unknown>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Memoize real-time market lookup
@@ -555,7 +554,7 @@ export default function SlotMachineScreen() {
   );
 
   // Determine if we're still loading
-  const isLoading = loadingMarkets || (!selectedMarket && !shortxError);
+  const isLoading = loadingMarkets || !selectedMarket;
 
   useEffect(() => {
     async function fetchMarket() {
@@ -575,6 +574,7 @@ export default function SlotMachineScreen() {
         }
       } catch (error) {
         console.error(`MarketDetailScreen: Error fetching market ${id}:`, error);
+        setError(error as unknown);
         setSelectedMarket(null);
       }
     }
@@ -714,7 +714,7 @@ export default function SlotMachineScreen() {
             className="flex-row items-center justify-center mt-6 px-3 py-4 rounded-full border border-white/50 bg-white/08 max-w-40"
             activeOpacity={0.85}
           >
-            <Text className="font-better-regular text-white text-lg">
+            <Text className="font-better-regular text-white text-sm">
               Back to markets
             </Text>
           </TouchableOpacity>
@@ -725,20 +725,20 @@ export default function SlotMachineScreen() {
             </View>
           )}
 
-          {shortxError && !loadingMarket && (
+          {error && !loadingMarket && (
             <MaterialCard variant="filled" style={styles.errorCard}>
               <Text style={styles.errorTitle}>Error</Text>
-              <Text style={styles.errorMessage}>{extractErrorMessage(shortxError)}</Text>
+              <Text style={styles.errorMessage}>{extractErrorMessage(error)}</Text>
             </MaterialCard>
           )}
 
-          {!isLoading && !shortxError && !selectedMarket && (
+          {!isLoading && !error && !selectedMarket && (
             <MaterialCard variant="filled" style={styles.errorCard}>
               <Text style={styles.errorMessage}>No market found.</Text>
             </MaterialCard>
           )}
 
-          {!isLoading && !shortxError && selectedMarket && (
+          {!isLoading && !error && selectedMarket && (
             <>
               {/* Single Swipeable Card with all info */}
               <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 600 }}>
@@ -911,32 +911,40 @@ export default function SlotMachineScreen() {
                     placeholder="0"
                     disabled={betStatus === "loading"}
                     selectedToken={selectedToken}
-                    onTokenChange={setSelectedToken}
+                    onTokenChange={(token) => {
+                      // Only allow USDC since BONK is commented out
+                      if (token === "USDC") {
+                        setSelectedToken(token);
+                      }
+                    }}
                   />
                 </View>
 
+                {/* Update the suggested amounts section to be additive */}
                 <View style={styles.suggestedRowBig}>
                   {SUGGESTED_BETS.map((amt) => (
                     <TouchableOpacity
                       key={amt}
                       style={[
                         styles.suggestedButtonBig,
-                        betAmount === amt.toString() &&
-                          styles.suggestedButtonBigSelected,
+                        // Remove the selected state styling since these are now additive
                       ]}
-                      onPress={() => setBetAmount(amt.toString())}
+                      onPress={() => {
+                        // Add the amount to current input instead of replacing
+                        const currentAmount = parseFloat(betAmount) || 0;
+                        const newAmount = currentAmount + amt;
+                        setBetAmount(newAmount.toString());
+                      }}
                       activeOpacity={0.85}
                       disabled={betStatus === "loading"}
                     >
                       <Text
                         style={[
-                          betAmount === amt.toString()
-                            ? styles.suggestedButtonTextBigSelected
-                            : styles.suggestedButtonTextBig,
+                          styles.suggestedButtonTextBig,
                           betStatus === "loading" && { opacity: 0.5 }
                         ]}
                       >
-                        {selectedToken === "BONK" ? `${amt}K` : `$${amt}`}
+                        +${amt}
                       </Text>
                     </TouchableOpacity>
                   ))}

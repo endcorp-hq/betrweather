@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     fontFamily: 'Poppins-SemiBold',
   },

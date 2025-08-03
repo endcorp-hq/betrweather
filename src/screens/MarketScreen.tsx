@@ -8,6 +8,7 @@ import theme from '../theme';
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
 import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
+import { ShortxErrorType } from "../solana/useContract";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (
@@ -182,7 +183,7 @@ export default function MarketScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 100 }}
           >
-            {error && (
+            {error && error.type === ShortxErrorType.MARKET_FETCH && (
               <Text style={styles.errorText}>{error.message}</Text>
             )}
             {!loadingMarkets && !error && filteredMarkets.length === 0 && (
