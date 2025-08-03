@@ -1,4 +1,4 @@
-<img src="./screenshots/betrweather_logo.png" alt="Position Management" />
+<img src="./screenshots/betrWeather_logo.png" alt="BetrWeather Logo" />
 
 # Weather app with prediction markets on Solana Mobile
 
