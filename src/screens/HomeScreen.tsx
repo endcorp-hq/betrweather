@@ -729,7 +729,7 @@ export function HomeScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingHorizontal: 10 }}
+                  contentContainerStyle={{ paddingHorizontal: 8 }}
           >
                   {hourly.map((h: any, idx: number) => (
                   <HourlyForecastItem

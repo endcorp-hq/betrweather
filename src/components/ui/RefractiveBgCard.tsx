@@ -12,7 +12,6 @@ interface RefractiveBgCardProps {
 export function RefractiveBgCard({ 
   children, 
   style, 
-  intensity = 0.3, 
   borderRadius = 24,
   variant = 'default'
 }: RefractiveBgCardProps) {
@@ -45,8 +44,8 @@ export function RefractiveBgCard({
           borderRadius,
           overflow: 'hidden',
           backgroundColor: isOpaque ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.35)',
-          borderWidth: 1.5,
-          borderColor: 'rgba(255, 255, 255, 0.3)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.2)',
           height: '100%',
           width: '100%',
         }}

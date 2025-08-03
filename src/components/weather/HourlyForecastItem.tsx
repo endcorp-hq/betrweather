@@ -22,15 +22,15 @@ export function HourlyForecastItem({
   return (
     <View
       style={{
-        width: 80,
-        height: 120,
+        width: 60,
+        height: 100,
         alignItems: "center",
         justifyContent: "center",
-        padding: 8,
+        padding: 6,
       }}
     >
       {/* Time */}
-      <Text className="text-gray-300 text-sm font-better-light text-center mb-2">
+      <Text className="text-gray-300 text-sm font-better-light text-center mb-1">
         {time}
       </Text>
 
@@ -39,24 +39,24 @@ export function HourlyForecastItem({
         style={{
           alignItems: "center",
           justifyContent: "center",
-          height: 20,
-          marginBottom: 4,
+          height: 18,
+          marginBottom: 3,
         }}
       >
         {iconUri ? (
           <Image
             source={{ uri: iconUri }}
-            className="w-5 h-5"
+            className="w-4 h-4"
             resizeMode="contain"
           />
         ) : (
-          <Text className="text-base">{icon || "☀️"}</Text>
+          <Text className="text-sm">{icon || "☀️"}</Text>
         )}
       </View>
 
       {/* Precipitation */}
       {precipitation && (
-        <Text className="text-gray-300 text-xs text-center font-better-light mb-2">
+        <Text className="text-gray-300 text-xs text-center font-better-light mb-1">
           {precipitation}
       </Text>
       )}
