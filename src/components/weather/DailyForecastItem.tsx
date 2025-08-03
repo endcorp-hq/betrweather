@@ -22,6 +22,63 @@ export function DailyForecastItem({
   onPress,
 }: DailyForecastItemProps) {
 
+  // Format day display
+  const formatDayDisplay = (dayString: string) => {
+    const parts = dayString.split(',');
+    const dayName = parts[0]?.trim();
+    const date = parts[1]?.trim();
+    
+    // Check if it's today
+    const today = new Date();
+    const todayString = today.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    if (dayName === todayString) {
+      return { dayLabel: 'Today', date: date };
+    }
+    
+    // Return short day name for other days
+    const shortDay = dayName?.substring(0, 3).toLowerCase();
+    return { dayLabel: shortDay, date: date };
+  };
+
+  // Format date to DD/MM
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    
+    // Parse the date string and format as DD/MM
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      // If parsing fails, try to extract month and day from the string
+      const monthMatch = dateString.match(/(\w+)/);
+      const dayMatch = dateString.match(/(\d+)/);
+      
+      if (monthMatch && dayMatch) {
+        const month = monthMatch[1].substring(0, 3).toLowerCase();
+        const day = dayMatch[1];
+        
+        // Convert month name to number
+        const monthMap: { [key: string]: string } = {
+          'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+          'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+          'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+        };
+        
+        const monthNum = monthMap[month] || '01';
+        const dayNum = day.padStart(2, '0');
+        return `${dayNum}/${monthNum}`;
+      }
+    } else {
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      return `${day}/${month}`;
+    }
+    
+    return dateString;
+  };
+
+  const { dayLabel, date } = formatDayDisplay(day);
+  const formattedDate = formatDate(date);
+
   return (
     <TouchableOpacity
       onPress={() => onPress?.(rawData)}
@@ -29,39 +86,48 @@ export function DailyForecastItem({
     >
     <RefractiveBgCard
       style={{
-        width: 160,
-        height: 180,
-        borderRadius: 16,
-        padding: 6,
+        width: 86,
+        height: 208,
+        borderRadius: 12,
+        padding: 0,
+        margin: 4,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
-      borderRadius={16}
+      borderRadius={12}
     >
-      {/* Day */}
-      <View className="mb-4">
-        <Text className="text-gray-300 text-sm font-better-light text-center">
-          {day.split(',')[0]}
-        </Text>
-        <Text className="text-gray-300 text-xs font-better-light text-center">
-          {day.split(',')[1]?.trim() || ''}
-        </Text>
-      </View>
+      {/* Day Label */}
+      <Text className="text-gray-300 text-base font-better-medium text-center mb-2">
+        {dayLabel}
+      </Text>
+
+      {/* Date */}
+      <Text className="text-gray-300 text-sm font-better-light text-center mb-2">
+        {formattedDate}
+      </Text>
 
       {/* Weather Icon */}
-      <View style={{ alignItems: 'center', justifyContent: 'center', height: 30, marginBottom: 2 }}>
+      <View style={{ alignItems: 'center', justifyContent: 'center', height: 60, marginBottom: 0 }}>
         {iconUri ? (
           <Image
             source={{ uri: iconUri }}
-            className="w-8 h-8 mb-4"
-            resizeMode="contain"
+            className="w-29 h-29"
           />
         ) : (
-          <Text className="text-sm font-better-light mb-4 text-center text-white">{icon || "☀️"}</Text>
+          <Text className="text-3xl">{icon || "☀️"}</Text>
         )}
       </View>
 
-      {/* High/Low Temperature */}
-      <Text className="text-white text-lg font-better-medium text-center">
-        {highTemp} / {lowTemp}
+      {/* High Temperature */}
+      <Text className="text-white text-lg font-better-medium text-center mb-1">
+        {highTemp}
+      </Text>
+
+      {/* Low Temperature */}
+      <Text className="text-gray-300 text-base font-better-light text-center">
+        {lowTemp}
       </Text>
     </RefractiveBgCard>
     </TouchableOpacity>
