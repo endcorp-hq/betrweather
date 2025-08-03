@@ -1,8 +1,8 @@
-# BetrWeather - Solana Mobile Hackathon Submission
+<img src="./screenshots/betrweather_logo.png" alt="Position Management" />
 
-**Weather prediction markets on Solana Mobile**
+# Weather app with prediction markets on Solana Mobile
 
-BetrWeather is the default weather app for Solana Mobile.
+**BetrWeather is the default weather app for Solana Mobile.**
 It's also a mobile-first weather prediction platform that lets users bet on weather outcomes using Solana. Get real-time weather data, place predictions, and earn rewards for accurate forecasts.
 
 ## 🏆 Solana Mobile Hackathon Entry
