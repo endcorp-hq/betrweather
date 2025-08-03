@@ -19,6 +19,7 @@ This project is submitted to the [Solana Mobile Hackathon](https://solanamobile.
 2. Enable "Install from Unknown Sources" in your Android settings
 3. Install the APK
 4. Open the app and connect your Solana wallet
+5. Get some devnet USDC/BONK: [Compatible USDC Faucet](https://faucet.circle.com/)
 
 ### Prerequisites
 - Android device running Android 8.0+
@@ -39,7 +40,7 @@ This project is submitted to the [Solana Mobile Hackathon](https://solanamobile.
 - **Frontend**: React Native + Expo
 - **Blockchain**: Solana (web3.js, Mobile Wallet Adapter)
 - **Weather API**: Integration with weather data providers
-- **Prediction Markets**: DePredict protocol
+- **Prediction Markets**: [DePredict protocol](https://github.com/endcorp-hq/depredict)
 - **UI**: NativeWind (Tailwind CSS) + Custom components
 - **State Management**: React Query + AsyncStorage
 
