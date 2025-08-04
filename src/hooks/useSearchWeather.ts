@@ -94,13 +94,17 @@ function mapWXMV1ToWeatherType(wxmv1Data: any): WeatherType {
   return baseWeatherType ? `${baseWeatherType}${timeSuffix}` as WeatherType : null;
 }
 
-export const useSearchWeather = (latitude: number | null, longitude: number | null) => {
+export const useSearchWeather = (
+  lat: number | null, 
+  lon: number | null,
+  refreshTrigger?: number
+) => {
   // Only fetch data if we have valid coordinates
-  const hasValidLocation = latitude && longitude;
+  const hasValidLocation = lat && lon;
 
   let userH3Index: string | null = null;
   if (hasValidLocation) {
-    userH3Index = getH3Index(latitude, longitude);
+    userH3Index = getH3Index(lat, lon);
   }
 
   // Get current date and format it as yyyy-mm-dd
@@ -167,8 +171,8 @@ export const useSearchWeather = (latitude: number | null, longitude: number | nu
 
   // Only use Google API if backend did not return forecast data
   const shouldUseBaseAPI =
-    !!latitude &&
-    !!longitude &&
+    !!lat &&
+    !!lon &&
     (FORCE_DATA_SOURCE === "google" || 
      (!wxmv1HourlyForecastData || !wxmv1DailyForecastData || errorWxmv1Forecast || errorWxmv1DailyForecast));
 
@@ -181,8 +185,8 @@ export const useSearchWeather = (latitude: number | null, longitude: number | nu
     {
       method: "POST",
       body: JSON.stringify({
-        latitude,
-        longitude,
+        latitude: lat,
+        longitude: lon,
       }),
       headers: {
         "Content-Type": "application/json",
@@ -197,8 +201,8 @@ export const useSearchWeather = (latitude: number | null, longitude: number | nu
       {
         method: "POST",
         body: JSON.stringify({
-          latitude,
-          longitude,
+          latitude: lat,
+          longitude: lon,
         }),
         headers: {
           "Content-Type": "application/json",
@@ -213,8 +217,8 @@ export const useSearchWeather = (latitude: number | null, longitude: number | nu
       {
         method: "POST",
         body: JSON.stringify({
-          latitude,
-          longitude,
+          latitude: lat,
+          longitude: lon,
         }),
         headers: {
           "Content-Type": "application/json",
@@ -277,8 +281,8 @@ export const useSearchWeather = (latitude: number | null, longitude: number | nu
     errorMessage,
     
     // Location
-    latitude,
-    longitude,
+    lat,
+    lon,
     hasValidLocation,
     userH3Index,
 

@@ -8,6 +8,7 @@ import {
   WXMV1ForecastHourlyResponse,
 } from "../types/weather";
 import { getH3Index } from "../utils/h3";
+import { useEffect } from "react";
 
 export type WeatherType = 
   | "sunny_day" | "sunny_night"
@@ -95,7 +96,7 @@ function mapWXMV1ToWeatherType(wxmv1Data: any): WeatherType {
   return baseWeatherType ? `${baseWeatherType}${timeSuffix}` as WeatherType : null;
 }
 
-export const useWeatherData = () => {
+export function useWeatherData(refreshTrigger?: number) {
   const {
     latitude,
     longitude,
@@ -149,6 +150,7 @@ export const useWeatherData = () => {
       enabled: !!hasValidLocation,
       staleTime: 300000, // 5 minutes cache
       gcTime: 600000, // 10 minutes garbage collection
+      refreshTrigger, // Pass the refreshTrigger
     }
   );
 
@@ -169,6 +171,7 @@ export const useWeatherData = () => {
         enabled: !!hasValidLocation,
         staleTime: 300000, // 5 minutes cache
         gcTime: 600000, // 10 minutes garbage collection
+        refreshTrigger, // Pass the refreshTrigger
       }
     );
 
@@ -189,6 +192,7 @@ export const useWeatherData = () => {
         enabled: !!hasValidLocation,
         staleTime: 300000, // 5 minutes cache
         gcTime: 600000, // 10 minutes garbage collection
+        refreshTrigger, // Pass the refreshTrigger
       }
     );
 
@@ -218,9 +222,9 @@ export const useWeatherData = () => {
     },
     { 
       enabled: !!hasValidLocation && !!userH3Index,
-      // Add caching for faster subsequent loads
       staleTime: 300000, // 5 minutes cache
       gcTime: 600000, // 10 minutes garbage collection
+      refreshTrigger, // Pass the refreshTrigger
     }
   );
 
@@ -245,9 +249,9 @@ export const useWeatherData = () => {
     },
     { 
       enabled: !!hasValidLocation && !!userH3Index,
-      // Add caching for faster subsequent loads
       staleTime: 300000, // 5 minutes cache
       gcTime: 600000, // 10 minutes garbage collection
+      refreshTrigger, // Pass the refreshTrigger
     }
   );
 
@@ -281,6 +285,10 @@ export const useWeatherData = () => {
     (errorWxmv1Forecast && errorWxmv1DailyForecast && errorbaseWeather ? 
       "Unable to fetch weather data from any source" : 
       null);
+
+  useEffect(() => {
+    // This effect will re-run if latitude, longitude, or refreshTrigger changes
+  }, [latitude, longitude, refreshTrigger]);
 
   return {
     // Data

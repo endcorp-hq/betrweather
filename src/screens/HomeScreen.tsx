@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Modal,
   Animated,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -31,10 +32,11 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DefaultBg } from "../components/ui/ScreenWrappers/DefaultBg";
 import { DailyDetailScreen } from "./DailyDetailScreen";
-import { calculateLocalTimeForCoordinates } from "../utils/timezoneUtils";
 import { useFocusEffect } from "@react-navigation/native";
-import { useTimeZone } from "../hooks/useTimeZone";
 import getBackgroundVideo from "../utils/getWeatherVideo";
+import { useToast } from "../components/ui/CustomToast";
+import { useTimeZone } from "../contexts/TimezoneContext";
+import { getLocalTimeForTimezone } from "../utils/timezoneUtils";
 
 interface SearchedLocation {
   name: string;
@@ -53,7 +55,15 @@ export function HomeScreen() {
   const { height: screenHeight } = Dimensions.get("window");
   const backgroundImageHeight = screenHeight * 0.7;
   const [backgroundVideoSource, setBackgroundVideoSource] = useState<any>(null);
-
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  const {toast} = useToast();
+  // Get current location coordinates
+  const { latitude, longitude } = useLocation();
+  
+  // Use the new hook that provides both timezone and local time
+  const { timeZoneId } = useTimeZone(searchedLocation?.lat || latitude, searchedLocation?.lon || longitude);
+  
   // Create video player for expo-video - always available on HomeScreen
   const player = useVideoPlayer(null, (player) => {
     player.loop = true;
@@ -98,38 +108,25 @@ export function HomeScreen() {
     errorMessage,
     weatherType,
     userH3Index,
-  } = useWeatherData();
+  } = useWeatherData(refreshCounter);
 
-  // Get current location coordinates
-  const { latitude, longitude } = useLocation();
 
-  const { timeZone } = useTimeZone(
-    searchedLocation ? searchedLocation.lat : latitude,
-    searchedLocation ? searchedLocation.lon : longitude
-  );
 
   // Search weather data
   const searchWeatherData = useSearchWeather(
     searchedLocation?.lat || null,
-    searchedLocation?.lon || null
+    searchedLocation?.lon || null,
+    refreshCounter
   );
 
   // Move getBackgroundVideoSource here, after searchWeatherData is defined
-  const getBackgroundVideoSource = async () => {
-    let isDay = false;
-    let lat = latitude;
-    let lon = longitude;
-
-    if (searchedLocation) {
-      lat = searchedLocation.lat;
-      lon = searchedLocation.lon;
-    }
+  const getBackgroundVideoSource = async (currentTimeZoneId: string) => {
+    let isDay = false;    
     try {
-      const timezoneInfo = await calculateLocalTimeForCoordinates(lat!, lon!);
-
-      if (timezoneInfo) {
+      const {time} = getLocalTimeForTimezone(currentTimeZoneId);
+      if (time) {
         // Parse the time string to get local hours
-        const timeMatch = timezoneInfo.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        const timeMatch = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
         if (timeMatch) {
           let localHours = parseInt(timeMatch[1]);
           const period = timeMatch[3].toUpperCase();
@@ -140,10 +137,7 @@ export function HomeScreen() {
         }
       }
     } catch (error) {
-      console.error(
-        "Error getting timezone info for searched location:",
-        error
-      );
+      console.error("Error getting timezone info for searched location:", error);
       // Fallback to device time
       const deviceHours = new Date().getHours();
       isDay = deviceHours >= 6 && deviceHours < 18;
@@ -180,86 +174,11 @@ export function HomeScreen() {
         weatherType,
         userH3Index,
       };
-
-  // // Get timestamp from weather data for background video selection
-  // const getWeatherTimestamp = async () => {
-  //   // Check if we're using search data or current location data
-  //   const weatherData = searchedLocation
-  //     ? searchWeatherData
-  //     : {
-  //         wxmv1HourlyForecastData,
-  //         isUsingLocalStation,
-  //       };
-
-  //   let timezoneInfo = null;
-
-  //   if (searchedLocation) {
-  //     try {
-  //       timezoneInfo = await calculateLocalTimeForCoordinates(
-  //         searchedLocation.lat,
-  //         searchedLocation.lon
-  //       );
-  //     } catch (error) {
-  //       console.error(
-  //         "Error getting timezone info for searched location:",
-  //         error
-  //       );
-  //     }
-  //   }
-
-  //   if (
-  //     weatherData.isUsingLocalStation &&
-  //     weatherData.wxmv1HourlyForecastData?.forecast[0]?.hourly
-  //   ) {
-  //     const hourlyData = weatherData.wxmv1HourlyForecastData.forecast[0].hourly;
-
-  //     if (timezoneInfo) {
-  //       // Use the searched location's local time
-  //       const timeMatch = timezoneInfo.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
-  //       if (timeMatch) {
-  //         let localHours = parseInt(timeMatch[1]);
-  //         const period = timeMatch[3].toUpperCase();
-  //         if (period === "PM" && localHours !== 12) localHours += 12;
-  //         if (period === "AM" && localHours === 12) localHours = 0;
-
-  //         // Find the hourly data point that matches the local hour
-  //         const currentHourData = hourlyData.find((h) => {
-  //           const dataTime = new Date(h.timestamp);
-  //           return dataTime.getHours() === localHours;
-  //         });
-
-  //         if (currentHourData) {
-  //           return currentHourData.timestamp;
-  //         }
-  //       }
-  //     } else {
-  //       // Fallback to UTC time for current location
-  //       const currentUTC = new Date();
-  //       const currentHour = currentUTC.getUTCHours();
-
-  //       const currentHourData = hourlyData.find((h) => {
-  //         const dataTime = new Date(h.timestamp);
-  //         return dataTime.getUTCHours() === currentHour;
-  //       });
-
-  //       if (currentHourData) {
-  //         return currentHourData.timestamp;
-  //       }
-  //     }
-
-  //     // If no matching hour found, use the first available data
-  //     return hourlyData[0]?.timestamp;
-  //   }
-
-  //   // Fallback to current time if no timestamp available
-  //   return new Date();
-  // };
-
   // Update the useEffect to load video source into existing player
   useEffect(() => {
     const updateBackgroundVideo = async () => {
       try {
-        const source = await getBackgroundVideoSource();
+        const source = await getBackgroundVideoSource(timeZoneId || "");
         setBackgroundVideoSource(source);
 
         // Load the new source into the existing player
@@ -286,7 +205,7 @@ export function HomeScreen() {
       }
     };
 
-    if (!currentData.isLoading && !currentData.hasError) {
+    if (!currentData.isLoading && !currentData.hasError && timeZoneId) {
       updateBackgroundVideo();
     }
   }, [
@@ -297,6 +216,8 @@ export function HomeScreen() {
     player,
     latitude,
     longitude,
+    refreshCounter,
+    timeZoneId,
   ]);
 
   // Trigger animations when data loads
@@ -328,6 +249,43 @@ export function HomeScreen() {
   const handleBackFromDetail = () => {
     setSelectedDayDetail(null);
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    
+    try {
+      // Clear searched location and increment refresh counter
+      setSearchedLocation(null);
+      setRefreshCounter(prev => prev + 1);
+      
+      // Wait for the data to be fetched by monitoring the loading state
+      const waitForData = () => {
+        return new Promise<void>((resolve) => {
+          const checkLoading = () => {
+            if (!currentData.isLoading && !currentData.hasError) {
+              resolve();
+            } else {
+              // Check again after a short delay
+              setTimeout(checkLoading, 100);
+            }
+          };
+          checkLoading();
+        });
+      };
+      
+      // Wait for data to be fetched (with a timeout)
+      await Promise.race([
+        waitForData(),
+        new Promise(resolve => setTimeout(resolve, 10000)) // 10 second timeout
+      ]);
+      
+    } catch (error) {
+      console.error('Error during refresh:', error);
+      toast.error('Could not refresh weather data');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [currentData.isLoading, currentData.hasError]);
 
   // Show loading state while getting location or fetching data
   if (currentData.isLoading) {
@@ -441,7 +399,7 @@ export function HomeScreen() {
     currentData.isUsingLocalStation,
     currentData.hourlyData || null,
     currentData.wxmv1HourlyForecastData || null,
-    timeZone || undefined
+    timeZoneId || undefined
   );
   const daily = processDailyForecast(
     currentData.isUsingLocalStation,
@@ -512,6 +470,15 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
         style={{ backgroundColor: "black" }}
         contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="white"
+            colors={["white"]}
+            progressBackgroundColor="rgba(255, 255, 255, 0.1)"
+          />
+        }
       >
         {/* Background video section */}
         <MotiView
@@ -662,10 +629,7 @@ export function HomeScreen() {
               isUsingLocalStation={currentData.isUsingLocalStation}
               mmForecastData={getCurrentHourData()}
               weatherIcon={weatherIcon}
-              searchedLocation={searchedLocation}
-              currentLocationCoords={
-                latitude && longitude ? { lat: latitude, lon: longitude } : null
-              }
+              currentTimeZoneId={timeZoneId || ""}
             />
           </MotiView>
         </Animated.View>

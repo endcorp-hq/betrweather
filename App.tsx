@@ -13,6 +13,7 @@ import { ToastProvider } from "./src/components/ui/ToastProvider";
 
 import "./global.css";
 import "react-native-reanimated";
+import { TimezoneProvider } from "./src/contexts/TimezoneContext";
 
 const queryClient = new QueryClient();
 
@@ -26,7 +27,9 @@ export default function App() {
               <GestureHandlerRootView style={{ flex: 1 }}>
                 <SafeAreaProvider>
                   <ToastProvider>
-                    <AppNavigator />
+                    <TimezoneProvider>
+                      <AppNavigator />
+                    </TimezoneProvider>
                   </ToastProvider>
                 </SafeAreaProvider>
               </GestureHandlerRootView>

@@ -10,8 +10,8 @@ import {
   WXMV1ForecastDailyResponse,
   WXMV1ForecastDay,
 } from "../types/weather";
-import { WeatherType, isDayTime, getTimeOfDaySuffix } from "../hooks/useWeatherData";
-import weatherModelAverage from "./weatherModelAverage";
+import { WeatherType, getTimeOfDaySuffix } from "../hooks/useWeatherData";
+import { getLocalTimeForTimezone } from "./timezoneUtils";
 
 // Fallback icons (emoji or local asset)
 export const fallbackIcons = {
@@ -157,16 +157,8 @@ function calculateDewPoint(temperatureC: number, relativeHumidity: number): numb
   return dewPoint;
 }
 
-// Example using your data:
-const temperatureMax = 24.21;
-const temperatureMin = 15.88;
-const humidity = 52;
 
-// Use average temperature (or pick max/min as appropriate)
-const averageTemperature = (temperatureMax + temperatureMin) / 2;
 
-// Calculate dew point
-const dewPoint = calculateDewPoint(averageTemperature, humidity);
 
 
 // Process weather data and return formatted values
@@ -235,7 +227,7 @@ export const processHourlyForecast = (
   isUsingLocalStation: boolean,
   hourlyData: HourlyAPIResponse | null,
   wxmv1HourlyData: WXMV1ForecastHourlyResponse | null,
-  timezone?: string
+  timeZoneId?: string
 ): HourlyForecast[] => {
 
   if (isUsingLocalStation && wxmv1HourlyData) {
@@ -275,12 +267,11 @@ export const processHourlyForecast = (
       let formattedTime = "--:--";
       if (typeof h.timestamp === "string") {
         const date = new Date(h.timestamp);
-        if (timezone) {
-          // Use timezone if provided
+        if (timeZoneId) {
           formattedTime = date.toLocaleTimeString('en-US', {
             hour: 'numeric',
             hour12: true,
-            timeZone: timezone
+            timeZone: timeZoneId
           });
         } else {
           // Fallback to UTC time in 12-hour format
