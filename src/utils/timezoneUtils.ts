@@ -6,24 +6,20 @@ interface TimezoneInfo {
   formattedDate: string;
 }
 
-// Get timezone information for coordinates using Google Timezone API
+// Get timezone information for coordinates using your backend
 export const getTimezoneInfo = async (lat: number, lon: number): Promise<TimezoneInfo | null> => {
   try {
-    const timestamp = Math.floor(Date.now() / 1000); // Current timestamp in seconds
-    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY;
-    
-    if (!apiKey) {
-      console.error('Google API key not found');
-      return null;
-    }
-
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/timezone/json?location=${lat},${lon}&timestamp=${timestamp}&key=${apiKey}`,
+      `${process.env.EXPO_PUBLIC_BACKEND_URL}/google-weather/timezone`,
       {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          latitude: lat,
+          longitude: lon,
+        }),
       }
     );
 
@@ -34,8 +30,8 @@ export const getTimezoneInfo = async (lat: number, lon: number): Promise<Timezon
 
     const data = await response.json();
 
-    if (data.status === 'OK') {
-      const timezone = data.timeZoneId; // e.g., "America/Los_Angeles"
+    if (data.data?.timezone?.timeZoneId) {
+      const timezone = data.data.timezone.timeZoneId; // e.g., "Europe/London"
       
       // Get current UTC date
       const utcDate = new Date();
@@ -61,7 +57,7 @@ export const getTimezoneInfo = async (lat: number, lon: number): Promise<Timezon
         formattedDate
       };
     } else {
-      console.error('Timezone API error:', data.status, data.errorMessage);
+      console.error('Timezone API error: No timezone data received');
       return null;
     }
     

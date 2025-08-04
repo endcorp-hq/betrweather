@@ -86,7 +86,7 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
                 Humidity
               </Text>
               <Text className="text-gray-400 text-xs font-better-regular text-center">
-                Dew {typeof dewPoint === 'number' ? dewPoint.toFixed(1) : dewPoint}°
+                Dew {typeof dewPoint === 'number' ? dewPoint.toFixed(1) : dewPoint}
               </Text>
             </View>
           </View>

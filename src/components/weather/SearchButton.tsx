@@ -60,45 +60,48 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
       setSuggestions(null); // Clear previous suggestions immediately
       
       try {
+        // Call your backend autocomplete endpoint
         const response = await fetch(
-          `https://places.googleapis.com/v1/places:autocomplete`,
+          `${process.env.EXPO_PUBLIC_BACKEND_URL}/google-weather/place-autocomplete`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY || '',
             },
             body: JSON.stringify({
               input: query,
-              includedPrimaryTypes: ['(regions)'],
             }),
           }
         );
         
         const data = await response.json();
         
-        if (data.suggestions && data.suggestions.length > 0) {
+        if (data.data?.suggestions && data.data.suggestions.length > 0) {
           const locations: Location[] = await Promise.all(
-            data.suggestions.slice(0, 20).map(async (prediction: any) => {
+            data.data.suggestions.slice(0, 20).map(async (prediction: any) => {
               try {
                 const placeId = prediction.placePrediction.placeId;
                 const placeName = prediction.placePrediction.structuredFormat.mainText.text;
                 const secondaryText = prediction.placePrediction.structuredFormat.secondaryText.text;
                 
-                // Get place details for coordinates
+                // Get place details from your backend
                 const detailsResponse = await fetch(
-                  `https://places.googleapis.com/v1/places/${placeId}?fields=id,displayName,formattedAddress,location`,
+                  `${process.env.EXPO_PUBLIC_BACKEND_URL}/google-weather/place-details`,
                   {
+                    method: 'POST',
                     headers: {
-                      'X-Goog-Api-Key': process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY || '',
+                      'Content-Type': 'application/json',
                     },
+                    body: JSON.stringify({
+                      placeId: placeId,
+                    }),
                   }
                 );
                 
                 const detailsData = await detailsResponse.json();
                 
-                if (detailsData.location) {
-                  const { latitude, longitude } = detailsData.location;
+                if (detailsData.data?.place?.location) {
+                  const { latitude, longitude } = detailsData.data.place.location;
                   
                   // Parse address components from secondary text
                   const addressParts = secondaryText.split(', ');
