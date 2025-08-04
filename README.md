@@ -38,7 +38,7 @@ This project is submitted to the [Solana Mobile Hackathon](https://solanamobile.
 ## 🛠 Tech Stack
 
 - **Frontend**: React Native + Expo
-- **Blockchain**: Solana (web3.js, Mobile Wallet Adapter)
+- **Blockchain**: Solana (web3.js, Mobile Wallet Adapter, metaplex umi)
 - **Weather API**: Integration with weather data providers
 - **Prediction Markets**: [DePredict protocol](https://github.com/endcorp-hq/depredict)
 - **UI**: NativeWind (Tailwind CSS) + Custom components
@@ -95,14 +95,6 @@ yarn build
 2. Install Android Studio and configure Android SDK
 3. Set up Android emulator or connect physical device
 4. Install Solana wallet app on device/emulator
-
-## 🎯 Solana Mobile Features
-
-- **Mobile Wallet Adapter**: Seamless wallet integration
-- **Native Android**: Optimized for Android performance
-- **Offline Support**: Core functionality works without internet
-- **Push Notifications**: Market updates and position alerts
-- **Biometric Auth**: Secure wallet access
 
 ## 📊 Project Structure
 
