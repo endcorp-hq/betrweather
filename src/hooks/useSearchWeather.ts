@@ -1,4 +1,5 @@
 import { useAPI } from "../hooks/useAPI";
+import { useNearbyStations } from "./useNearbyStations";
 import {
   WeatherAPIResponse,
   HourlyAPIResponse,
@@ -102,10 +103,24 @@ export const useSearchWeather = (
   // Only fetch data if we have valid coordinates
   const hasValidLocation = lat && lon;
 
+  if(!lat || !lon) {
+    return
+  }
+
   let userH3Index: string | null = null;
   if (hasValidLocation) {
     userH3Index = getH3Index(lat, lon);
   }
+
+  // Fetch nearby stations data
+  const {
+    station,
+    weather: stationWeather,
+    distance,
+    isLoading: loadingStations,
+    error: errorStations,
+    hasStations,
+  } = useNearbyStations(userH3Index, refreshTrigger);
 
   // Get current date and format it as yyyy-mm-dd
   const today = new Date();
@@ -142,7 +157,12 @@ export const useSearchWeather = (
         "Content-Type": "application/json",
       },
     },
-    { enabled: !!hasValidLocation && !!userH3Index, staleTime: 300000, gcTime: 600000 }
+    { 
+      enabled: !!hasValidLocation && !!userH3Index, 
+      staleTime: 300000, 
+      gcTime: 600000,
+      refreshTrigger
+    }
   );
 
   // Get daily forecast from wxmv1 (today to 6 days in future)
@@ -164,7 +184,12 @@ export const useSearchWeather = (
         "Content-Type": "application/json",
       },
     },
-    { enabled: !!hasValidLocation && !!userH3Index, staleTime: 300000, gcTime: 600000 }
+    { 
+      enabled: !!hasValidLocation && !!userH3Index, 
+      staleTime: 300000, 
+      gcTime: 600000,
+      refreshTrigger
+    }
   );
 
 
@@ -192,7 +217,12 @@ export const useSearchWeather = (
         "Content-Type": "application/json",
       },
     },
-    { enabled: !!shouldUseBaseAPI, staleTime: 300000, gcTime: 600000 }
+    { 
+      enabled: !!shouldUseBaseAPI, 
+      staleTime: 300000, 
+      gcTime: 600000,
+      refreshTrigger
+    }
   );
 
   const { data: baseHourlyResponse, isLoading: loadingbaseHourly } =
@@ -208,7 +238,12 @@ export const useSearchWeather = (
           "Content-Type": "application/json",
         },
       },
-      { enabled: !!shouldUseBaseAPI, staleTime: 300000, gcTime: 600000 }
+      { 
+        enabled: !!shouldUseBaseAPI, 
+        staleTime: 300000, 
+        gcTime: 600000,
+        refreshTrigger
+      }
     );
 
   const { data: baseDailyResponse, isLoading: loadingBaseDaily } =
@@ -224,7 +259,12 @@ export const useSearchWeather = (
           "Content-Type": "application/json",
         },
       },
-      { enabled: !!shouldUseBaseAPI, staleTime: 300000, gcTime: 600000 }
+      { 
+        enabled: !!shouldUseBaseAPI, 
+        staleTime: 300000, 
+        gcTime: 600000,
+        refreshTrigger
+      }
     );
 
   // Extract data from the wrapped response
@@ -273,6 +313,14 @@ export const useSearchWeather = (
     weather,
     hourlyData,
     dailyData,
+    
+    // Station Data
+    station,
+    stationWeather,
+    distance,
+    hasStations,
+    loadingStations,
+    errorStations,
     
     // States
     isUsingLocalStation,

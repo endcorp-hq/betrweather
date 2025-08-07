@@ -4,7 +4,7 @@ import { RefractiveBgCard } from "../ui/RefractiveBgCard";
 import {
   getWeatherXMIcon,
   mapWXMV1IconToWeatherType,
-} from "../../utils/weatherDataProcessor";
+} from "../../utils/weatherUtils";
 import { getLocalTimeForTimezone } from "../../utils/timezoneUtils";
 
 interface MainWeatherDisplayProps {

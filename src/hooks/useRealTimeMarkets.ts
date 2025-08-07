@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { useShortx } from '../solana/useContract';
-import { Market, WinningDirection } from '@endcorp/depredict';
+import { useShortx } from './solana';
+import { WinningDirection } from '@endcorp/depredict';
 
 export function useRealTimeMarkets() {
   const { markets, marketEvents, loadingMarkets, error } = useShortx();

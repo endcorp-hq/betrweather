@@ -1,5 +1,6 @@
 import { useAPI } from "./useAPI";
 import { useLocation } from "./useLocation";
+import { useNearbyStations } from "./useNearbyStations";
 import {
   WeatherAPIResponse,
   HourlyAPIResponse,
@@ -114,6 +115,16 @@ export function useWeatherData(refreshTrigger?: number) {
     userH3Index = getH3Index(latitude, longitude);
   }
 
+  // Fetch nearby stations data
+  const {
+    station,
+    weather: stationWeather,
+    distance,
+    isLoading: loadingStations,
+    error: errorStations,
+    hasStations,
+  } = useNearbyStations(userH3Index, refreshTrigger);
+
   // Get current date and format it as yyyy-mm-dd
   const today = new Date();
   const tomorrow = new Date(today);
@@ -129,7 +140,7 @@ export function useWeatherData(refreshTrigger?: number) {
   const tomorrowFormatted = formatDate(tomorrow);
   const sixDaysFormatted = formatDate(sixDaysFromNow);
 
-  // Always fetch Google API in parallel for faster fallback
+  // Get hourly forecast from wxmv1 (today to tomorrow) - with caching
   const {
     data: baseWeatherResponse,
     isLoading: loadingbaseWeather,
@@ -271,8 +282,6 @@ export function useWeatherData(refreshTrigger?: number) {
     ? mapWXMV1ToWeatherType(wxmv1HourlyForecastData?.forecast[0]?.hourly?.[0]) 
     : mapApiToWeatherType(weather);
 
-
-
   // Optimized loading states - consider loading complete when we have any data
   const isLoading =
     loadingLocation ||
@@ -286,10 +295,6 @@ export function useWeatherData(refreshTrigger?: number) {
       "Unable to fetch weather data from any source" : 
       null);
 
-  useEffect(() => {
-    // This effect will re-run if latitude, longitude, or refreshTrigger changes
-  }, [latitude, longitude, refreshTrigger]);
-
   return {
     // Data
     wxmv1HourlyForecastData,
@@ -298,6 +303,14 @@ export function useWeatherData(refreshTrigger?: number) {
     hourlyData,
     dailyData,
     detailedLocation,
+
+    // Station Data
+    station,
+    stationWeather,
+    distance,
+    hasStations,
+    loadingStations,
+    errorStations,
 
     // States
     isUsingLocalStation,

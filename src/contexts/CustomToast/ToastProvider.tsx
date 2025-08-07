@@ -127,10 +127,13 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   );
 };
 
-export const useGlobalToast = () => {
+// Single useToast hook that uses the provider's context
+export const useToast = (): ToastContextType => {
   const context = useContext(ToastContext);
   if (context === undefined) {
-    throw new Error('useGlobalToast must be used within a ToastProvider');
+    throw new Error("useToast must be used within a ToastProvider");
   }
   return context;
-}; 
+};
+
+

@@ -1,8 +1,7 @@
 import { useState, useCallback } from "react";
 import { Text, TouchableOpacity } from "react-native";
-import { useAuthorization } from "../../solana/useAuthorization";
-import { useMobileWallet } from "../../hooks/useMobileWallet";
-import { useToast } from "../ui/CustomToast";
+import { useAuthorization, useMobileWallet } from "@/hooks";
+import { useToast } from "@/contexts";
 
 export function ConnectButton() {
   const { authorizeSession } = useAuthorization();

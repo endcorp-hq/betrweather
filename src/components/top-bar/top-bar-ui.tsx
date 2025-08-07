@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { Account, useAuthorization } from "../../solana/useAuthorization";
-import { useMobileWallet } from "../../hooks/useMobileWallet";
+import { Account, useAuthorization, useMobileWallet } from "@/hooks";
 import { useNavigation } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import { Linking, Text, TouchableOpacity, View, Modal } from "react-native";

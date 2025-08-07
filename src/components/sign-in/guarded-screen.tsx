@@ -1,7 +1,7 @@
 import { View, Text } from "react-native";
-import { useAuthorization } from "../../solana/useAuthorization";
-import { DefaultBg } from "../ui/ScreenWrappers/DefaultBg";
-import { ConnectButton, SignInButton } from "./sign-in-ui";
+import { useAuthorization } from "@/hooks";
+import { DefaultBg } from "../ui";
+import { SignInButton } from "./sign-in-ui";
 
 // GuardedScreen: renders children if wallet connected, else shows centered connect button
 export default function GuardedScreen({

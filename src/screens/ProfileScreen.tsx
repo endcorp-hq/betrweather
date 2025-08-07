@@ -6,20 +6,19 @@ import {
   StyleSheet,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
-import { DefaultBg } from "../components/ui/ScreenWrappers/DefaultBg";
+import { DefaultBg, LogoLoader, SwipeablePositionCard } from "@/components";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { LogoLoader } from "../components/ui/LoadingSpinner";
-import { useAuthorization } from "../solana/useAuthorization";
+import { useAuthorization } from "@/hooks";
 import { MotiView } from "moti";
 import theme from "../theme";
-import { SwipeablePositionCard } from "../components/position";
-import { usePositions } from "../hooks/usePositions";
-import { calculatePayout } from "../utils/positionUtils";
+import { usePositions } from "@/hooks";
+import { calculatePayout } from "@/utils";
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
-  const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout } = usePositions();
+  const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout, handleBurnPosition } = usePositions();
+
   // Refresh data when screen comes into focus (e.g., after returning from Phantom)
   useFocusEffect(
     useCallback(() => {
@@ -241,6 +240,9 @@ export default function ProfileScreen() {
                   position={position}
                   onClaim={async () => {
                     await handleClaimPayout(position);
+                  }}
+                  onBurn={async () => {
+                    await handleBurnPosition(position);
                   }}
                   onPress={() => handleCardPress(position.marketId)}
                   isClaiming={position.isClaiming || false}

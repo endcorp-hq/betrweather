@@ -1,17 +1,14 @@
 
 import {
   HourlyForecast,
-  WeatherAPIResponse,
   HourlyAPIResponse,
   DailyAPIResponse,
   WXMV1HourlyData,
-  WXMV1DailyData,
   WXMV1ForecastHourlyResponse,
   WXMV1ForecastDailyResponse,
   WXMV1ForecastDay,
 } from "../types/weather";
 import { WeatherType, getTimeOfDaySuffix } from "../hooks/useWeatherData";
-import { getLocalTimeForTimezone } from "./timezoneUtils";
 
 // Fallback icons (emoji or local asset)
 export const fallbackIcons = {
@@ -157,24 +154,64 @@ function calculateDewPoint(temperatureC: number, relativeHumidity: number): numb
   return dewPoint;
 }
 
-
-
+// Calculate distance between two coordinates using Haversine formula
+export const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // Distance in kilometers
+  return Math.round(distance * 10) / 10; // Round to 1 decimal place
+};
 
 
 // Process weather data and return formatted values
 export const processWeatherData = (
   isUsingLocalStation: boolean,
-  weather: WeatherAPIResponse | null,
-  hourlyData: WXMV1HourlyData | null,
-  dailyData: WXMV1DailyData | null
+  weather: any,
+  hourlyData: any,
+  dailyData: any,
+  stationWeather?: any // Updated parameter name
 ) => {
+  // If we have station data, use it as the primary source
+  if (stationWeather?.observation) {
+    const observation = stationWeather.observation;
+    const todayTemps = dailyData;
+    let description = observation.icon ? observation.icon === "extreme-day" ? "sunny" : observation.icon.split("-").join(" ").replace(/(day|night)\s*/i, "") : "Local Station report";
+    
+    return {
+      temp: Math.round(observation.temperature).toString(),
+      description: description,
+      high: todayTemps ? `${Math.round(todayTemps.temperature_max)}°` : "--",
+      low: todayTemps ? `${Math.round(todayTemps.temperature_min)}°` : "--",
+      feelsLike: Math.round(observation.temperature).toString(), // Station doesn't have feels like, use actual temp
+      windSpeed: observation.wind_speed ? Math.round(observation.wind_speed).toString() : "--",
+      windDesc: observation.wind_speed ? `${Math.round(observation.wind_speed)} mph` : "--",
+      humidity: observation.humidity ? Math.round(observation.humidity).toString() : "--",
+      dewPoint: observation.dew_point ? Math.round(observation.dew_point).toString() : "--",
+      uv: observation.uv_index ? Math.round(observation.uv_index).toString() : "--",
+      pressure: observation.pressure ? Math.round(observation.pressure).toString() : "--",
+    };
+  }
 
+  // Fallback to existing logic for hourly/daily data
   if (isUsingLocalStation && hourlyData) {
     const todayTemps = dailyData;
     
     return {
       temp: hourlyData.temperature ? `${Math.round(hourlyData.temperature)}°` : "--",
-      description: hourlyData.icon.split("-").join(" ").replace(/(day|night)\s*/i, ""), // Remove day/night from description
+      description: hourlyData.icon === "extreme-day" ? "sunny" : hourlyData.icon.split("-").join(" ").replace(/(day|night)\s*/i, ""),
       high: todayTemps ? `${Math.round(todayTemps.temperature_max)}°` : "--",
       low: todayTemps ? `${Math.round(todayTemps.temperature_min)}°` : "--",
       feelsLike: hourlyData.feels_like ? `${Math.round(hourlyData.feels_like)}°` : "--",
@@ -185,41 +222,53 @@ export const processWeatherData = (
       uv: hourlyData.uv_index !== null && hourlyData.uv_index !== undefined ? `${Math.round(hourlyData.uv_index)}` : "--",
       pressure: hourlyData.pressure ? `${Math.round(hourlyData.pressure)} mb` : "--",
     };
+  } else if (weather) {
+    const temp = weather?.temperature?.degrees ?? "--";
+    const description = weather?.weatherCondition?.description?.text ?? "--";
+    const feelsLike = weather?.feelsLikeTemperature?.degrees ?? "--";
+    const high = weather?.currentConditionsHistory?.maxTemperature?.degrees ?? "--";
+    const low = weather?.currentConditionsHistory?.minTemperature?.degrees ?? "--";
+    const windSpeed = weather?.wind?.speed?.value ?? "--";
+    const windDesc = weather?.wind
+      ? `${weather.wind.speed?.value ?? ""} km/h · From ${
+          weather.wind.direction?.cardinal ?? ""
+        }`
+      : "--";
+    const humidity = weather?.relativeHumidity ?? "--";
+    const dewPoint = weather?.dewPoint?.degrees ?? "--";
+    const uv = weather?.uvIndex ?? "--";
+    const pressure = weather?.airPressure?.meanSeaLevelMillibars ?? "--";
+
+    const result = {
+      temp: temp !== "--" ? `${Math.round(temp)}°` : "--",
+      description,
+      feelsLike: feelsLike !== "--" ? `${Math.round(feelsLike)}°` : "--",
+      high: high !== "--" ? `${Math.round(high)}°` : "--",
+      low: low !== "--" ? `${Math.round(low)}°` : "--",
+      windSpeed: windSpeed !== "--" ? `${Math.round(windSpeed)} km/h` : "--",
+      windDesc,
+      humidity: humidity !== "--" ? `${Math.round(humidity)}%` : "--",
+      dewPoint: dewPoint !== "--" ? `${Math.round(dewPoint)}°` : "--",
+      uv: uv !== "--" && uv !== null && uv !== undefined ? `${Math.round(uv)}` : "--",
+      pressure: pressure !== "--" ? `${Math.round(pressure)} mb` : "--",
+    };
+
+    return result;
   }
 
-  // Google API fallback path
-  
-  const temp = weather?.temperature?.degrees ?? "--";
-  const description = weather?.weatherCondition?.description?.text ?? "--";
-  const feelsLike = weather?.feelsLikeTemperature?.degrees ?? "--";
-  const high = weather?.currentConditionsHistory?.maxTemperature?.degrees ?? "--";
-  const low = weather?.currentConditionsHistory?.minTemperature?.degrees ?? "--";
-  const windSpeed = weather?.wind?.speed?.value ?? "--";
-  const windDesc = weather?.wind
-    ? `${weather.wind.speed?.value ?? ""} km/h · From ${
-        weather.wind.direction?.cardinal ?? ""
-      }`
-    : "--";
-  const humidity = weather?.relativeHumidity ?? "--";
-  const dewPoint = weather?.dewPoint?.degrees ?? "--";
-  const uv = weather?.uvIndex ?? "--";
-  const pressure = weather?.airPressure?.meanSeaLevelMillibars ?? "--";
-
-  const result = {
-    temp: temp !== "--" ? `${Math.round(temp)}°` : "--",
-    description,
-    feelsLike: feelsLike !== "--" ? `${Math.round(feelsLike)}°` : "--",
-    high: high !== "--" ? `${Math.round(high)}°` : "--",
-    low: low !== "--" ? `${Math.round(low)}°` : "--",
-    windSpeed: windSpeed !== "--" ? `${Math.round(windSpeed)} km/h` : "--",
-    windDesc,
-    humidity: humidity !== "--" ? `${Math.round(humidity)}%` : "--",
-    dewPoint: dewPoint !== "--" ? `${Math.round(dewPoint)}°` : "--",
-    uv: uv !== "--" && uv !== null && uv !== undefined ? `${Math.round(uv)}` : "--",
-    pressure: pressure !== "--" ? `${Math.round(pressure)} mb` : "--",
+  return {
+    temp: "--",
+    description: "--",
+    high: "--",
+    low: "--",
+    feelsLike: "--",
+    windSpeed: "--",
+    windDesc: "--",
+    humidity: "--",
+    dewPoint: "--",
+    uv: "--",
+    pressure: "--",
   };
-
-  return result;
 };
 
 // Process hourly forecast data
@@ -383,3 +432,35 @@ function formatDateFromString(dateString: string): string {
     day: 'numeric' 
   });
 } 
+
+
+// Function to get the appropriate background video based on weather and time
+export default function getBackgroundVideo(weatherType: any, isDay: boolean): any {
+  // Extract base weather type from day/night variant (e.g., "sunny_day" -> "sunny")
+  const baseWeatherType = weatherType?.includes("_")
+    ? weatherType.split("_")[0]
+    : weatherType;
+
+  if (baseWeatherType === "sunny" || baseWeatherType === null) {
+    return isDay
+      ? require("../../assets/weatherBg/clear-day.mp4")
+      : require("../../assets/weatherBg/clear-night.mp4");
+  } else if (
+    baseWeatherType === "cloudy" ||
+    baseWeatherType === "partly_cloudy" ||
+    baseWeatherType === "overcast"
+  ) {
+    return isDay
+      ? require("../../assets/weatherBg/cloudy-day.mp4")
+      : require("../../assets/weatherBg/cloudy-night.mp4");
+  } else if (baseWeatherType === "rainy") {
+    return isDay
+      ? require("../../assets/weatherBg/rainy-cloudy-day.mp4")
+      : require("../../assets/weatherBg/rainy-cloudy-night.mp4");
+  }
+  // For other weather types, use cloudy backgrounds as fallback
+  return isDay
+    ? require("../../assets/weatherBg/cloudy-day.mp4")
+    : require("../../assets/weatherBg/cloudy-night.mp4");
+}
+

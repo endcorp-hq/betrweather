@@ -4,6 +4,7 @@ import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { useAuthorization } from "./useAuthorization";
 
 export interface NftMetadata {
+  assetId: string;
   positionId: number;
   positionNonce: number;
   amount: number;
@@ -74,6 +75,7 @@ export function useNftMetadata() {
         ) as Array<{ [key: string]: string }>;
 
         const nftMetadata = {
+          assetId: asset.publicKey,
           positionId: Number(attributesMap[1]?.position_id || 0),
           positionNonce: Number(attributesMap[2]?.position_nonce || 0),
           amount: Number(attributesMap[3]?.position_amount || 0),

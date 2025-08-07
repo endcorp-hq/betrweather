@@ -1,17 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { calculateDistance } from '../../utils/weatherUtils';
+
+interface Station {
+  lat: number;
+  lon: number;
+  name: string;
+}
 
 interface WeatherSourceIndicatorProps {
   isUsingLocalStation: boolean;
   distance?: number;
   cellId?: string | null;
+  station?: Station | null;
+  userLatitude?: number | null;
+  userLongitude?: number | null;
 }
 
-export function WeatherSourceIndicator({ isUsingLocalStation, distance, cellId }: WeatherSourceIndicatorProps) {
+export function WeatherSourceIndicator({ 
+  isUsingLocalStation, 
+  distance, 
+  cellId, 
+  station,
+  userLatitude,
+  userLongitude
+}: WeatherSourceIndicatorProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [scaleAnim] = useState(new Animated.Value(1));
   const [opacityAnim] = useState(new Animated.Value(0));
+  const [calculatedDistance, setCalculatedDistance] = useState<number | null>(null);
   const insets = useSafeAreaInsets();
 
   // Auto-hide after 3 seconds when expanded
@@ -37,6 +55,17 @@ export function WeatherSourceIndicator({ isUsingLocalStation, distance, cellId }
   }, [isExpanded]);
 
   const handlePress = () => {
+    // Calculate distance if we have station data and user location
+    if (station && userLatitude && userLongitude && !calculatedDistance) {
+      const distance = calculateDistance(
+        userLatitude,
+        userLongitude,
+        station.lat,
+        station.lon
+      );
+      setCalculatedDistance(distance);
+    }
+
     if (isExpanded) {
       // Collapse animation
       Animated.parallel([
@@ -69,6 +98,17 @@ export function WeatherSourceIndicator({ isUsingLocalStation, distance, cellId }
     }
   };
 
+  // Determine the message to show
+  const getMessage = () => {
+    if (isUsingLocalStation && station && calculatedDistance) {
+      return `Local WXM station ${calculatedDistance}km away`;
+    } else if (isUsingLocalStation) {
+      return 'Hyper local data by WeatherXM';
+    } else {
+      return 'Google Weather';
+    }
+  };
+
   return (
     <>
       <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
@@ -81,8 +121,7 @@ export function WeatherSourceIndicator({ isUsingLocalStation, distance, cellId }
             {isUsingLocalStation ? (
               <Image
                 source={require('../../../assets/wxmlogo.png')}
-           className='w-full h-full'
-           
+                className='w-full h-full'
               />
             ) : (
               <Text className="text-white text-xl font-better-bold">G</Text>
@@ -104,14 +143,16 @@ export function WeatherSourceIndicator({ isUsingLocalStation, distance, cellId }
         className="bg-white/80 backdrop-blur-md rounded-lg px-3 py-2 border border-gray-200/50"
       >
         <Text className="text-black text-sm font-better-medium" numberOfLines={1}>
-          {isUsingLocalStation 
-            ? `Hyper local data by WeatherXM${distance ? ` (${distance.toFixed(1)}km)` : ''}`
-            : 'Google Weather'
-          }
+          {getMessage()}
         </Text>
         {isUsingLocalStation && cellId && (
           <Text className="text-gray-600 text-xs font-better-medium mt-1">
             Cell ID: {cellId}
+          </Text>
+        )}
+        {station && (
+          <Text className="text-gray-600 text-xs font-better-medium mt-1">
+            Station: {station.name}
           </Text>
         )}
       </Animated.View>

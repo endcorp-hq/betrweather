@@ -3,7 +3,7 @@ import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Market, MarketType, WinningDirection } from "@endcorp/depredict";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { RefractiveBgCard } from "./RefractiveBgCard";
+import { RefractiveBgCard } from "../ui";
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
   if (!endTimestamp) return "market ended";

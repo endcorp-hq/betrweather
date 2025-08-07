@@ -204,8 +204,12 @@ import React, {
       setLoadingMarkets(true);
       setError(null);
       try {
+        const authority = new PublicKey(process.env.EXPO_PUBLIC_ADMIN_KEY!);
+        if(!authority) {
+          throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing environment variables");
+        }
         if (client) {
-          const m = await client.trade.getAllMarkets();
+          const m = await client.trade.getMarketsByAuthority(authority);
           setMarkets(m || []);
         }
       } catch (err: unknown) {

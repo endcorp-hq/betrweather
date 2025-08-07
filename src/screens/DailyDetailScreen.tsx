@@ -8,7 +8,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import GlassyCard from '../components/ui/GlassyCard';
-import { getWeatherXMIcon, mapWXMV1IconToWeatherType } from '../utils/weatherDataProcessor';
+import { getWeatherXMIcon, mapWXMV1IconToWeatherType } from '../utils/weatherUtils';
 
 interface DailyDetailScreenProps {
   selectedDay: any;
@@ -147,6 +147,7 @@ export function DailyDetailScreen({ selectedDay, onBack, isUsingLocalStation }: 
         style={{ flex: 1}}
         contentContainerStyle={{ 
           padding: 16,
+          paddingBottom: 100,
         }}
       >
         {/* Main Day Info */}

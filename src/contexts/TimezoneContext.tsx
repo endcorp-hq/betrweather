@@ -20,7 +20,7 @@ export const TimezoneProvider: React.FC<TimezoneProviderProps> = ({ children }) 
 };
 
 // Simple hook that takes lat/lon and returns timezone data
-export const useTimeZone = (lat: number | null, lon: number | null) => {
+export const useTimeZone = (lat: number | null, lon: number | null, refreshTrigger?: number) => {
   const context = useContext(TimezoneContext);
 
   if (context === undefined) {
@@ -43,6 +43,7 @@ export const useTimeZone = (lat: number | null, lon: number | null) => {
       enabled: !!lat && !!lon,
       staleTime: 5 * 60 * 1000, // 5 minutes
       gcTime: 10 * 60 * 1000, // 10 minutes
+      refreshTrigger, // Add refresh trigger
     }
   );
 

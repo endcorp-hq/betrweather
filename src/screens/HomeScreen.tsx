@@ -12,31 +12,31 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { MotiView } from "moti";
-import { WeatherSourceIndicator } from "../components/weather/WeatherSourceIndicator";
-import { SearchButton } from "../components/weather/SearchButton";
-import { HourlyForecastItem } from "../components/weather/HourlyForecastItem";
-import { DailyForecastItem } from "../components/weather/DailyForecastItem";
-import GlassyCard from "../components/ui/GlassyCard";
-import { LogoLoader } from "../components/ui/LoadingSpinner";
-import { MainWeatherDisplay } from "../components/weather/MainWeatherDisplay";
-import { CurrentConditions } from "../components/weather/CurrentConditions";
-import { useWeatherData } from "../hooks/useWeatherData";
-import { useSearchWeather } from "../hooks/useSearchWeather";
-import { useLocation } from "../hooks/useLocation";
+import {
+  WeatherSourceIndicator,
+  SearchButton,
+  HourlyForecastItem,
+  DailyForecastItem,
+  GlassyCard,
+  LogoLoader,
+  MainWeatherDisplay,
+  CurrentConditions,
+  DefaultBg
+} from "@/components";
+import { useWeatherData, useSearchWeather, useLocation } from "@/hooks";
 import {
   processWeatherData,
   processHourlyForecast,
   processDailyForecast,
   getWeatherXMIcon,
-} from "../utils/weatherDataProcessor";
+  getLocalTimeForTimezone,
+  getBackgroundVideo
+} from "@/utils";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { DefaultBg } from "../components/ui/ScreenWrappers/DefaultBg";
-import { DailyDetailScreen } from "./DailyDetailScreen";
+import { DailyDetailScreen } from "./DailyDetailScreen"; 
 import { useFocusEffect } from "@react-navigation/native";
-import getBackgroundVideo from "../utils/getWeatherVideo";
-import { useToast } from "../components/ui/CustomToast";
-import { useTimeZone } from "../contexts/TimezoneContext";
-import { getLocalTimeForTimezone } from "../utils/timezoneUtils";
+import { useToast, useTimeZone } from "@/contexts";
+
 
 interface SearchedLocation {
   name: string;
@@ -47,33 +47,39 @@ interface SearchedLocation {
 }
 
 export function HomeScreen() {
+
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchedLocation, setSearchedLocation] =
     useState<SearchedLocation | null>(null);
   const [showAnimations, setShowAnimations] = useState(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState<any>(null);
-  const { height: screenHeight } = Dimensions.get("window");
-  const backgroundImageHeight = screenHeight * 0.7;
   const [backgroundVideoSource, setBackgroundVideoSource] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
-  const {toast} = useToast();
-  // Get current location coordinates
+  const [isStationDetectionComplete, setIsStationDetectionComplete] = useState(false);
+  const [showFinalSource, setShowFinalSource] = useState(false);
+  
+  const { height: screenHeight } = Dimensions.get("window");
+  const backgroundImageHeight = screenHeight * 0.7;
+
+  const { toast } = useToast();
   const { latitude, longitude } = useLocation();
-  
-  // Use the new hook that provides both timezone and local time
-  const { timeZoneId } = useTimeZone(searchedLocation?.lat || latitude, searchedLocation?.lon || longitude);
-  
-  // Create video player for expo-video - always available on HomeScreen
+  const { timeZoneId } = useTimeZone(
+    searchedLocation?.lat || latitude,
+    searchedLocation?.lon || longitude,
+    refreshCounter
+  );
+
+  // expo video player
   const player = useVideoPlayer(null, (player) => {
     player.loop = true;
     player.muted = true;
   });
 
-  // Handle screen focus/unfocus to pause/play video for performance
+  // pause/play video for performance
   useFocusEffect(
-    React.useCallback(() => {
-      // Screen is focused - play video if we have a source
+    useCallback(() => {
+      // Screen is focused - play video
       if (player && backgroundVideoSource) {
         try {
           player.play();
@@ -83,7 +89,7 @@ export function HomeScreen() {
       }
 
       return () => {
-        // Screen is unfocused - pause video to save resources
+        // Screen is unfocused - pause video
         if (player) {
           try {
             player.pause();
@@ -108,9 +114,20 @@ export function HomeScreen() {
     errorMessage,
     weatherType,
     userH3Index,
+    station,
+    stationWeather,
+    hasStations,
   } = useWeatherData(refreshCounter);
 
-
+  // Add effect to track when station detection is complete
+  useEffect(() => {
+    // Station detection is complete when:
+    // 1. Not loading anymore
+    // 2. Either we have station data OR we've confirmed no stations are available
+    if (!isLoading && (stationWeather || hasStations === false)) {
+      setIsStationDetectionComplete(true);
+    }
+  }, [isLoading, stationWeather, hasStations]);
 
   // Search weather data
   const searchWeatherData = useSearchWeather(
@@ -119,11 +136,11 @@ export function HomeScreen() {
     refreshCounter
   );
 
-  // Move getBackgroundVideoSource here, after searchWeatherData is defined
+
   const getBackgroundVideoSource = async (currentTimeZoneId: string) => {
-    let isDay = false;    
+    let isDay = false;
     try {
-      const {time} = getLocalTimeForTimezone(currentTimeZoneId);
+      const { time } = getLocalTimeForTimezone(currentTimeZoneId);
       if (time) {
         // Parse the time string to get local hours
         const timeMatch = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
@@ -137,7 +154,10 @@ export function HomeScreen() {
         }
       }
     } catch (error) {
-      console.error("Error getting timezone info for searched location:", error);
+      console.error(
+        "Error getting timezone info for searched location:",
+        error
+      );
       // Fallback to device time
       const deviceHours = new Date().getHours();
       isDay = deviceHours >= 6 && deviceHours < 18;
@@ -146,45 +166,56 @@ export function HomeScreen() {
     return getBackgroundVideo(weatherType, isDay);
   };
 
-  // Use search data if available, otherwise use current location data
+
   const currentData = searchedLocation
     ? {
-        wxmv1HourlyForecastData: searchWeatherData.wxmv1HourlyForecastData,
-        wxmv1DailyForecastData: searchWeatherData.wxmv1DailyForecastData,
-        weather: searchWeatherData.weather,
-        hourlyData: searchWeatherData.hourlyData,
-        dailyData: searchWeatherData.dailyData,
-        isUsingLocalStation: searchWeatherData.isUsingLocalStation,
-        isLoading: searchWeatherData.isLoading,
-        hasError: searchWeatherData.hasError,
-        errorMessage: searchWeatherData.errorMessage,
-        weatherType: searchWeatherData.weatherType,
-        userH3Index: searchWeatherData.userH3Index,
+        // For searched locations, use search data immediately
+        wxmv1HourlyForecastData: searchWeatherData?.wxmv1HourlyForecastData,
+        wxmv1DailyForecastData: searchWeatherData?.wxmv1DailyForecastData,
+        weather: searchWeatherData?.weather,
+        hourlyData: searchWeatherData?.hourlyData,
+        dailyData: searchWeatherData?.dailyData,
+        isUsingLocalStation: searchWeatherData?.isUsingLocalStation,
+        isLoading: searchWeatherData?.isLoading,
+        hasError: searchWeatherData?.hasError,
+        errorMessage: searchWeatherData?.errorMessage,
+        weatherType: searchWeatherData?.weatherType,
+        userH3Index: searchWeatherData?.userH3Index,
+        station: searchWeatherData?.station,
+        stationWeather: searchWeatherData?.stationWeather,
+        hasStations: searchWeatherData?.hasStations,
       }
     : {
-        wxmv1HourlyForecastData,
-        wxmv1DailyForecastData,
-        weather,
-        hourlyData,
-        dailyData,
-        isUsingLocalStation,
-        isLoading,
-        hasError,
-        errorMessage,
-        weatherType,
-        userH3Index,
+        // For current location, wait for station detection to complete
+        wxmv1HourlyForecastData: isStationDetectionComplete ? wxmv1HourlyForecastData : null,
+        wxmv1DailyForecastData: isStationDetectionComplete ? wxmv1DailyForecastData : null,
+        weather: isStationDetectionComplete ? weather : null,
+        hourlyData: isStationDetectionComplete ? hourlyData : null,
+        dailyData: isStationDetectionComplete ? dailyData : null,
+        isUsingLocalStation: isStationDetectionComplete ? isUsingLocalStation : false,
+        isLoading: isLoading || !isStationDetectionComplete,
+        hasError: hasError,
+        errorMessage: errorMessage,
+        weatherType: isStationDetectionComplete ? weatherType : null,
+        userH3Index: isStationDetectionComplete ? userH3Index : null,
+        station: isStationDetectionComplete ? station : null,
+        stationWeather: isStationDetectionComplete ? stationWeather : null,
+        hasStations: isStationDetectionComplete ? hasStations : null,
       };
-  // Update the useEffect to load video source into existing player
+
+  // load video source into created player
   useEffect(() => {
     const updateBackgroundVideo = async () => {
       try {
-        const source = await getBackgroundVideoSource(timeZoneId || "");
-        setBackgroundVideoSource(source);
+        // Only update background when we have final data AND station detection is complete
+        if (!currentData.isLoading && !currentData.hasError && timeZoneId && isStationDetectionComplete && showFinalSource) {
+          const source = await getBackgroundVideoSource(timeZoneId || "");
+          setBackgroundVideoSource(source);
 
-        // Load the new source into the existing player
-        if (player && source) {
-          player.replace(source);
-          player.play();
+          if (player && source) {
+            player.replace(source);
+            player.play();
+          }
         }
       } catch (error) {
         console.error("Error getting background video source:", error);
@@ -205,9 +236,7 @@ export function HomeScreen() {
       }
     };
 
-    if (!currentData.isLoading && !currentData.hasError && timeZoneId) {
-      updateBackgroundVideo();
-    }
+    updateBackgroundVideo();
   }, [
     currentData.weatherType,
     searchedLocation,
@@ -218,11 +247,13 @@ export function HomeScreen() {
     longitude,
     refreshCounter,
     timeZoneId,
+    isStationDetectionComplete,
+    showFinalSource, // Add this dependency
   ]);
 
   // Trigger animations when data loads
   useEffect(() => {
-    if (!currentData.isLoading && !currentData.hasError) {
+    if (!currentData.isLoading && !currentData.hasError && showFinalSource) {
       // Small delay to ensure smooth transition from loading and stable background
       const timer = setTimeout(() => {
         setShowAnimations(true);
@@ -231,8 +262,20 @@ export function HomeScreen() {
     } else {
       setShowAnimations(false);
     }
-  }, [currentData.isLoading, currentData.hasError]);
+  }, [currentData.isLoading, currentData.hasError, showFinalSource]);
 
+  useEffect(() => {
+    if (!isLoading && (stationWeather || hasStations === false)) {
+      // Small delay to ensure smooth transition
+      const timer = setTimeout(() => {
+        setShowFinalSource(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, stationWeather, hasStations]);
+
+
+  //onclick handlers
   const handleLocationSelect = (location: SearchedLocation) => {
     setSearchedLocation(location);
     handleSearchToggle(false);
@@ -252,43 +295,40 @@ export function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    
+
     try {
-      // Clear searched location and increment refresh counter
-      setSearchedLocation(null);
-      setRefreshCounter(prev => prev + 1);
-      
-      // Wait for the data to be fetched by monitoring the loading state
+
+      setRefreshCounter((prev) => prev + 1);
+
+      // Wait for the data fetch
       const waitForData = () => {
         return new Promise<void>((resolve) => {
           const checkLoading = () => {
             if (!currentData.isLoading && !currentData.hasError) {
               resolve();
             } else {
-              // Check again after a short delay
               setTimeout(checkLoading, 100);
             }
           };
           checkLoading();
         });
       };
-      
-      // Wait for data to be fetched (with a timeout)
+
       await Promise.race([
         waitForData(),
-        new Promise(resolve => setTimeout(resolve, 10000)) // 10 second timeout
+        new Promise((resolve) => setTimeout(resolve, 10000)), // max 10 second timeout
       ]);
-      
     } catch (error) {
-      console.error('Error during refresh:', error);
-      toast.error('Could not refresh weather data');
+      console.error("Error during refresh:", error);
+      toast.error("Could not refresh weather data");
     } finally {
       setRefreshing(false);
     }
   }, [currentData.isLoading, currentData.hasError]);
 
-  // Show loading state while getting location or fetching data
-  if (currentData.isLoading) {
+
+  //loading renderer
+  if (currentData.isLoading || !isStationDetectionComplete) {
     return (
       <DefaultBg>
         <View className="flex-1 justify-center items-center p-6">
@@ -298,12 +338,11 @@ export function HomeScreen() {
     );
   }
 
-  // Show error if any API failed
+  // Error renderer
   if (currentData.hasError) {
     return (
       <DefaultBg>
         <View className="flex-1 justify-center items-center p-6">
-          {/* Animated Error Icon */}
           <Animated.View
             style={{
               transform: [{ scale: 1.2 }],
@@ -386,30 +425,33 @@ export function HomeScreen() {
     return null;
   };
 
-  // Process weather data
+  // Process weather data - prioritize station data if available
   const weatherData = processWeatherData(
-    currentData.isUsingLocalStation,
+    currentData.isUsingLocalStation || false,
     currentData.weather || null,
     getCurrentHourData(),
-    currentData.wxmv1DailyForecastData?.forecast[0].daily || null
+    currentData.wxmv1DailyForecastData?.forecast[0].daily || null,
+    currentData.stationWeather // Pass station weather data
   );
 
-  // Process forecast data
+  // Process hourly forecast
   const hourly = processHourlyForecast(
-    currentData.isUsingLocalStation,
+    currentData.isUsingLocalStation || false,
     currentData.hourlyData || null,
     currentData.wxmv1HourlyForecastData || null,
     timeZoneId || undefined
   );
+
+  // Process daily forecast
   const daily = processDailyForecast(
-    currentData.isUsingLocalStation,
+    currentData.isUsingLocalStation || false,
     currentData.wxmv1DailyForecastData?.forecast
       ? ({ forecast: currentData.wxmv1DailyForecastData.forecast } as any)
       : null,
     currentData.dailyData || null
   );
 
-  // Get raw daily data for detail screen
+  // Get raw daily data for daily detail
   const getRawDailyData = () => {
     if (
       currentData.isUsingLocalStation &&
@@ -428,6 +470,7 @@ export function HomeScreen() {
     ? `${currentData.weather.weatherCondition.iconBaseUri}.png`
     : getWeatherXMIcon(currentData.weatherType);
 
+  // Main renderer
   return (
     <View style={{ flex: 1, backgroundColor: "black" }}>
       {/* Top controls - fixed position */}
@@ -443,9 +486,12 @@ export function HomeScreen() {
       >
         <View className="flex-row justify-between items-center p-4">
           <WeatherSourceIndicator
-            isUsingLocalStation={currentData.isUsingLocalStation}
+            isUsingLocalStation={showFinalSource ? (currentData.isUsingLocalStation || false) : false}
             distance={undefined}
             cellId={currentData.userH3Index}
+            station={currentData.station}
+            userLatitude={searchedLocation?.lat || latitude}
+            userLongitude={searchedLocation?.lon || longitude}
           />
         </View>
       </Animated.View>
@@ -626,7 +672,7 @@ export function HomeScreen() {
               high={weatherData.high}
               low={weatherData.low}
               feelsLike={weatherData.feelsLike}
-              isUsingLocalStation={currentData.isUsingLocalStation}
+              isUsingLocalStation={currentData.isUsingLocalStation || false}
               mmForecastData={getCurrentHourData()}
               weatherIcon={weatherIcon}
               currentTimeZoneId={timeZoneId || ""}
@@ -740,11 +786,12 @@ export function HomeScreen() {
         visible={!!selectedDayDetail}
         animationType="slide"
         onRequestClose={handleBackFromDetail}
+
       >
         <DailyDetailScreen
           selectedDay={selectedDayDetail}
           onBack={handleBackFromDetail}
-          isUsingLocalStation={currentData.isUsingLocalStation}
+          isUsingLocalStation={currentData.isUsingLocalStation || false}
         />
       </Modal>
     </View>

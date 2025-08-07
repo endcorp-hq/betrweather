@@ -1,14 +1,11 @@
-import React, { useState, useRef, useMemo, useCallback } from "react";
-import { ScrollView, Text, StyleSheet, View, Animated } from "react-native";
-import { MarketCard } from "../components/ui/MarketCard";
-import { useFilters } from "../components/ui/useFilters";
-import { StatusFilterBar } from "../components/ui/StatusFilterBar";
-import { LogoLoader as LoadingSpinner } from "../components/ui/LoadingSpinner";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { ScrollView, Text, StyleSheet, View } from "react-native";
+import { MarketCard, StatusFilterBar, LogoLoader as LoadingSpinner } from "@/components";
+import { useFilters } from "@/components";
 import theme from '../theme';
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
-import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
-import { ShortxErrorType } from "../solana/useContract";
+import { useRealTimeMarkets, ShortxErrorType } from "@/hooks";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (
@@ -39,7 +36,7 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
 export default function MarketScreen() {
   const { markets, loadingMarkets, error } = useRealTimeMarkets();
 
-  // Use the filter hook for time filters
+  //time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([
     "daily",
     "weekly",
@@ -47,7 +44,7 @@ export default function MarketScreen() {
     "longterm",
   ]);
 
-  // Use separate state for status filter
+  //status filter
   const [statusFilter, setStatusFilter] = useState("betting");
 
   // Memoize the status filter handler to prevent unnecessary re-renders
@@ -62,7 +59,6 @@ export default function MarketScreen() {
       const marketStart = Number(market.marketStart) * 1000;
       const marketEnd = Number(market.marketEnd) * 1000;
 
-      // Status filtering
       let matchesStatus = false;
       switch (statusFilter) {
         case "betting":
@@ -95,7 +91,6 @@ export default function MarketScreen() {
 
       if (!matchesStatus) return false;
 
-      // Time filtering
       const marketStartDate = new Date(marketStart);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -111,7 +106,7 @@ export default function MarketScreen() {
           // Within the current week (Monday to Sunday)
           const startOfWeek = new Date(today);
           const dayOfWeek = today.getDay();
-          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0, so we need to handle it
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0
           startOfWeek.setDate(today.getDate() - daysToMonday);
 
           const endOfWeek = new Date(startOfWeek);

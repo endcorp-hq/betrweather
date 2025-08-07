@@ -6,11 +6,12 @@ import {
   AddressLookupTableAccount,
   Connection,
   Keypair,
+  Transaction,
 } from "@solana/web3.js";
 import { useCallback, useState } from "react";
 import axios from "axios";
-import { useMobileWallet } from "../hooks/useMobileWallet";
 import { useAuthorization } from "./useAuthorization";
+import { useMobileWallet } from "../useMobileWallet";
 
 const getPriorityFee = async () => {
   let fee = 1000;
@@ -37,6 +38,7 @@ export function useCreateAndSendTx() {
       instructions: TransactionInstruction[],
       signatureRequired: boolean,
       signedVersionedTransaction?: VersionedTransaction,
+      transaction?: Transaction,
       {
         skipPreflight,
         microLamports,
@@ -85,6 +87,27 @@ export function useCreateAndSendTx() {
           return signature;
         }
 
+        if (transaction) {
+          if (signatureRequired) {
+            // Use signAndSendTransaction for the signed transaction
+            let result = await signTransaction(transaction as Transaction);
+            if (result) {
+              transaction = result as Transaction;
+            }
+          }
+          
+          // If no signature required, just send the transaction
+          const signature = await connection.sendRawTransaction(
+            transaction.serialize(),
+            { skipPreflight }
+          );
+          
+          // Wait for confirmation
+          await connection.confirmTransaction(signature, "confirmed");
+          
+          return signature;
+        }
+
         // Add priority fee instruction
         if (microLamports) {
           instructions.push(
@@ -104,6 +127,7 @@ export function useCreateAndSendTx() {
         // Get latest blockhash
         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
 
+        console.log("instructions", instructions);
         // Create versioned transaction
         const tx = new VersionedTransaction(
           new TransactionMessage({
@@ -112,6 +136,8 @@ export function useCreateAndSendTx() {
             payerKey: selectedAccount.publicKey,
           }).compileToV0Message(addressLookupTableAccounts)
         );
+
+        console.log("tx created", tx);
 
         if (signatureRequired) {
           // Use signAndSendTransaction from wallet

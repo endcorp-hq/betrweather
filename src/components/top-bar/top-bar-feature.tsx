@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { TopBarWalletMenu } from "./top-bar-ui";
-import { useAuthorization } from "../../solana/useAuthorization";
+import { useAuthorization } from "@/hooks";
 
 export function TopBar() {
   const { selectedAccount } = useAuthorization();
