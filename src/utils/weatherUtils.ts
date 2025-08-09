@@ -1,14 +1,12 @@
-
-import {
-  HourlyForecast,
-  HourlyAPIResponse,
-  DailyAPIResponse,
-  WXMV1HourlyData,
-  WXMV1ForecastHourlyResponse,
-  WXMV1ForecastDailyResponse,
-  WXMV1ForecastDay,
-} from "../types/weather";
+import { WXMV1HourlyData, WXMV1ForecastDay } from "../types/weather";
 import { WeatherType, getTimeOfDaySuffix } from "../hooks/useWeatherData";
+import {
+  GoogleDailyForecastResponse,
+  GoogleHourlyForecastResponse,
+  WeatherXMWXMv1ForecastDay,
+} from "src/types/wxm-types";
+import { ClosestStationResponseDto } from "src/types/wxm-types";
+import { CurrentConditionsResponse } from "src/types/wxm-types";
 
 // Fallback icons (emoji or local asset)
 export const fallbackIcons = {
@@ -19,26 +17,56 @@ export const fallbackIcons = {
 };
 
 // Helper function to map WXMV1 icon strings to WeatherType with day/night
-export const mapWXMV1IconToWeatherType = (iconString: string, timestamp?: string | Date): WeatherType => {
+export const mapWXMV1IconToWeatherType = (
+  iconString: string,
+  timestamp?: string | Date,
+  isLocalTime?: boolean
+): WeatherType => {
   const icon = iconString.toLowerCase();
-  
+
   // Use provided timestamp or current time for day/night determination
-  const timeSuffix = getTimeOfDaySuffix(timestamp || new Date());
-  
+  const timeSuffix = getTimeOfDaySuffix(timestamp || new Date(), isLocalTime);
   let baseWeatherType: string | null = null;
-  if (icon.includes('clear') || icon.includes('sunny')) baseWeatherType = "sunny";
-  else if (icon.includes('partly-cloudy')) baseWeatherType = "partly_cloudy";
-  else if (icon.includes('cloudy') || icon.includes('overcast')) baseWeatherType = "cloudy";
-  else if (icon.includes('rain') || icon.includes('drizzle') || icon.includes('sleet') ||  icon.includes('shower')) baseWeatherType = "rainy";
-  else if (icon.includes('storm') || icon.includes('thunder') || icon.includes('lightning')) baseWeatherType = "stormy";
-  else if (icon.includes('snow') || icon.includes('blizzard')) baseWeatherType = "snowy";
-  else if (icon.includes('fog') || icon.includes('mist') || icon.includes('haze')) baseWeatherType = "foggy";
-  else if (icon.includes('wind') || icon.includes('breeze') || icon.includes('gust')) baseWeatherType = "windy";
-  else if (icon.includes('hail') || icon.includes('ice')) baseWeatherType = "stormy"; // Hail/ice storms
-  else if (icon.includes('dust') || icon.includes('sand')) baseWeatherType = "windy"; // Dust/sand storms
-  else if (icon.includes('smoke') || icon.includes('ash')) baseWeatherType = "foggy"; // Smoke/ash conditions
+  if (icon.includes("clear") || icon.includes("sunny"))
+    baseWeatherType = "sunny";
+  else if (icon.includes("partly-cloudy")) baseWeatherType = "partly_cloudy";
+  else if (icon.includes("cloudy") || icon.includes("overcast"))
+    baseWeatherType = "cloudy";
+  else if (
+    icon.includes("rain") ||
+    icon.includes("drizzle") ||
+    icon.includes("sleet") ||
+    icon.includes("shower")
+  )
+    baseWeatherType = "rainy";
+  else if (
+    icon.includes("storm") ||
+    icon.includes("thunder") ||
+    icon.includes("lightning")
+  )
+    baseWeatherType = "stormy";
+  else if (icon.includes("snow") || icon.includes("blizzard"))
+    baseWeatherType = "snowy";
+  else if (
+    icon.includes("fog") ||
+    icon.includes("mist") ||
+    icon.includes("haze")
+  )
+    baseWeatherType = "foggy";
+  else if (
+    icon.includes("wind") ||
+    icon.includes("breeze") ||
+    icon.includes("gust")
+  )
+    baseWeatherType = "windy";
+  else if (icon.includes("hail") || icon.includes("ice"))
+    baseWeatherType = "stormy"; // Hail/ice storms
+  else if (icon.includes("dust") || icon.includes("sand"))
+    baseWeatherType = "windy"; // Dust/sand storms
+  else if (icon.includes("smoke") || icon.includes("ash"))
+    baseWeatherType = "foggy"; // Smoke/ash conditions
   else baseWeatherType = "sunny"; // Default fallback
-  
+
   return `${baseWeatherType}${timeSuffix}` as WeatherType;
 };
 
@@ -65,7 +93,7 @@ export const getWeatherXMIcon = (weatherType?: WeatherType): string => {
       return "💨";
     case "partly_cloudy_day":
       return "⛅";
-    
+
     // Night variants
     case "sunny_night":
       return "🌙";
@@ -83,7 +111,7 @@ export const getWeatherXMIcon = (weatherType?: WeatherType): string => {
       return "💨";
     case "partly_cloudy_night":
       return "🌤️";
-    
+
     default:
       return "☀️"; // Default fallback
   }
@@ -136,8 +164,10 @@ export const formatDate = (displayDate?: {
   return `${dayOfWeek}, ${monthName} ${day}`;
 };
 
-
-function calculateDewPoint(temperatureC: number, relativeHumidity: number): number {
+function calculateDewPoint(
+  temperatureC: number,
+  relativeHumidity: number
+): number {
   // Magnus coefficients for water vapor over liquid
   const a = 17.62;
   const b = 243.12;
@@ -148,7 +178,8 @@ function calculateDewPoint(temperatureC: number, relativeHumidity: number): numb
   }
 
   // Magnus formula
-  const gamma = (a * temperatureC) / (b + temperatureC) + Math.log(relativeHumidity / 100);
+  const gamma =
+    (a * temperatureC) / (b + temperatureC) + Math.log(relativeHumidity / 100);
   const dewPoint = (b * gamma) / (a - gamma);
 
   return dewPoint;
@@ -175,267 +206,21 @@ export const calculateDistance = (
   return Math.round(distance * 10) / 10; // Round to 1 decimal place
 };
 
-
-// Process weather data and return formatted values
-export const processWeatherData = (
-  isUsingLocalStation: boolean,
-  weather: any,
-  hourlyData: any,
-  dailyData: any,
-  stationWeather?: any // Updated parameter name
-) => {
-  // If we have station data, use it as the primary source
-  if (stationWeather?.observation) {
-    const observation = stationWeather.observation;
-    const todayTemps = dailyData;
-    let description = observation.icon ? observation.icon === "extreme-day" ? "sunny" : observation.icon.split("-").join(" ").replace(/(day|night)\s*/i, "") : "Local Station report";
-    
-    return {
-      temp: Math.round(observation.temperature).toString(),
-      description: description,
-      high: todayTemps ? `${Math.round(todayTemps.temperature_max)}°` : "--",
-      low: todayTemps ? `${Math.round(todayTemps.temperature_min)}°` : "--",
-      feelsLike: Math.round(observation.temperature).toString(), // Station doesn't have feels like, use actual temp
-      windSpeed: observation.wind_speed ? Math.round(observation.wind_speed).toString() : "--",
-      windDesc: observation.wind_speed ? `${Math.round(observation.wind_speed)} mph` : "--",
-      humidity: observation.humidity ? Math.round(observation.humidity).toString() : "--",
-      dewPoint: observation.dew_point ? Math.round(observation.dew_point).toString() : "--",
-      uv: observation.uv_index ? Math.round(observation.uv_index).toString() : "--",
-      pressure: observation.pressure ? Math.round(observation.pressure).toString() : "--",
-    };
-  }
-
-  // Fallback to existing logic for hourly/daily data
-  if (isUsingLocalStation && hourlyData) {
-    const todayTemps = dailyData;
-    
-    return {
-      temp: hourlyData.temperature ? `${Math.round(hourlyData.temperature)}°` : "--",
-      description: hourlyData.icon === "extreme-day" ? "sunny" : hourlyData.icon.split("-").join(" ").replace(/(day|night)\s*/i, ""),
-      high: todayTemps ? `${Math.round(todayTemps.temperature_max)}°` : "--",
-      low: todayTemps ? `${Math.round(todayTemps.temperature_min)}°` : "--",
-      feelsLike: hourlyData.feels_like ? `${Math.round(hourlyData.feels_like)}°` : "--",
-      windSpeed: hourlyData.wind_speed ? `${Math.round(hourlyData.wind_speed)} mph` : "--",
-      windDesc: "", // You might want to calculate this based on wind speed
-      humidity: hourlyData.humidity ? `${Math.round(hourlyData.humidity)}%` : "--",
-      dewPoint: calculateDewPoint(hourlyData.temperature, hourlyData.humidity) ? `${Math.round(calculateDewPoint(hourlyData.temperature, hourlyData.humidity))}°` : "--",
-      uv: hourlyData.uv_index !== null && hourlyData.uv_index !== undefined ? `${Math.round(hourlyData.uv_index)}` : "--",
-      pressure: hourlyData.pressure ? `${Math.round(hourlyData.pressure)} mb` : "--",
-    };
-  } else if (weather) {
-    const temp = weather?.temperature?.degrees ?? "--";
-    const description = weather?.weatherCondition?.description?.text ?? "--";
-    const feelsLike = weather?.feelsLikeTemperature?.degrees ?? "--";
-    const high = weather?.currentConditionsHistory?.maxTemperature?.degrees ?? "--";
-    const low = weather?.currentConditionsHistory?.minTemperature?.degrees ?? "--";
-    const windSpeed = weather?.wind?.speed?.value ?? "--";
-    const windDesc = weather?.wind
-      ? `${weather.wind.speed?.value ?? ""} km/h · From ${
-          weather.wind.direction?.cardinal ?? ""
-        }`
-      : "--";
-    const humidity = weather?.relativeHumidity ?? "--";
-    const dewPoint = weather?.dewPoint?.degrees ?? "--";
-    const uv = weather?.uvIndex ?? "--";
-    const pressure = weather?.airPressure?.meanSeaLevelMillibars ?? "--";
-
-    const result = {
-      temp: temp !== "--" ? `${Math.round(temp)}°` : "--",
-      description,
-      feelsLike: feelsLike !== "--" ? `${Math.round(feelsLike)}°` : "--",
-      high: high !== "--" ? `${Math.round(high)}°` : "--",
-      low: low !== "--" ? `${Math.round(low)}°` : "--",
-      windSpeed: windSpeed !== "--" ? `${Math.round(windSpeed)} km/h` : "--",
-      windDesc,
-      humidity: humidity !== "--" ? `${Math.round(humidity)}%` : "--",
-      dewPoint: dewPoint !== "--" ? `${Math.round(dewPoint)}°` : "--",
-      uv: uv !== "--" && uv !== null && uv !== undefined ? `${Math.round(uv)}` : "--",
-      pressure: pressure !== "--" ? `${Math.round(pressure)} mb` : "--",
-    };
-
-    return result;
-  }
-
-  return {
-    temp: "--",
-    description: "--",
-    high: "--",
-    low: "--",
-    feelsLike: "--",
-    windSpeed: "--",
-    windDesc: "--",
-    humidity: "--",
-    dewPoint: "--",
-    uv: "--",
-    pressure: "--",
-  };
-};
-
-// Process hourly forecast data
-export const processHourlyForecast = (
-  isUsingLocalStation: boolean,
-  hourlyData: HourlyAPIResponse | null,
-  wxmv1HourlyData: WXMV1ForecastHourlyResponse | null,
-  timeZoneId?: string
-): HourlyForecast[] => {
-
-  if (isUsingLocalStation && wxmv1HourlyData) {
-    
-    // Collect all available hours from today and tomorrow
-    let allHours: WXMV1HourlyData[] = [];
-    
-    // Add hours from today
-    if (wxmv1HourlyData.forecast[0]?.hourly) {
-      allHours.push(...wxmv1HourlyData.forecast[0].hourly);
-    }
-    
-    // Add hours from tomorrow if needed
-    if (wxmv1HourlyData.forecast[1]?.hourly) {
-      allHours.push(...wxmv1HourlyData.forecast[1].hourly);
-    }
-    
-    // Find the current hour in the data
-    const currentUTC = new Date();
-    const currentHour = currentUTC.getUTCHours();
-    
-    // Find the index of the current hour in the data
-    let startIndex = 0;
-    for (let i = 0; i < allHours.length; i++) {
-      const dataTime = new Date(allHours[i].timestamp);
-      if (dataTime.getUTCHours() === currentHour) {
-        startIndex = i;
-        break;
-      }
-    }
-    
-    // Take 10 hours starting from the current hour
-    const futureHours = allHours.slice(startIndex, startIndex + 10);
-    
-    return futureHours.map((h: WXMV1HourlyData) => {
-      // Format time in 12-hour format with AM/PM
-      let formattedTime = "--:--";
-      if (typeof h.timestamp === "string") {
-        const date = new Date(h.timestamp);
-        if (timeZoneId) {
-          formattedTime = date.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            hour12: true,
-            timeZone: timeZoneId
-          });
-        } else {
-          // Fallback to UTC time in 12-hour format
-          formattedTime = date.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            hour12: true
-          });
-        }
-      }
-
-      return {
-        time: formattedTime,
-        temperature: typeof h.temperature === "number"
-          ? { degrees: h.temperature }
-          : { degrees: undefined },
-        description: typeof h.precipitation_probability === "number" &&
-          h.precipitation_probability > 0
-            ? `${h.precipitation_probability}% rain`
-            : "Clear",
-        icon: getWeatherXMIcon(mapWXMV1IconToWeatherType(h.icon ?? "", h.timestamp)),
-      };
-    });
-  } else {
-    return hourlyData?.forecastHours?.slice(0, 10).map((h: any) => {
-      // Format time in 12-hour format with AM/PM for Google API data
-      let formattedTime = "--:--";
-      if (h.displayDateTime?.hours !== undefined) {
-        const hour = h.displayDateTime.hours;
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-        formattedTime = `${displayHour} ${ampm}`;
-      }
-
-      return {
-        time: formattedTime,
-        temperature: h.temperature?.degrees !== undefined
-          ? { degrees: h.temperature.degrees }
-          : { degrees: undefined },
-        description: h.weatherCondition?.description?.text ?? "Clear",
-        iconUri: h.weatherCondition?.iconBaseUri
-          ? `${h.weatherCondition.iconBaseUri}.png`
-          : undefined,
-        icon: h.weatherCondition?.iconBaseUri ? undefined : "☀️",
-      };
-    }) || [];
-  }
-};
-
-// Process daily forecast data
-export const processDailyForecast = (
-  isUsingLocalStation: boolean,
-  wxmv1DailyData: WXMV1ForecastDailyResponse | null,
-  dailyData: DailyAPIResponse | null
-) => {
-
-  if (isUsingLocalStation && wxmv1DailyData?.forecast) {
-    // Convert the daily temperature data to the expected format
-    const processedDaily = wxmv1DailyData.forecast
-      .map((forecastDay: WXMV1ForecastDay) => {
-        // Create a timestamp for the middle of the day (noon) for day/night determination
-        const dayTimestamp = new Date(forecastDay.date);
-        dayTimestamp.setHours(12, 0, 0, 0); // Set to noon
-        
-        return {
-          day: formatDateFromString(forecastDay.date),
-          highTemp: forecastDay?.daily?.temperature_max ? `${Math.round(forecastDay.daily.temperature_max)}°` : "--",
-          lowTemp: forecastDay?.daily?.temperature_min ? `${Math.round(forecastDay.daily.temperature_min)}°` : "--",
-          description: forecastDay.daily?.precipitation_type ?? "Clear",
-          icon: getWeatherXMIcon(mapWXMV1IconToWeatherType(forecastDay.daily?.icon ?? "", dayTimestamp)),
-        };
-      })
-      .sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
-    
-    return processedDaily;
-  }
-
-  // Fallback to Google API data - Updated for new structure
-  if (dailyData?.forecastDays) {
-    
-    return dailyData.forecastDays.map((day) => {
-      // Extract data from the new Google API structure
-      const displayDate = day.displayDate;
-      const daytimeForecast = day.daytimeForecast;
-      
-      // Create a timestamp for the middle of the day for day/night determination
-      const dayTimestamp = new Date(displayDate?.year || new Date().getFullYear(), 
-                                   (displayDate?.month || 1) - 1, 
-                                   displayDate?.day || 1);
-      dayTimestamp.setHours(12, 0, 0, 0); // Set to noon
-      
-      return {
-        day: formatDate(displayDate),
-        highTemp: day.maxTemperature?.degrees ? `${Math.round(day.maxTemperature.degrees)}°` : "--",
-        lowTemp: day.minTemperature?.degrees ? `${Math.round(day.minTemperature.degrees)}°` : "--",
-        description: daytimeForecast?.weatherCondition?.description?.text || "Clear",
-        icon: getWeatherXMIcon(mapWXMV1IconToWeatherType("clear", dayTimestamp)), // Default to clear weather for Google API
-      };
-    });
-  }
-  return [];
-};
-
 // Helper function to format date string
 function formatDateFromString(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    weekday: 'short',
-    month: 'short', 
-    day: 'numeric' 
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
   });
-} 
-
+}
 
 // Function to get the appropriate background video based on weather and time
-export default function getBackgroundVideo(weatherType: any, isDay: boolean): any {
+export default function getBackgroundVideo(
+  weatherType: any,
+  isDay: boolean
+): any {
   // Extract base weather type from day/night variant (e.g., "sunny_day" -> "sunny")
   const baseWeatherType = weatherType?.includes("_")
     ? weatherType.split("_")[0]
@@ -464,3 +249,293 @@ export default function getBackgroundVideo(weatherType: any, isDay: boolean): an
     : require("../../assets/weatherBg/cloudy-night.mp4");
 }
 
+export const parseCurrentWeatherData = (
+  currentWeatherData:
+    | WeatherXMWXMv1ForecastDay[]
+    | ClosestStationResponseDto
+    | CurrentConditionsResponse
+    | null,
+  currentWeatherSource: string,
+  timeZoneId: string
+) => {
+  // Helper function for safe toFixed
+  const safeFixed = (value: any, decimals: number = 1): string => {
+    return (typeof value === "number" && !isNaN(value) ? value : 0).toFixed(
+      decimals
+    );
+  };
+
+  if (currentWeatherSource === "wxm station") {
+    let data = currentWeatherData as ClosestStationResponseDto;
+    let result = {
+      temp: Math.round(data.weather?.observation.temperature || 0).toString(),
+      description: data.weather?.observation.icon
+        ?.replace(/-day|-night/g, "")
+        .replace("extreme", "sunny"),
+      icon: getWeatherXMIcon(
+        mapWXMV1IconToWeatherType(
+          data.weather?.observation.icon ?? "",
+          data.weather?.observation.timestamp
+        )
+      ),
+      feelsLike: safeFixed(data.weather?.observation.feels_like),
+      dewPoint: safeFixed(data.weather?.observation.dew_point),
+      humidity: safeFixed(data.weather?.observation.humidity),
+      precipitationRate: safeFixed(
+        data.weather?.observation.precipitation_rate
+      ),
+      windSpeed: safeFixed(data.weather?.observation.wind_speed),
+      windDirection: safeFixed(data.weather?.observation.wind_direction),
+      uvIndex: data.weather?.observation.uv_index ?? 0,
+      pressure: safeFixed(data.weather?.observation.pressure),
+      station: data?.station,
+      high: null,
+      low: null,
+    };
+    return result;
+  } else if (currentWeatherSource === "wxm forecast") {
+    let data = currentWeatherData as WeatherXMWXMv1ForecastDay[];
+    const relevantData = data.filter(
+      (item) => item.date === new Date().toISOString().split("T")[0]
+    );
+
+    const date = new Date();
+    const utcHour = date.getUTCHours();
+
+    const hourMatch = relevantData[0]?.hourly?.find((item) => {
+      const itemDate = new Date(item.timestamp);
+      const itemUtcHour = itemDate.getUTCHours();
+
+      return itemUtcHour === utcHour;
+    });
+
+    const dewPoint =
+      hourMatch?.temperature && hourMatch?.humidity
+        ? calculateDewPoint(hourMatch.temperature, hourMatch.humidity)
+        : 0;
+
+    let result = {
+      temp: Math.round(hourMatch?.temperature || 0).toString(),
+      icon: getWeatherXMIcon(
+        mapWXMV1IconToWeatherType(hourMatch?.icon ?? "", hourMatch?.timestamp)
+      ),
+      description: hourMatch?.icon
+        ?.replace(/-day|-night/g, "")
+        .replace("extreme", "sunny"),
+      feelsLike: safeFixed(hourMatch?.feels_like),
+      humidity: safeFixed(hourMatch?.humidity),
+      precipitationRate: safeFixed(hourMatch?.precipitation),
+      windSpeed: safeFixed(hourMatch?.wind_speed),
+      windDirection: safeFixed(hourMatch?.wind_direction),
+      uvIndex: hourMatch?.uv_index ?? 0,
+      pressure: safeFixed(hourMatch?.pressure),
+      dewPoint: safeFixed(dewPoint),
+      high: null,
+      low: null,
+      station: null
+    };
+
+    return result;
+  } else {
+    let data = currentWeatherData as CurrentConditionsResponse;
+    let result = {
+      temp: Math.round(data?.temperature?.degrees || 0).toString(),
+      icon: data?.weatherCondition?.iconBaseUri,
+      description: data?.weatherCondition?.description?.text,
+      feelsLike: safeFixed(data?.feelsLikeTemperature?.degrees),
+      dewPoint: safeFixed(data?.dewPoint?.degrees),
+      humidity: safeFixed(data?.relativeHumidity),
+      precipitationRate: data?.precipitation?.probability?.percent ?? 0,
+      windSpeed: safeFixed(data?.wind?.speed?.value),
+      windDirection: data?.wind?.direction?.cardinal ?? "",
+      uvIndex: data?.uvIndex ?? 0,
+      pressure: safeFixed(data?.airPressure?.meanSeaLevelMillibars),
+      high: null,
+      low: null,
+      station: null
+    };
+    return result;
+  }
+};
+
+export const parseHourlyForecastData = (
+  hourlyForecastData:
+    | WeatherXMWXMv1ForecastDay[]
+    | GoogleHourlyForecastResponse,
+  hourlyForecastSource: string,
+  timeZoneId: string
+) => {
+  if (hourlyForecastSource === "wxm forecast" && timeZoneId) {
+    let data = hourlyForecastData as WeatherXMWXMv1ForecastDay[];
+    let allHours: WXMV1HourlyData[] = [];
+    let todayHours = data[0].hourly;
+    let tomorrowHours = data[1].hourly;
+
+    if (todayHours) {
+      allHours.push(...todayHours);
+    }
+    if (tomorrowHours) {
+      allHours.push(...tomorrowHours);
+    }
+
+    const currentUTC = new Date();
+    const currentHour = currentUTC.getUTCHours();
+
+    // Find the index of the current hour in the data
+    let startIndex = 0;
+    for (let i = 0; i < allHours.length; i++) {
+      const dataTime = new Date(allHours[i].timestamp);
+      if (dataTime.getUTCHours() === currentHour) {
+        startIndex = i;
+        break;
+      }
+    }
+
+    // Take 10 hours starting from the current hour
+    const futureHours = allHours.slice(startIndex, startIndex + 10);
+
+    return futureHours.map((h: WXMV1HourlyData) => {
+      // Format time in 12-hour format with AM/PM
+      let formattedTime = "--:--";
+      if (typeof h.timestamp === "string") {
+        const date = new Date(h.timestamp);
+        if (timeZoneId) {
+          formattedTime = date.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            hour12: true,
+            timeZone: timeZoneId,
+          });
+        } else {
+          // Fallback to UTC time in 12-hour format
+          formattedTime = date.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            hour12: true,
+          });
+        }
+      }
+
+      const localTime = new Date(h.timestamp).toLocaleTimeString("en-US", {timeZone: timeZoneId, hour12: false});
+      return {
+        time: formattedTime,
+        temperature:
+          typeof h.temperature === "number"
+            ? { degrees: h.temperature }
+            : { degrees: undefined },
+        description:
+          typeof h.precipitation_probability === "number" &&
+          h.precipitation_probability > 0
+            ? `${h.precipitation_probability}% rain`
+            : "Clear",
+        icon: getWeatherXMIcon(
+          mapWXMV1IconToWeatherType(h.icon ?? "", localTime, true)
+        ),
+      };
+    });
+  } else if (hourlyForecastSource === "google forecast" && timeZoneId) {
+    let data = hourlyForecastData as GoogleHourlyForecastResponse;
+    return (
+      data.forecastHours?.slice(0, 10).map((h: any) => {
+        // Format time in 12-hour format with AM/PM for Google API data
+        let formattedTime = "--:--";
+        if (h.displayDateTime?.hours !== undefined) {
+          const hour = h.displayDateTime.hours;
+          const ampm = hour >= 12 ? "PM" : "AM";
+          const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+          formattedTime = `${displayHour} ${ampm}`;
+        }
+
+        return {
+          time: formattedTime,
+          temperature:
+            h.temperature?.degrees !== undefined
+              ? { degrees: h.temperature.degrees }
+              : { degrees: undefined },
+          description: h.weatherCondition?.description?.text ?? "Clear",
+          iconUri: h.weatherCondition?.iconBaseUri
+            ? `${h.weatherCondition.iconBaseUri}.png`
+            : undefined,
+          icon: h.weatherCondition?.iconBaseUri ? undefined : "☀️",
+        };
+      }) || []
+    );
+  }
+};
+
+export const parseDailyForecastData = (
+  dailyForecastData: WeatherXMWXMv1ForecastDay[] | GoogleDailyForecastResponse,
+  dailyForecastSource: string
+) => {
+  if (dailyForecastSource === "wxm forecast") {
+    let data = dailyForecastData as WeatherXMWXMv1ForecastDay[];
+    const processedDaily = data
+      .map((forecastDay: WXMV1ForecastDay) => {
+        // Create a timestamp for the middle of the day (noon) for day/night determination
+        const dayTimestamp = new Date(forecastDay.date);
+        dayTimestamp.setHours(12, 0, 0, 0); // Set to noon
+
+        return {
+          day: formatDateFromString(forecastDay.date),
+          highTemp: forecastDay?.daily?.temperature_max
+            ? `${Math.round(forecastDay.daily.temperature_max)}°`
+            : "--",
+          lowTemp: forecastDay?.daily?.temperature_min
+            ? `${Math.round(forecastDay.daily.temperature_min)}°`
+            : "--",
+          description: forecastDay.daily?.precipitation_type ?? "Clear",
+          icon: getWeatherXMIcon(
+            mapWXMV1IconToWeatherType(
+              forecastDay.daily?.icon ?? "",
+              dayTimestamp
+            )
+          ),
+          precipitation: forecastDay.daily?.precipitation_probability ?? 0,
+          humidity: forecastDay.daily?.humidity ?? 0,
+          windSpeed: forecastDay.daily?.wind_speed ?? 0,
+          windDirection: forecastDay.daily?.wind_direction ?? 0,
+          pressure: forecastDay.daily?.pressure ?? 0,
+          uvIndex: forecastDay.daily?.uv_index ?? 0,
+          dewPoint: calculateDewPoint(
+            forecastDay.daily?.temperature_max ?? 0,
+            forecastDay.daily?.humidity ?? 0
+          ),
+        };
+      })
+      .sort(
+        (a: any, b: any) =>
+          new Date(a.day).getTime() - new Date(b.day).getTime()
+      );
+
+    return processedDaily;
+  } else if (dailyForecastSource === "google forecast") {
+    let data = dailyForecastData as GoogleDailyForecastResponse;
+    return data.forecastDays.map((day: any) => {
+      // Extract data from the new Google API structure
+      const displayDate = day.displayDate;
+      const daytimeForecast = day.daytimeForecast;
+
+      // Create a timestamp for the middle of the day for day/night determination
+      const dayTimestamp = new Date(
+        displayDate?.year || new Date().getFullYear(),
+        (displayDate?.month || 1) - 1,
+        displayDate?.day || 1
+      );
+      dayTimestamp.setHours(12, 0, 0, 0); // Set to noon
+
+      return {
+        day: formatDate(displayDate),
+        highTemp: day.maxTemperature?.degrees
+          ? `${Math.round(day.maxTemperature.degrees)}°`
+          : "--",
+        lowTemp: day.minTemperature?.degrees
+          ? `${Math.round(day.minTemperature.degrees)}°`
+          : "--",
+        description:
+          daytimeForecast?.weatherCondition?.description?.text || "Clear",
+        icon: getWeatherXMIcon(
+          mapWXMV1IconToWeatherType("clear", dayTimestamp)
+        ), // Default to clear weather for Google API
+      };
+    });
+  }
+  return [];
+};

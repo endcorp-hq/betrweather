@@ -14,8 +14,7 @@ interface MainWeatherDisplayProps {
   high: string;
   low: string;
   feelsLike: string;
-  isUsingLocalStation: boolean;
-  mmForecastData: any;
+  source: string;
   weatherIcon?: string;
   currentTimeZoneId: string;
 }
@@ -27,8 +26,7 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
   high,
   low,
   feelsLike,
-  isUsingLocalStation,
-  mmForecastData,
+  source,
   weatherIcon,
   currentTimeZoneId,
 }) => {
@@ -154,14 +152,9 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
 
           {/* Weather Icon */}
           <View className="ml-4">
-            {isUsingLocalStation ? (
+            {source?.includes("wxm") ? (
               <Text className="text-4xl">
-                {getWeatherXMIcon(
-                  mapWXMV1IconToWeatherType(
-                    mmForecastData?.icon ?? "",
-                    mmForecastData?.timestamp
-                  )
-                )}
+                {weatherIcon}
               </Text>
             ) : weatherIcon ? (
               <Image

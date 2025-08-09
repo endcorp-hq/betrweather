@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { calculateDistance } from '../../utils/weatherUtils';
 
 interface Station {
@@ -10,7 +9,7 @@ interface Station {
 }
 
 interface WeatherSourceIndicatorProps {
-  isUsingLocalStation: boolean;
+  source: string;
   distance?: number;
   cellId?: string | null;
   station?: Station | null;
@@ -19,7 +18,7 @@ interface WeatherSourceIndicatorProps {
 }
 
 export function WeatherSourceIndicator({ 
-  isUsingLocalStation, 
+  source, 
   distance, 
   cellId, 
   station,
@@ -30,7 +29,7 @@ export function WeatherSourceIndicator({
   const [scaleAnim] = useState(new Animated.Value(1));
   const [opacityAnim] = useState(new Animated.Value(0));
   const [calculatedDistance, setCalculatedDistance] = useState<number | null>(null);
-  const insets = useSafeAreaInsets();
+
 
   // Auto-hide after 3 seconds when expanded
   useEffect(() => {
@@ -100,9 +99,9 @@ export function WeatherSourceIndicator({
 
   // Determine the message to show
   const getMessage = () => {
-    if (isUsingLocalStation && station && calculatedDistance) {
+    if (source?.includes("wxm station") && station && calculatedDistance) {
       return `Local WXM station ${calculatedDistance}km away`;
-    } else if (isUsingLocalStation) {
+    } else if (source?.includes("wxm")) {
       return 'Hyper local data by WeatherXM';
     } else {
       return 'Google Weather';
@@ -118,7 +117,7 @@ export function WeatherSourceIndicator({
           }}
         >
           <View className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full items-center justify-center border border-white/30">
-            {isUsingLocalStation ? (
+            {source?.includes("wxm") ? (
               <Image
                 source={require('../../../assets/wxmlogo.png')}
                 className='w-full h-full'
@@ -145,7 +144,7 @@ export function WeatherSourceIndicator({
         <Text className="text-black text-sm font-better-medium" numberOfLines={1}>
           {getMessage()}
         </Text>
-        {isUsingLocalStation && cellId && (
+        {source?.includes("wxm") && cellId && (
           <Text className="text-gray-600 text-xs font-better-medium mt-1">
             Cell ID: {cellId}
           </Text>

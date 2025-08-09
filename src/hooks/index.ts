@@ -1,7 +1,6 @@
 // API and Data Hooks
 export { useAPI } from './useAPI';
 export { useWeatherData } from './useWeatherData';
-export { useSearchWeather } from './useSearchWeather';
 export { useLocation } from './useLocation';
 export { useNearbyStations } from './useNearbyStations';
 

@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Modal,
   Animated,
   Dimensions,
   RefreshControl,
@@ -21,22 +20,14 @@ import {
   LogoLoader,
   MainWeatherDisplay,
   CurrentConditions,
-  DefaultBg
+  DefaultBg,
 } from "@/components";
-import { useWeatherData, useSearchWeather, useLocation } from "@/hooks";
-import {
-  processWeatherData,
-  processHourlyForecast,
-  processDailyForecast,
-  getWeatherXMIcon,
-  getLocalTimeForTimezone,
-  getBackgroundVideo
-} from "@/utils";
+import { useWeatherData, useLocation } from "@/hooks";
+import { getLocalTimeForTimezone, getBackgroundVideo } from "@/utils";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { DailyDetailScreen } from "./DailyDetailScreen"; 
+import { DailyDetailScreen } from "./DailyDetailScreen";
 import { useFocusEffect } from "@react-navigation/native";
 import { useToast, useTimeZone } from "@/contexts";
-
 
 interface SearchedLocation {
   name: string;
@@ -47,7 +38,6 @@ interface SearchedLocation {
 }
 
 export function HomeScreen() {
-
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchedLocation, setSearchedLocation] =
     useState<SearchedLocation | null>(null);
@@ -56,15 +46,14 @@ export function HomeScreen() {
   const [backgroundVideoSource, setBackgroundVideoSource] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
-  const [isStationDetectionComplete, setIsStationDetectionComplete] = useState(false);
-  const [showFinalSource, setShowFinalSource] = useState(false);
-  
+
   const { height: screenHeight } = Dimensions.get("window");
   const backgroundImageHeight = screenHeight * 0.7;
 
   const { toast } = useToast();
-  const { latitude, longitude } = useLocation();
-  const { timeZoneId } = useTimeZone(
+  const { latitude, longitude, detailedLocation, error: locationError, isLoading: locationLoading } = useLocation();
+  
+  const { timeZoneId, loadingTimeZone } = useTimeZone(
     searchedLocation?.lat || latitude,
     searchedLocation?.lon || longitude,
     refreshCounter
@@ -101,41 +90,21 @@ export function HomeScreen() {
     }, [player, backgroundVideoSource])
   );
 
+  // Stabilize the parameters
+  const stableLat = searchedLocation?.lat || latitude || 0;
+  const stableLon = searchedLocation?.lon || longitude || 0;
+  const stableTimeZone = timeZoneId || "";
+
   const {
-    wxmv1HourlyForecastData,
-    wxmv1DailyForecastData,
-    weather,
-    hourlyData,
-    dailyData,
-    detailedLocation,
-    isUsingLocalStation,
     isLoading,
     hasError,
     errorMessage,
-    weatherType,
+    currentWeather,
+    currentWeatherSource,
+    hourlyForecast,
+    dailyForecast,
     userH3Index,
-    station,
-    stationWeather,
-    hasStations,
-  } = useWeatherData(refreshCounter);
-
-  // Add effect to track when station detection is complete
-  useEffect(() => {
-    // Station detection is complete when:
-    // 1. Not loading anymore
-    // 2. Either we have station data OR we've confirmed no stations are available
-    if (!isLoading && (stationWeather || hasStations === false)) {
-      setIsStationDetectionComplete(true);
-    }
-  }, [isLoading, stationWeather, hasStations]);
-
-  // Search weather data
-  const searchWeatherData = useSearchWeather(
-    searchedLocation?.lat || null,
-    searchedLocation?.lon || null,
-    refreshCounter
-  );
-
+  } = useWeatherData(stableLat, stableLon, stableTimeZone, refreshCounter);
 
   const getBackgroundVideoSource = async (currentTimeZoneId: string) => {
     let isDay = false;
@@ -163,53 +132,28 @@ export function HomeScreen() {
       isDay = deviceHours >= 6 && deviceHours < 18;
     }
 
-    return getBackgroundVideo(weatherType, isDay);
+    return getBackgroundVideo(currentWeatherSource, isDay);
   };
 
-
-  const currentData = searchedLocation
-    ? {
-        // For searched locations, use search data immediately
-        wxmv1HourlyForecastData: searchWeatherData?.wxmv1HourlyForecastData,
-        wxmv1DailyForecastData: searchWeatherData?.wxmv1DailyForecastData,
-        weather: searchWeatherData?.weather,
-        hourlyData: searchWeatherData?.hourlyData,
-        dailyData: searchWeatherData?.dailyData,
-        isUsingLocalStation: searchWeatherData?.isUsingLocalStation,
-        isLoading: searchWeatherData?.isLoading,
-        hasError: searchWeatherData?.hasError,
-        errorMessage: searchWeatherData?.errorMessage,
-        weatherType: searchWeatherData?.weatherType,
-        userH3Index: searchWeatherData?.userH3Index,
-        station: searchWeatherData?.station,
-        stationWeather: searchWeatherData?.stationWeather,
-        hasStations: searchWeatherData?.hasStations,
-      }
-    : {
-        // For current location, wait for station detection to complete
-        wxmv1HourlyForecastData: isStationDetectionComplete ? wxmv1HourlyForecastData : null,
-        wxmv1DailyForecastData: isStationDetectionComplete ? wxmv1DailyForecastData : null,
-        weather: isStationDetectionComplete ? weather : null,
-        hourlyData: isStationDetectionComplete ? hourlyData : null,
-        dailyData: isStationDetectionComplete ? dailyData : null,
-        isUsingLocalStation: isStationDetectionComplete ? isUsingLocalStation : false,
-        isLoading: isLoading || !isStationDetectionComplete,
+  const currentData = {
+        hourlyForecastData: hourlyForecast,
+        dailyForecastData: dailyForecast,
+        weather: currentWeather,
+        isLoading: isLoading,
         hasError: hasError,
         errorMessage: errorMessage,
-        weatherType: isStationDetectionComplete ? weatherType : null,
-        userH3Index: isStationDetectionComplete ? userH3Index : null,
-        station: isStationDetectionComplete ? station : null,
-        stationWeather: isStationDetectionComplete ? stationWeather : null,
-        hasStations: isStationDetectionComplete ? hasStations : null,
+        source: currentWeatherSource,
+        userH3Index: userH3Index,
+        description: currentWeather?.description,
       };
 
   // load video source into created player
-  useEffect(() => {
+  useEffect(() => {    
     const updateBackgroundVideo = async () => {
-      try {
+      try {        
         // Only update background when we have final data AND station detection is complete
-        if (!currentData.isLoading && !currentData.hasError && timeZoneId && isStationDetectionComplete && showFinalSource) {
-          const source = await getBackgroundVideoSource(timeZoneId || "");
+        if (!currentData.isLoading && !currentData.hasError && timeZoneId) {
+          const source = await getBackgroundVideoSource(timeZoneId || "");          
           setBackgroundVideoSource(source);
 
           if (player && source) {
@@ -223,7 +167,7 @@ export function HomeScreen() {
         const deviceHours = new Date().getHours();
         const isDay = deviceHours >= 6 && deviceHours < 18;
         const fallbackSource = getBackgroundVideo(
-          currentData.weatherType,
+          currentData.source || "",
           isDay
         );
         setBackgroundVideoSource(fallbackSource);
@@ -238,7 +182,7 @@ export function HomeScreen() {
 
     updateBackgroundVideo();
   }, [
-    currentData.weatherType,
+    currentData.source,
     searchedLocation,
     currentData.isLoading,
     currentData.hasError,
@@ -247,13 +191,11 @@ export function HomeScreen() {
     longitude,
     refreshCounter,
     timeZoneId,
-    isStationDetectionComplete,
-    showFinalSource, // Add this dependency
   ]);
 
   // Trigger animations when data loads
   useEffect(() => {
-    if (!currentData.isLoading && !currentData.hasError && showFinalSource) {
+    if (!currentData.isLoading && !currentData.hasError) {
       // Small delay to ensure smooth transition from loading and stable background
       const timer = setTimeout(() => {
         setShowAnimations(true);
@@ -262,18 +204,7 @@ export function HomeScreen() {
     } else {
       setShowAnimations(false);
     }
-  }, [currentData.isLoading, currentData.hasError, showFinalSource]);
-
-  useEffect(() => {
-    if (!isLoading && (stationWeather || hasStations === false)) {
-      // Small delay to ensure smooth transition
-      const timer = setTimeout(() => {
-        setShowFinalSource(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, stationWeather, hasStations]);
-
+  }, [currentData.isLoading, currentData.hasError]);
 
   //onclick handlers
   const handleLocationSelect = (location: SearchedLocation) => {
@@ -294,10 +225,11 @@ export function HomeScreen() {
   };
 
   const onRefresh = useCallback(async () => {
+    if (refreshing) return; // Prevent multiple simultaneous refreshes
+    
     setRefreshing(true);
 
     try {
-
       setRefreshCounter((prev) => prev + 1);
 
       // Wait for the data fetch
@@ -324,11 +256,10 @@ export function HomeScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [currentData.isLoading, currentData.hasError]);
-
+  }, [refreshing, currentData.isLoading, currentData.hasError]);
 
   //loading renderer
-  if (currentData.isLoading || !isStationDetectionComplete) {
+  if (currentData.isLoading || locationLoading || loadingTimeZone) {
     return (
       <DefaultBg>
         <View className="flex-1 justify-center items-center p-6">
@@ -338,8 +269,8 @@ export function HomeScreen() {
     );
   }
 
-  // Error renderer
-  if (currentData.hasError) {
+  // // Error renderer
+  if (currentData.hasError || locationError) {
     return (
       <DefaultBg>
         <View className="flex-1 justify-center items-center p-6">
@@ -398,80 +329,14 @@ export function HomeScreen() {
     );
   }
 
-  // Fallbacks for missing data
-  const city = searchedLocation
-    ? searchedLocation.name
-    : detailedLocation?.[0]?.subregion || "Your City";
-
-  // Get current hour data from hourly forecast
-  const getCurrentHourData = () => {
-    if (
-      currentData.isUsingLocalStation &&
-      currentData.wxmv1HourlyForecastData?.forecast[0]?.hourly
-    ) {
-      const hourlyData = currentData.wxmv1HourlyForecastData.forecast[0].hourly;
-      const currentUTC = new Date();
-      const currentHour = currentUTC.getUTCHours();
-
-      // Find the hourly data point that matches the current hour
-      const currentHourData = hourlyData.find((h) => {
-        const dataTime = new Date(h.timestamp);
-        return dataTime.getUTCHours() === currentHour;
-      });
-
-      // If we found the current hour, use it; otherwise use the first available data
-      return currentHourData || hourlyData[0] || null;
-    }
-    return null;
-  };
-
-  // Process weather data - prioritize station data if available
-  const weatherData = processWeatherData(
-    currentData.isUsingLocalStation || false,
-    currentData.weather || null,
-    getCurrentHourData(),
-    currentData.wxmv1DailyForecastData?.forecast[0].daily || null,
-    currentData.stationWeather // Pass station weather data
-  );
-
-  // Process hourly forecast
-  const hourly = processHourlyForecast(
-    currentData.isUsingLocalStation || false,
-    currentData.hourlyData || null,
-    currentData.wxmv1HourlyForecastData || null,
-    timeZoneId || undefined
-  );
-
-  // Process daily forecast
-  const daily = processDailyForecast(
-    currentData.isUsingLocalStation || false,
-    currentData.wxmv1DailyForecastData?.forecast
-      ? ({ forecast: currentData.wxmv1DailyForecastData.forecast } as any)
-      : null,
-    currentData.dailyData || null
-  );
-
-  // Get raw daily data for daily detail
-  const getRawDailyData = () => {
-    if (
-      currentData.isUsingLocalStation &&
-      currentData.wxmv1DailyForecastData?.forecast
-    ) {
-      return currentData.wxmv1DailyForecastData.forecast;
-    } else if (currentData.dailyData?.forecastDays) {
-      return currentData.dailyData.forecastDays;
-    }
-    return [];
-  };
-
-  const rawDailyData = getRawDailyData();
-
-  const weatherIcon = currentData.weather?.weatherCondition?.iconBaseUri
-    ? `${currentData.weather.weatherCondition.iconBaseUri}.png`
-    : getWeatherXMIcon(currentData.weatherType);
-
   // Main renderer
-  return (
+  return selectedDayDetail ? (
+    <DailyDetailScreen
+      selectedDay={selectedDayDetail}
+      onBack={handleBackFromDetail}
+      source={currentData.source || ""}
+    />
+  ) : (
     <View style={{ flex: 1, backgroundColor: "black" }}>
       {/* Top controls - fixed position */}
       <Animated.View
@@ -486,12 +351,12 @@ export function HomeScreen() {
       >
         <View className="flex-row justify-between items-center p-4">
           <WeatherSourceIndicator
-            isUsingLocalStation={showFinalSource ? (currentData.isUsingLocalStation || false) : false}
+            source={currentData.source || ""}
             distance={undefined}
             cellId={currentData.userH3Index}
-            station={currentData.station}
             userLatitude={searchedLocation?.lat || latitude}
             userLongitude={searchedLocation?.lon || longitude}
+            station={currentData.weather?.station || null}
           />
         </View>
       </Animated.View>
@@ -541,7 +406,7 @@ export function HomeScreen() {
             <>
               <VideoView
                 key={`${searchedLocation?.name || "current"}-${
-                  currentData.weatherType
+                  currentData.weather?.icon
                 }`}
                 player={player}
                 style={{
@@ -666,15 +531,18 @@ export function HomeScreen() {
             transition={{ type: "timing", duration: 800, delay: 300 }}
           >
             <MainWeatherDisplay
-              city={city}
-              temp={weatherData.temp}
-              description={weatherData.description}
-              high={weatherData.high}
-              low={weatherData.low}
-              feelsLike={weatherData.feelsLike}
-              isUsingLocalStation={currentData.isUsingLocalStation || false}
-              mmForecastData={getCurrentHourData()}
-              weatherIcon={weatherIcon}
+              city={
+                searchedLocation?.name ||
+                detailedLocation?.[0]?.subregion ||
+                "Your City"
+              }
+              temp={currentData.weather?.temp?.toString() || ""}
+              description={currentData.weather?.description || ""}
+              high={currentData.weather?.high?.toString() || ""}
+              low={currentData.weather?.low?.toString() || ""}
+              feelsLike={currentData.weather?.feelsLike?.toString() || ""}
+              source={currentData.source || ""}
+              weatherIcon={currentData.weather?.icon}
               currentTimeZoneId={timeZoneId || ""}
             />
           </MotiView>
@@ -701,20 +569,22 @@ export function HomeScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ paddingHorizontal: 8 }}
                 >
-                  {hourly.map((h: any, idx: number) => (
-                    <HourlyForecastItem
-                      key={idx}
-                      time={h.time}
-                      temperature={
-                        Math.round(
-                          h.temperature?.degrees || h.temperature || 0
-                        ).toString() || "--"
-                      }
-                      description={h.description}
-                      icon={h.icon}
-                      iconUri={h.iconUri}
-                    />
-                  ))}
+                  {currentData.hourlyForecastData?.map(
+                    (h: any, idx: number) => (
+                      <HourlyForecastItem
+                        key={idx}
+                        time={h.time}
+                        temperature={
+                          Math.round(
+                            h.temperature?.degrees || h.temperature || 0
+                          ).toString() || "--"
+                        }
+                        description={h.description}
+                        icon={h.icon}
+                        iconUri={h.iconUri}
+                      />
+                    )
+                  )}
                 </ScrollView>
               </GlassyCard>
             </MotiView>
@@ -732,7 +602,7 @@ export function HomeScreen() {
             >
               <GlassyCard style={{ marginBottom: 16 }}>
                 <Text className="text-white text-xl font-better-semi-bold my-2">
-                  {currentData.isUsingLocalStation
+                  {currentData.source?.includes("wxm")
                     ? "7 Day Forecast"
                     : "10 Day Forecast"}
                 </Text>
@@ -741,7 +611,7 @@ export function HomeScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ paddingHorizontal: 4 }}
                 >
-                  {daily.map((d: any, idx: number) => (
+                  {currentData.dailyForecastData?.map((d: any, idx: number) => (
                     <DailyForecastItem
                       key={idx}
                       day={d.day}
@@ -749,7 +619,7 @@ export function HomeScreen() {
                       lowTemp={d.lowTemp}
                       iconUri={d.iconUri}
                       icon={d.icon}
-                      rawData={rawDailyData[idx]}
+                      rawData={currentData?.dailyForecastData?.[idx]}
                       onPress={handleDailyForecastPress}
                     />
                   ))}
@@ -769,31 +639,17 @@ export function HomeScreen() {
               transition={{ type: "timing", duration: 700, delay: 900 }}
             >
               <CurrentConditions
-                windSpeed={weatherData.windSpeed}
-                windDesc={weatherData.windDesc}
-                humidity={weatherData.humidity}
-                dewPoint={weatherData.dewPoint.toString()}
-                uv={weatherData.uv}
-                pressure={weatherData.pressure}
+                windSpeed={currentData.weather?.windSpeed?.toString() || ""}
+                windDesc={currentData.weather?.windDirection?.toString() || ""}
+                humidity={currentData.weather?.humidity?.toString() || ""}
+                dewPoint={currentData.weather?.dewPoint?.toString() || ""}
+                uv={currentData.weather?.uvIndex?.toString() || ""}
+                pressure={currentData.weather?.pressure?.toString() || ""}
               />
             </MotiView>
           </Animated.View>
         </View>
       </ScrollView>
-
-      {/* Modal for selected day */}
-      <Modal
-        visible={!!selectedDayDetail}
-        animationType="slide"
-        onRequestClose={handleBackFromDetail}
-
-      >
-        <DailyDetailScreen
-          selectedDay={selectedDayDetail}
-          onBack={handleBackFromDetail}
-          isUsingLocalStation={currentData.isUsingLocalStation || false}
-        />
-      </Modal>
     </View>
   );
 }
