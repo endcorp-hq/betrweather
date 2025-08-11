@@ -645,6 +645,7 @@ export function HomeScreen() {
                 dewPoint={currentData.weather?.dewPoint?.toString() || ""}
                 uv={currentData.weather?.uvIndex?.toString() || ""}
                 pressure={currentData.weather?.pressure?.toString() || ""}
+                precipitationRate={currentData.weather?.precipitationRate?.toString() || ""}
               />
             </MotiView>
           </Animated.View>

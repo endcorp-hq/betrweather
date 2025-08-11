@@ -10,6 +10,7 @@ interface CurrentConditionsProps {
   dewPoint: string | number;
   uv: string;
   pressure: string;
+  precipitationRate: string; // Add this new prop
 }
 
 export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
@@ -19,6 +20,7 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
   dewPoint,
   uv,
   pressure,
+  precipitationRate, // Add this
 }) => {
   return (
     <>
@@ -35,19 +37,14 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
           }}
         >
           <View className="flex flex-col justify-between items-center h-full py-4">
-            {/* Icon at top */}
             <MaterialCommunityIcons 
               name="weather-windy" 
               size={32} 
               color="rgba(255, 255, 255, 0.9)" 
             />
-            
-            {/* Center Value */}
             <Text className="text-white text-3xl font-better-bold text-center py-2">
               {windSpeed}
             </Text>
-            
-            {/* Bottom Labels */}
             <View className="items-center">
               <Text className="text-gray-300 text-xs font-better-medium text-center mb-1">
                 Wind
@@ -68,19 +65,14 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
           }}
         >
           <View className="flex flex-col justify-between items-center h-full py-4">
-            {/* Icon at top */}
             <MaterialCommunityIcons 
               name="water-percent" 
               size={32} 
               color="rgba(255, 255, 255, 0.9)" 
             />
-            
-            {/* Center Value */}
             <Text className="text-white text-3xl font-better-bold text-center py-2">
               {humidity}
             </Text>
-            
-            {/* Bottom Labels */}
             <View className="items-center">
               <Text className="text-gray-300 text-xs font-better-medium text-center mb-1">
                 Humidity
@@ -92,6 +84,34 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
           </View>
         </GlassyCard>
         
+        {/* Rain */}
+        {/* <GlassyCard
+          style={{
+            width: "48%",
+            height: 150,
+            marginBottom: 16,
+          }}
+        >
+          <View className="flex flex-col justify-between items-center h-full py-4">
+            <MaterialCommunityIcons 
+              name="weather-rainy" 
+              size={32} 
+              color="rgba(255, 255, 255, 0.9)" 
+            />
+            <Text className="text-white text-3xl font-better-bold text-center py-2">
+              {precipitationRate}
+            </Text>
+            <View className="items-center">
+              <Text className="text-gray-300 text-xs font-better-medium text-center mb-1">
+                Rain
+              </Text>
+              <Text className="text-gray-400 text-xs font-better-regular text-center">
+                mm/hr
+              </Text>
+            </View>
+          </View>
+        </GlassyCard> */}
+
         {/* UV Index */}
         <GlassyCard
           style={{
@@ -101,19 +121,14 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
           }}
         >
           <View className="flex flex-col justify-between items-center h-full py-4">
-            {/* Icon at top */}
             <MaterialCommunityIcons 
               name="weather-sunny" 
               size={32} 
               color="rgba(255, 255, 255, 0.9)" 
             />
-            
-            {/* Center Value */}
             <Text className="text-white text-3xl font-better-bold text-center py-2">
               {uv}
             </Text>
-            
-            {/* Bottom Labels */}
             <View className="items-center">
               <Text className="text-gray-300 text-xs font-better-medium text-center mb-1">
                 UV Index
@@ -134,19 +149,14 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
           }}
         >
           <View className="flex flex-col justify-between items-center h-full py-4">
-            {/* Icon at top */}
             <MaterialCommunityIcons 
               name="gauge" 
               size={32} 
               color="rgba(255, 255, 255, 0.9)" 
             />
-            
-            {/* Center Value */}
             <Text className="text-white text-3xl font-better-bold text-center py-2">
               {pressure}
             </Text>
-            
-            {/* Bottom Labels */}
             <View className="items-center">
               <Text className="text-gray-300 text-xs font-better-medium text-center mb-1">
                 Pressure

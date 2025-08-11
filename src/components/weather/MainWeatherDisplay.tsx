@@ -37,8 +37,6 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
   useEffect(() => {
     const fetchTime = async () => {
       try {
-        let timezoneInfo = null;
-
         if (currentTimeZoneId) {
           // Get timezone for searched location
           const { time, date } = getLocalTimeForTimezone(currentTimeZoneId);

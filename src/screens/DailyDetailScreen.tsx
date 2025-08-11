@@ -19,6 +19,8 @@ interface DailyDetailScreenProps {
 export function DailyDetailScreen({ selectedDay, onBack, source }: DailyDetailScreenProps) {
   if (!selectedDay) return null;
 
+  console.log("selectedDay", selectedDay);
+
   // Extract data based on the data source
   const getDayData = () => {
     if (source?.includes("wxm") && selectedDay) {

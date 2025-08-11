@@ -168,7 +168,12 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
         delay: 150,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      // Focus the input after animation completes
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    });
   };
 
   const collapseSearch = () => {

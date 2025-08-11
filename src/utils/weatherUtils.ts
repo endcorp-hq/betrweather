@@ -249,6 +249,12 @@ export default function getBackgroundVideo(
     : require("../../assets/weatherBg/cloudy-night.mp4");
 }
 
+const getWindDirection = (degrees: number) => {
+  const directions = ['North', 'North-Northeast', 'Northeast', 'East-Northeast', 'East', 'East-Southeast', 'Southeast', 'South-Southeast', 'South', 'South-Southwest', 'Southwest', 'West-Southwest', 'West', 'West-Northwest', 'Northwest', 'North-Northwest'];
+  const index = Math.round(((degrees % 360) / 22.5));
+  return directions[index % 16];
+}
+
 export const parseCurrentWeatherData = (
   currentWeatherData:
     | WeatherXMWXMv1ForecastDay[]
@@ -268,7 +274,7 @@ export const parseCurrentWeatherData = (
   if (currentWeatherSource === "wxm station") {
     let data = currentWeatherData as ClosestStationResponseDto;
     let result = {
-      temp: Math.round(data.weather?.observation.temperature || 0).toString(),
+      temp: Math.round(data.weather?.observation.temperature || 0).toString() + "°",
       description: data.weather?.observation.icon
         ?.replace(/-day|-night/g, "")
         .replace("extreme", "sunny"),
@@ -278,16 +284,16 @@ export const parseCurrentWeatherData = (
           data.weather?.observation.timestamp
         )
       ),
-      feelsLike: safeFixed(data.weather?.observation.feels_like),
-      dewPoint: safeFixed(data.weather?.observation.dew_point),
-      humidity: safeFixed(data.weather?.observation.humidity),
+      feelsLike: safeFixed(data.weather?.observation.feels_like) + "°",
+      dewPoint: safeFixed(data.weather?.observation.dew_point) + "°", 
+      humidity: safeFixed(data.weather?.observation.humidity) + "%",
       precipitationRate: safeFixed(
         data.weather?.observation.precipitation_rate
-      ),
-      windSpeed: safeFixed(data.weather?.observation.wind_speed),
-      windDirection: safeFixed(data.weather?.observation.wind_direction),
+      ) + 'mm/h',
+      windSpeed: safeFixed(data.weather?.observation.wind_speed) + " m/s",
+      windDirection: getWindDirection(data.weather?.observation.wind_direction || 0),
       uvIndex: data.weather?.observation.uv_index ?? 0,
-      pressure: safeFixed(data.weather?.observation.pressure),
+      pressure: safeFixed(data.weather?.observation.pressure) + " hPa",
       station: data?.station,
       high: null,
       low: null,
@@ -315,21 +321,21 @@ export const parseCurrentWeatherData = (
         : 0;
 
     let result = {
-      temp: Math.round(hourMatch?.temperature || 0).toString(),
+      temp: Math.round(hourMatch?.temperature || 0).toString() + "°",
       icon: getWeatherXMIcon(
         mapWXMV1IconToWeatherType(hourMatch?.icon ?? "", hourMatch?.timestamp)
       ),
       description: hourMatch?.icon
         ?.replace(/-day|-night/g, "")
         .replace("extreme", "sunny"),
-      feelsLike: safeFixed(hourMatch?.feels_like),
-      humidity: safeFixed(hourMatch?.humidity),
-      precipitationRate: safeFixed(hourMatch?.precipitation),
-      windSpeed: safeFixed(hourMatch?.wind_speed),
-      windDirection: safeFixed(hourMatch?.wind_direction),
+      feelsLike: safeFixed(hourMatch?.feels_like) + "°",
+      humidity: safeFixed(hourMatch?.humidity) + "%",
+      precipitationRate: safeFixed(hourMatch?.precipitation) + "mm/h",
+      windSpeed: safeFixed(hourMatch?.wind_speed) + " m/s",
+      windDirection: getWindDirection(hourMatch?.wind_direction || 0),
       uvIndex: hourMatch?.uv_index ?? 0,
-      pressure: safeFixed(hourMatch?.pressure),
-      dewPoint: safeFixed(dewPoint),
+      pressure: safeFixed(hourMatch?.pressure) + " hPa",
+      dewPoint: safeFixed(dewPoint) + "°",
       high: null,
       low: null,
       station: null
