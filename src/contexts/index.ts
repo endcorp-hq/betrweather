@@ -21,3 +21,8 @@ export {
   TimezoneProvider, 
   useTimeZone 
 } from './TimezoneContext'; 
+
+export {
+  ChainProvider,
+  useChain
+} from './ChainProvider';

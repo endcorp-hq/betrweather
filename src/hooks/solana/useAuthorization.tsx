@@ -8,14 +8,14 @@ import {
   Base64EncodedAddress,
   DeauthorizeAPI,
   SignInPayload,
+  Chain,
 } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import { toUint8Array } from "js-base64";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
+import { checkWhitelistNFTs } from "@/utils";
 
-const CHAIN = "solana";
-const CLUSTER = "devnet";
-const CHAIN_IDENTIFIER = `${CHAIN}:${CLUSTER}`;
+const DEVNET_CHAIN: Chain = "solana:devnet";
 
 export type Account = Readonly<{
   address: Base64EncodedAddress;
@@ -27,6 +27,12 @@ type WalletAuthorization = Readonly<{
   accounts: Account[];
   authToken: AuthToken;
   selectedAccount: Account;
+  userAuth: boolean | null;
+  userSession?: {
+    chain: "mainnet" | "devnet";
+    tier: "seeker" | "superteam" | "none" | "public";
+    timestamp: number;
+  };
 }>;
 
 function getAccountFromAuthorizedAccount(account: AuthorizedAccount): Account {
@@ -58,6 +64,7 @@ function getAuthorizationFromAuthorizationResult(
     accounts: authorizationResult.accounts.map(getAccountFromAuthorizedAccount),
     authToken: authorizationResult.auth_token,
     selectedAccount,
+    userAuth: true, //set it as true here initially
   };
 }
 
@@ -68,7 +75,7 @@ function getPublicKeyFromAddress(address: Base64EncodedAddress): PublicKey {
 
 function cacheReviver(key: string, value: any) {
   if (key === "publicKey") {
-    return new PublicKey(value as PublicKeyInitData); // the PublicKeyInitData should match the actual data structure stored in AsyncStorage
+    return new PublicKey(value as PublicKeyInitData);
   } else {
     return value;
   }
@@ -115,42 +122,88 @@ export function useAuthorization() {
 
   const handleAuthorizationResult = useCallback(
     async (
-      authorizationResult: AuthorizationResult
+      authorizationResult: AuthorizationResult,
+      chainIdentifier?: Chain
     ): Promise<WalletAuthorization> => {
       const nextAuthorization = getAuthorizationFromAuthorizationResult(
         authorizationResult,
         authorization?.selectedAccount
       );
-      await setAuthorization(nextAuthorization);
-      return nextAuthorization;
+      
+      if (chainIdentifier?.includes("mainnet")) {
+        const authResult = await checkWhitelistNFTs(
+          nextAuthorization.selectedAccount.publicKey.toBase58()
+        );
+
+        if (!authResult.authorized) {
+          return {
+            ...nextAuthorization,
+            userAuth: false, //set as false if user is not authorized
+          };
+        } else {
+          const nextAuthWithSession: WalletAuthorization = {
+            ...nextAuthorization,
+            userAuth: true,
+            userSession: {
+              chain: "mainnet" as const, // Fix: use const assertion
+              tier: authResult.tier as "seeker" | "superteam" | "none" | "public", // Fix: type assertion
+              timestamp: Date.now(),
+            },
+          };
+          await setAuthorization(nextAuthWithSession);
+          return nextAuthWithSession;
+        }
+      }
+
+      const devnetAuthSession: WalletAuthorization = { // Fix: add type annotation
+        ...nextAuthorization,
+        userAuth: true,
+        userSession: {
+          chain: "devnet" as const, // Fix: use const assertion
+          tier: "none" as const, // Fix: use const assertion
+          timestamp: Date.now(),
+        },
+      };
+      
+      // in case of devnet or mainnet conditions satisfies, set the authorization in async storage
+      await setAuthorization(devnetAuthSession);
+      return devnetAuthSession;
     },
-    [authorization]
+    [authorization, setAuthorization] // Fix: add setAuthorization to dependencies
   );
+
   const authorizeSession = useCallback(
-    async (wallet: AuthorizeAPI) => {
+    async (wallet: AuthorizeAPI, chainIdentifier?: Chain) => {
       const authorizationResult = await wallet.authorize({
         identity: APP_IDENTITY,
-        chain: CHAIN_IDENTIFIER,
+        chain: chainIdentifier || DEVNET_CHAIN,
         auth_token: authorization?.authToken,
       });
-      return (await handleAuthorizationResult(authorizationResult))
-        .selectedAccount;
+      return (
+        await handleAuthorizationResult(authorizationResult, chainIdentifier)
+      ).selectedAccount;
     },
     [authorization, handleAuthorizationResult]
   );
+
   const authorizeSessionWithSignIn = useCallback(
-    async (wallet: AuthorizeAPI, signInPayload: SignInPayload) => {
+    async (
+      wallet: AuthorizeAPI,
+      signInPayload: SignInPayload,
+      chainIdentifier?: Chain
+    ) => {
       const authorizationResult = await wallet.authorize({
         identity: APP_IDENTITY,
-        chain: CHAIN_IDENTIFIER,
         auth_token: authorization?.authToken,
+        chain: chainIdentifier || DEVNET_CHAIN,
         sign_in_payload: signInPayload,
       });
-      return (await handleAuthorizationResult(authorizationResult))
+      return (await handleAuthorizationResult(authorizationResult, chainIdentifier))
         .selectedAccount;
     },
     [authorization, handleAuthorizationResult]
   );
+
   const deauthorizeSession = useCallback(
     async (wallet: DeauthorizeAPI) => {
       if (authorization?.authToken == null) {
@@ -159,8 +212,9 @@ export function useAuthorization() {
       await wallet.deauthorize({ auth_token: authorization.authToken });
       await setAuthorization(null);
     },
-    [authorization]
+    [authorization, setAuthorization] // Fix: add setAuthorization to dependencies
   );
+
   return useMemo(
     () => ({
       accounts: authorization?.accounts ?? null,
@@ -168,8 +222,15 @@ export function useAuthorization() {
       authorizeSessionWithSignIn,
       deauthorizeSession,
       selectedAccount: authorization?.selectedAccount ?? null,
+      userSession: authorization?.userSession ?? null,
       isLoading,
     }),
-    [authorization, authorizeSession, deauthorizeSession]
+    [
+      authorization,
+      authorizeSession,
+      authorizeSessionWithSignIn,
+      deauthorizeSession,
+      isLoading, // Fix: add isLoading to dependencies
+    ]
   );
 }

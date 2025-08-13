@@ -3,10 +3,13 @@ import { useShortx } from './solana';
 import { WinningDirection } from '@endcorp/depredict';
 
 export function useRealTimeMarkets() {
-  const { markets, marketEvents, loadingMarkets, error } = useShortx();
+  const { markets, marketEvents, loadingMarkets, error, isInitialized } = useShortx();
 
   // Create a real-time markets array that updates immediately when events are received
   const realTimeMarkets = useMemo(() => {
+    if(!isInitialized) {
+      return [];
+    }
     if (marketEvents.length === 0) {
       return markets;
     }
@@ -56,12 +59,13 @@ export function useRealTimeMarkets() {
       }
       return market;
     });
-  }, [markets, marketEvents]);
+  }, [markets, marketEvents, isInitialized]);
 
   return {
     markets: realTimeMarkets,
     loadingMarkets,
     error,
     marketEvents,
+    isInitialized,
   };
 } 

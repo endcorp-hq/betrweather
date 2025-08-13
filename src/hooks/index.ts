@@ -3,9 +3,11 @@ export { useAPI } from './useAPI';
 export { useWeatherData } from './useWeatherData';
 export { useLocation } from './useLocation';
 export { useNearbyStations } from './useNearbyStations';
+export { useDebounce } from './useDebounce';
 
 // Solana and Wallet Hooks
 export { useMobileWallet } from './useMobileWallet';
 export { usePositions } from './usePositions';
 export { useRealTimeMarkets } from './useRealTimeMarkets';
 export * from './solana'
+export { useChainToggle } from './useChainToggle';

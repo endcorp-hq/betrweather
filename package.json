@@ -14,7 +14,9 @@
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
     "@endcorp/depredict": "^0.5.2",
+    "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
     "@metaplex-foundation/mpl-core": "^1.4.1",
+    "@metaplex-foundation/mpl-core-das": "^0.1.0",
     "@metaplex-foundation/umi": "^1.2.0",
     "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
     "@metaplex-foundation/umi-serializers": "^1.2.0",
@@ -25,6 +27,7 @@
     "@react-navigation/native-stack": "^6.9.22",
     "@solana-mobile/mobile-wallet-adapter-protocol": "2.2.2",
     "@solana-mobile/mobile-wallet-adapter-protocol-web3js": "2.2.2",
+    "@solana/kit": "^2.3.0",
     "@solana/spl-token": "^0.4.1",
     "@solana/web3.js": "^1.78.4",
     "@tanstack/react-query": "^5.24.1",

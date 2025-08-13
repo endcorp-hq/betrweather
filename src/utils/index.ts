@@ -35,8 +35,9 @@ export {
   mapWXMV1IconToWeatherType,
   getWeatherXMIcon,
   formatDate as formatWeatherDate,
-  processWeatherData,
-  processHourlyForecast,
-  processDailyForecast,
   default as getBackgroundVideo
 } from './weatherUtils'; 
+
+// Sign In Utilities
+export { generateSecureSignInPayload } from './signInUtils';
+export { checkWhitelistNFTs } from './nftChecker';

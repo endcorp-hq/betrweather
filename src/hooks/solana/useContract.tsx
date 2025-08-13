@@ -24,6 +24,8 @@ import React, {
   import BN from "bn.js";
   import { RpcOptions } from "@endcorp/depredict";
   import { useCallback } from 'react';
+  import { useChain } from "@/contexts";
+import { useAuthorization } from "./useAuthorization";
   
   export enum ShortxErrorType {
     MARKET_CREATION = 'MARKET_CREATION',
@@ -138,6 +140,8 @@ import React, {
   const ShortxContext = createContext<ShortxContextType | undefined>(undefined);
   
   export const ShortxProvider = ({ children }: { children: ReactNode }) => {
+    const { rpcUrl, currentChain } = useChain(); // Get dynamic RPC URL
+    const {selectedAccount} = useAuthorization();
     const [client, setClient] = useState<ShortXClient | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const [markets, setMarkets] = useState<Market[]>([]);
@@ -172,9 +176,11 @@ import React, {
     useEffect(() => {
       const initializeSDK = async () => {
         try {
-          const connection = new Connection(
-            process.env.EXPO_PUBLIC_SOLANA_RPC_URL!
-          );
+          if(!currentChain || !rpcUrl) {
+            throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing chain or RPC URL");
+          }
+          // Use dynamic RPC URL instead of hardcoded env var
+          const connection = new Connection(rpcUrl);
   
           if (
             !process.env.EXPO_PUBLIC_ADMIN_KEY ||
@@ -191,14 +197,15 @@ import React, {
 
           setClient(shortxClient);
           setIsInitialized(true);
+          console.log(`SDK initialized for ${currentChain.toUpperCase()}`);
         } catch (err) {
           setError(createShortxError(ShortxErrorType.INITIALIZATION, "Failed to initialize SDK", err));
           setIsInitialized(false);
         }
       };
-  
+      if(currentChain && rpcUrl && selectedAccount) 
       initializeSDK();
-    }, []);
+    }, [rpcUrl, currentChain, selectedAccount]); // Re-initialize when chain changes
   
     const fetchAllMarkets = async () => {
       setLoadingMarkets(true);
@@ -653,7 +660,7 @@ import React, {
         {children}
       </ShortxContext.Provider>
     );
-  };
+  }
   
   export function useShortx() {
     const ctx = useContext(ShortxContext);

@@ -34,7 +34,7 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
 ));
 
 export default function MarketScreen() {
-  const { markets, loadingMarkets, error } = useRealTimeMarkets();
+  const { markets, loadingMarkets, error, isInitialized } = useRealTimeMarkets();
 
   //time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([

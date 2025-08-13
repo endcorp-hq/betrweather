@@ -1,11 +1,6 @@
 import { Connection, type ConnectionConfig } from "@solana/web3.js";
-import React, {
-  type FC,
-  type ReactNode,
-  useMemo,
-  createContext,
-  useContext,
-} from "react";
+import React, { type FC, type ReactNode, createContext, useContext } from "react";
+import { useChain } from "./ChainProvider";
 
 export interface ConnectionProviderProps {
   children: ReactNode;
@@ -14,17 +9,8 @@ export interface ConnectionProviderProps {
 
 export const ConnectionProvider: FC<ConnectionProviderProps> = ({
   children,
-  config = { commitment: "confirmed" },
 }) => {
-
-  if(!process.env.EXPO_PUBLIC_SOLANA_RPC_URL) {
-    throw new Error("EXPO_PUBLIC_SOLANA_RPC_URL is not set");
-  }
-
-  const connection = useMemo(
-    () => new Connection(process.env.EXPO_PUBLIC_SOLANA_RPC_URL!, config),
-    [config]
-  );
+  const { connection } = useChain(); // Use connection from ChainProvider
 
   return (
     <ConnectionContext.Provider value={{ connection }}>
