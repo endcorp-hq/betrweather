@@ -15,7 +15,7 @@ export function TopBarWalletButton({
 }) {
   const { connect } = useMobileWallet();
   return (
-    <TouchableOpacity onPress={selectedAccount ? openMenu : connect} activeOpacity={0.8}>
+    <TouchableOpacity onPress={selectedAccount ? openMenu : () => connect()} activeOpacity={0.8}>
       <View
         style={{
           width: 40,
