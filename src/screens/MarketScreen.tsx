@@ -5,7 +5,8 @@ import { useFilters } from "@/components";
 import theme from '../theme';
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
-import { useRealTimeMarkets, ShortxErrorType } from "@/hooks";
+import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
+import { ShortxErrorType } from "../hooks/solana/useContract";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (

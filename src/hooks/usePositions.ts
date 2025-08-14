@@ -5,7 +5,7 @@ import {
   useShortx,
   useCreateAndSendTx,
 } from "./solana";
-import { useToast } from "@/contexts";
+import { useToast } from "../contexts/CustomToast/ToastProvider";
 import {
   PositionWithMarket,
   calculatePayout,

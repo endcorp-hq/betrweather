@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { Text, TouchableOpacity } from "react-native";
-import { useAuthorization, useMobileWallet } from "@/hooks";
+import { useAuthorization } from "../../hooks/solana/useAuthorization";
+import { useMobileWallet } from "../../hooks/useMobileWallet";
 import { useToast } from "@/contexts";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import { generateSecureSignInPayload } from "@/utils";
