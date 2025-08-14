@@ -8,10 +8,10 @@ import {
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { DefaultBg, LogoLoader, SwipeablePositionCard } from "@/components";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { useAuthorization } from "@/hooks";
+import { useAuthorization } from "../hooks/solana/useAuthorization";
 import { MotiView } from "moti";
 import theme from "../theme";
-import { usePositions } from "@/hooks";
+import { usePositions } from "../hooks/usePositions";
 import { calculatePayout } from "@/utils";
 
 export default function ProfileScreen() {

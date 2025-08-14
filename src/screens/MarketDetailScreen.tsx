@@ -7,12 +7,8 @@ import {
   Text,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import {
-  useShortx,
-  useAuthorization,
-  useCreateAndSendTx,
-  useRealTimeMarkets,
-} from "@/hooks";
+import { useShortx, useAuthorization, useCreateAndSendTx } from "../hooks/solana";
+import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
 import React, {
   useEffect,
   useRef,

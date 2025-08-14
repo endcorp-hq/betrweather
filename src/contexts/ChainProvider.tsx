@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { Connection, type ConnectionConfig } from "@solana/web3.js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAuthorization } from '@/hooks';
+import { useAuthorization } from '../hooks/solana/useAuthorization';
 
 type NetworkEnvironment = 'mainnet' | 'devnet';
 

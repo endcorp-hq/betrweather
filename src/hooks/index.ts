@@ -7,7 +7,8 @@ export { useDebounce } from './useDebounce';
 
 // Solana and Wallet Hooks
 export { useMobileWallet } from './useMobileWallet';
-export { usePositions } from './usePositions';
 export { useRealTimeMarkets } from './useRealTimeMarkets';
 export * from './solana'
 export { useChainToggle } from './useChainToggle';
+
+// Note: usePositions is exported separately to avoid circular dependencies
