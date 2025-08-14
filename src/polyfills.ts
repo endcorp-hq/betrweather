@@ -1,6 +1,5 @@
 import { getRandomValues as expoCryptoGetRandomValues } from "expo-crypto";
 import { Buffer } from "buffer";
-import 'assert';
 import structuredClone from "@ungap/structured-clone";
 import 'react-native-gesture-handler';
 
