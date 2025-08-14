@@ -27,7 +27,7 @@ export function useNftMetadata() {
     try {
       const response = await fetch(
         "https://devnet.helius-rpc.com/?api-key=" +
-          process.env.EXPO_PUBLIC_HELIUS_API_KEY,
+          process.env.HELIUS_API_KEY,
         {
           method: "POST",
           headers: {
