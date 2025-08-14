@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "build": "npx eas build --profile development --platform android",
     "build:local": "npx eas build --profile development --platform android --local",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "echo \"No tests specified\" && exit 0",
+    "eas-build-pre-install": "corepack enable && yarn set version 4.9.2"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
