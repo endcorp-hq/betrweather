@@ -53,6 +53,7 @@
     "expo-sensors": "~14.0.2",
     "expo-status-bar": "~2.0.1",
     "expo-system-ui": "~4.0.9",
+    "expo-updates": "~0.27.4",
     "expo-video": "~2.0.6",
     "h3-reactnative": "https://github.com/endcorp-hq/h3-reactnative.git",
     "moti": "^0.30.0",
