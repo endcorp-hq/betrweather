@@ -1,13 +1,13 @@
 {
   "expo": {
     "name": "BetrWeather",
-    "slug": "BetrWeather",
+    "slug": "betrweather",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo/betrCloud.png",
+    "icon": "./assets/logo/betrCloud_transbg.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/logo/betrCloud.png",
+      "image": "./assets/logo/betrCloud_transbg.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -24,7 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo/betrCloud.png",
+        "foregroundImage": "./assets/logo/betrCloud_transbg.png",
         "backgroundColor": "#000000"
       },
       "package": "com.betrweather.app",
@@ -35,12 +35,12 @@
       }
     },
     "web": {
-      "favicon": "./assets/logo/betrCloud.png",
+      "favicon": "./assets/logo/betrCloud_transbg.png",
       "bundler": "metro"
     },
     "extra": {
       "eas": {
-        "projectId": "c3a05e4f-e013-4e57-9631-3eb01b3044fb"
+        "projectId": "c74fa337-f626-4991-9c13-d122aa54cec9"
       }
     },
     "plugins": [
@@ -59,6 +59,9 @@
         }
       ]
     ],
-    "jsEngine": "hermes"
+    "jsEngine": "hermes",
+    "updates": {
+      "url": "https://u.expo.dev/c74fa337-f626-4991-9c13-d122aa54cec9"
+    }
   }
 }
