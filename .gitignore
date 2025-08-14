@@ -40,3 +40,6 @@ yarn-error.*
 app-example
 .env
 figma_ingest
+dapp-store-build
+/android
+/ios
