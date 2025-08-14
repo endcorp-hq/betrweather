@@ -11,14 +11,16 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production"
     },
     "dapp-store": {
       "channel": "production",
       "android": {
           "buildType": "apk"
       },
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production"
     }
   },  
   "submit": {
