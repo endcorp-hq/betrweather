@@ -834,11 +834,11 @@ export default function SlotMachineScreen() {
             </View>
           )}
 
-          {error && !loadingMarket && (
+          {Boolean(error) && !loadingMarket && (
             <MaterialCard variant="filled" style={styles.errorCard}>
               <Text style={styles.errorTitle}>Error</Text>
               <Text style={styles.errorMessage}>
-                {extractErrorMessage(error)}
+                {extractErrorMessage(error as Error)}
               </Text>
             </MaterialCard>
           )}
