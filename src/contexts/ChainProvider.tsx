@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
 import { Connection, type ConnectionConfig } from "@solana/web3.js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthorization } from '@/hooks';
@@ -7,8 +7,7 @@ type NetworkEnvironment = 'mainnet' | 'devnet';
 
 interface ChainContextType {
   currentChain: NetworkEnvironment | null;
-  connection: Connection;
-  rpcUrl: string;
+  connection: Connection | null;
   isLoading: boolean;
 }
 
@@ -19,12 +18,6 @@ interface ChainProviderProps {
   config?: ConnectionConfig;
 }
 
-const RPC_URLS = {
-  mainnet: process.env.EXPO_PUBLIC_MAINNET_RPC_URL || "https://api.mainnet-beta.solana.com",
-  devnet: process.env.EXPO_PUBLIC_DEVNET_RPC_URL || "https://api.devnet.solana.com"
-};
-
-
 export const ChainProvider: React.FC<ChainProviderProps> = ({ 
   children, 
   config = { commitment: "confirmed" } 
@@ -32,6 +25,20 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
   const [currentChain, setCurrentChain] = useState<NetworkEnvironment | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const {selectedAccount} = useAuthorization();
+  const connectionRef = useRef<Connection | null>(null);
+
+  // Cleanup function for connections
+  const cleanupConnection = useCallback(() => {
+    if (connectionRef.current) {
+      try {
+        // Dispose of the connection properly
+        connectionRef.current;
+        connectionRef.current = null;
+      } catch (error) {
+        console.warn('Error cleaning up connection:', error);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const initializeChain = async () => {
@@ -62,22 +69,36 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       initializeChain();
     }
   }, [selectedAccount]);
-  
+
+  // Cleanup connection when component unmounts
+  useEffect(() => {
+    return () => {
+      cleanupConnection();
+    };
+  }, [cleanupConnection]);
 
   const connection = React.useMemo(() => {
     if (!currentChain) {
-      // Return a default connection while loading to prevent crashes
-      return new Connection(RPC_URLS.devnet, config);
+      return null;
     }
     
-    const rpcUrl = RPC_URLS[currentChain];
-    return new Connection(rpcUrl, config);
-  }, [currentChain, config, isLoading]);
-
-  const rpcUrl = currentChain ? RPC_URLS[currentChain] : null;
+    const chainString = `https://${currentChain}.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
+    const rpcUrl = chainString;
+    
+    // Reuse existing connection if RPC endpoint is the same
+    if (connectionRef.current && connectionRef.current.rpcEndpoint === rpcUrl) {
+      return connectionRef.current;
+    }
+    
+    // Create new connection only if endpoint changed
+    const newConnection = new Connection(rpcUrl, config);
+    connectionRef.current = newConnection;
+    
+    return newConnection;
+  }, [currentChain, config]);
 
   return (
-    <ChainContext.Provider value={{ currentChain, connection, rpcUrl, isLoading }}>
+    <ChainContext.Provider value={{ currentChain, connection, isLoading }}>
       {children}
     </ChainContext.Provider>
   );

@@ -13,7 +13,8 @@ import {
 import { toUint8Array } from "js-base64";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
-import { checkWhitelistNFTs } from "@/utils";
+import { checkWhitelistNFTs } from "../../utils/checkNft";
+import { useToast } from "@/contexts";
 
 const DEVNET_CHAIN: Chain = "solana:devnet";
 
@@ -109,6 +110,7 @@ export const APP_IDENTITY = {
 
 export function useAuthorization() {
   const queryClient = useQueryClient();
+  const {toast} = useToast();
   const { data: authorization, isLoading } = useQuery({
     queryKey: ["wallet-authorization"],
     queryFn: () => fetchAuthorization(),
@@ -136,6 +138,7 @@ export function useAuthorization() {
         );
 
         if (!authResult.authorized) {
+          toast.error("You need to be on the whitelist to access mainnet.");
           return {
             ...nextAuthorization,
             userAuth: false, //set as false if user is not authorized
@@ -151,6 +154,7 @@ export function useAuthorization() {
             },
           };
           await setAuthorization(nextAuthWithSession);
+          toast.success("Login Successful.");
           return nextAuthWithSession;
         }
       }

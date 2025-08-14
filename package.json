@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@endcorp/depredict": "^0.5.2",
+    "@endcorp/depredict": "^0.5.4",
     "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
     "@metaplex-foundation/mpl-core": "^1.4.1",
     "@metaplex-foundation/mpl-core-das": "^0.1.0",

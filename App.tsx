@@ -23,6 +23,7 @@ const queryClient = new QueryClient();
 export default function App() {
   return (
     <View style={{ flex: 1 }}>
+      <ToastProvider>
       <StatusBar style="light" translucent backgroundColor="transparent" />
       <QueryClientProvider client={queryClient}>
         <ChainProvider>
@@ -30,17 +31,17 @@ export default function App() {
           <ShortxProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <SafeAreaProvider>
-                <ToastProvider>
+    
                   <TimezoneProvider>
                     <AppNavigator />
                   </TimezoneProvider>
-                </ToastProvider>
               </SafeAreaProvider>
             </GestureHandlerRootView>
             </ShortxProvider>
           </ConnectionProvider>
         </ChainProvider>
       </QueryClientProvider>
+      </ToastProvider>
     </View>
   );
 }

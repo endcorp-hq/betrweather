@@ -4,7 +4,6 @@ import {
   TransactionInstruction,
   ComputeBudgetProgram,
   AddressLookupTableAccount,
-  Connection,
   Keypair,
   Transaction,
 } from "@solana/web3.js";
@@ -12,6 +11,7 @@ import { useCallback, useState } from "react";
 import axios from "axios";
 import { useAuthorization } from "./useAuthorization";
 import { useMobileWallet } from "../useMobileWallet";
+import { useChain } from "@/contexts";
 
 const getPriorityFee = async () => {
   let fee = 1000;
@@ -31,7 +31,12 @@ const getPriorityFee = async () => {
 export function useCreateAndSendTx() {
   const { signTransaction } = useMobileWallet();
   const { selectedAccount } = useAuthorization();
+  const { connection } = useChain();
   const [isLoading, setIsLoading] = useState(false);
+
+  if (!connection) {
+    throw new Error("RPC URL not found");
+  }
 
   const createAndSendTx = useCallback(
     async (
@@ -61,9 +66,6 @@ export function useCreateAndSendTx() {
       setIsLoading(true);
 
       try {
-        const connection = new Connection(
-          process.env.EXPO_PUBLIC_SOLANA_RPC_URL!
-        );
 
         // If a signed versioned transaction is provided, send it directly
         if (signedVersionedTransaction) {
@@ -74,16 +76,16 @@ export function useCreateAndSendTx() {
               signedVersionedTransaction = result as VersionedTransaction;
             }
           }
-          
+
           // If no signature required, just send the transaction
           const signature = await connection.sendRawTransaction(
             signedVersionedTransaction.serialize(),
             { skipPreflight }
           );
-          
+
           // Wait for confirmation
           await connection.confirmTransaction(signature, "confirmed");
-          
+
           return signature;
         }
 
@@ -95,16 +97,16 @@ export function useCreateAndSendTx() {
               transaction = result as Transaction;
             }
           }
-          
+
           // If no signature required, just send the transaction
           const signature = await connection.sendRawTransaction(
             transaction.serialize(),
             { skipPreflight }
           );
-          
+
           // Wait for confirmation
           await connection.confirmTransaction(signature, "confirmed");
-          
+
           return signature;
         }
 
@@ -125,7 +127,8 @@ export function useCreateAndSendTx() {
         }
 
         // Get latest blockhash
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash();
 
         console.log("instructions", instructions);
         // Create versioned transaction
@@ -144,29 +147,34 @@ export function useCreateAndSendTx() {
           const signedTransaction = await signTransaction(tx);
           let signature: string | undefined;
           if (signedTransaction) {
-            signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
-              skipPreflight,
-            });
+            signature = await connection.sendRawTransaction(
+              signedTransaction.serialize(),
+              {
+                skipPreflight,
+              }
+            );
           }
 
           if (signature) {
             // Wait for confirmation
             await connection.confirmTransaction(signature, "confirmed");
           }
-          
+
           return signature;
         } else {
           // If no signature required, just send the transaction
-          const signature = await connection.sendRawTransaction(tx.serialize(), {
-            skipPreflight,
-          });
-          
+          const signature = await connection.sendRawTransaction(
+            tx.serialize(),
+            {
+              skipPreflight,
+            }
+          );
+
           // Wait for confirmation
           await connection.confirmTransaction(signature, "confirmed");
-          
+
           return signature;
         }
-
       } catch (error) {
         console.error("Error creating and sending transaction:", error);
         throw error;

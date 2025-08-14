@@ -40,4 +40,3 @@ export {
 
 // Sign In Utilities
 export { generateSecureSignInPayload } from './signInUtils';
-export { checkWhitelistNFTs } from './nftChecker';
