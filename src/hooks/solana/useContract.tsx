@@ -140,7 +140,7 @@ import { useAuthorization } from "./useAuthorization";
   const ShortxContext = createContext<ShortxContextType | undefined>(undefined);
   
   export const ShortxProvider = ({ children }: { children: ReactNode }) => {
-    const { rpcUrl, currentChain } = useChain(); // Get dynamic RPC URL
+    const { connection, currentChain } = useChain(); // Get dynamic RPC URL
     const {selectedAccount} = useAuthorization();
     const [client, setClient] = useState<ShortXClient | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
@@ -176,11 +176,14 @@ import { useAuthorization } from "./useAuthorization";
     useEffect(() => {
       const initializeSDK = async () => {
         try {
-          if(!currentChain || !rpcUrl) {
+          if(!currentChain || !connection) {
             throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing chain or RPC URL");
           }
-          // Use dynamic RPC URL instead of hardcoded env var
-          const connection = new Connection(rpcUrl);
+
+          console.log("connection", connection.rpcEndpoint);
+
+          // const testConnection = new Connection(process.env.EXPO_PUBLIC_SOLANA_RPC_URL || "", { commitment: "confirmed" });
+          
   
           if (
             !process.env.EXPO_PUBLIC_ADMIN_KEY ||
@@ -203,9 +206,9 @@ import { useAuthorization } from "./useAuthorization";
           setIsInitialized(false);
         }
       };
-      if(currentChain && rpcUrl && selectedAccount) 
+      if(currentChain && connection && selectedAccount) 
       initializeSDK();
-    }, [rpcUrl, currentChain, selectedAccount]); // Re-initialize when chain changes
+    }, [connection, currentChain, selectedAccount]); // Re-initialize when chain changes
   
     const fetchAllMarkets = async () => {
       setLoadingMarkets(true);
@@ -217,6 +220,7 @@ import { useAuthorization } from "./useAuthorization";
         }
         if (client) {
           const m = await client.trade.getMarketsByAuthority(authority);
+          console.log("markets", m);
           setMarkets(m || []);
         }
       } catch (err: unknown) {
@@ -475,30 +479,6 @@ import { useAuthorization } from "./useAuthorization";
         setLoadingConfig(false);
       }
     };
-  
-    // const updateConfig: ShortxContextType["updateConfig"] = async (
-    //   payer,
-    //   feeAmount,
-    //   authority,
-    //   feeVault
-    // ) => {
-    //   if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-    //   setLoadingConfig(true);
-    //   try {
-    //     const ixs = await client.config.updateConfig(
-    //       payer,
-    //       feeAmount,
-    //       authority,
-    //       feeVault
-    //     );
-    //     return ixs || null;
-    //   } catch (err) {
-    //     setError(createShortxError(ShortxErrorType.CONFIG_UPDATE, "Unknown error", err));
-    //     throw err;
-    //   } finally {
-    //     setLoadingConfig(false);
-    //   }
-    // };
   
     const closeConfig: ShortxContextType["closeConfig"] = async (
       payer: PublicKey
