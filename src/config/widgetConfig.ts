@@ -12,13 +12,13 @@ export const widgetConfig = {
       id: "condition_text", 
       defaultText: "No Data",
       textSize: "16sp",
-      textColor: "#CCCCCC"
+      textColor: "#FFFFFF"
     },
     refreshCounter: {
       id: "refresh_counter_text",
       defaultText: "Refresh counter: 0",
       textSize: "12sp",
-      textColor: "#888888"
+      textColor: "#FFFFFF"
     }
   }
 };
