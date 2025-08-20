@@ -96,6 +96,7 @@ class WeatherCache(private val context: Context) {
     
     fun saveWeather(temp: String, condition: String, icon: String, timestamp: Long) {
         try {
+            // Get current counter and increment it
             val currentCounter = getUpdateCounter()
             val newCounter = currentCounter + 1
             
@@ -108,8 +109,11 @@ class WeatherCache(private val context: Context) {
                 .putInt(KEY_UPDATE_COUNTER, newCounter)
                 .apply()
             
-            Log.d("WeatherCache", "Weather data saved: \$temp, \$condition, Update #\$newCounter")
+            Log.d("WeatherCache", "Weather data saved: $temp, $condition, Update #$newCounter")
+            
+            // Force a manual refresh of the widget
             forceWidgetRefresh()
+            
         } catch (e: Exception) {
             Log.e("WeatherCache", "Error saving weather data", e)
         }
@@ -133,10 +137,12 @@ class WeatherCache(private val context: Context) {
         }
     }
     
+    // NEW: Get update counter
     fun getUpdateCounter(): Int {
         return sharedPreferences.getInt(KEY_UPDATE_COUNTER, 0)
     }
     
+    // NEW: Reset update counter (useful for debugging)
     fun resetUpdateCounter() {
         try {
             sharedPreferences.edit()
@@ -154,7 +160,8 @@ class WeatherCache(private val context: Context) {
                 .putFloat(KEY_LAST_LAT, latitude.toFloat())
                 .putFloat(KEY_LAST_LON, longitude.toFloat())
                 .apply()
-            Log.d("WeatherCache", "Location saved: \$latitude, \$longitude")
+            
+            Log.d("WeatherCache", "Location saved: $latitude, $longitude")
         } catch (e: Exception) {
             Log.e("WeatherCache", "Error saving location", e)
         }
@@ -194,7 +201,7 @@ class WeatherCache(private val context: Context) {
             sharedPreferences.edit()
                 .putString("unit", unit)
                 .apply()
-            Log.d("WeatherCache", "Unit set to: \$unit")
+            Log.d("WeatherCache", "Unit set to: $unit")
         } catch (e: Exception) {
             Log.e("WeatherCache", "Error setting unit", e)
         }
@@ -205,7 +212,7 @@ class WeatherCache(private val context: Context) {
             sharedPreferences.edit()
                 .putString("hex_cell", hexCell)
                 .apply()
-            Log.d("WeatherCache", "Hex cell set to: \$hexCell")
+            Log.d("WeatherCache", "Hex cell set to: $hexCell")
         } catch (e: Exception) {
             Log.e("WeatherCache", "Error setting hex cell", e)
         }
@@ -226,8 +233,10 @@ class WeatherCache(private val context: Context) {
         return ageMinutes <= maxAgeMinutes
     }
 
+    // NEW: Add this method
     private fun forceWidgetRefresh() {
         try {
+            // Send a direct broadcast to refresh the widget
             val intent = Intent("com.betrweather.app.ACTION_REFRESH_WIDGET")
             context.sendBroadcast(intent)
             Log.d("WeatherCache", "Widget refresh broadcast sent")
@@ -405,7 +414,7 @@ class WeatherUpdateWorker(
                 .build()
             
             val weatherWorkRequest = PeriodicWorkRequestBuilder<WeatherUpdateWorker>(
-                15, TimeUnit.MINUTES
+                15, TimeUnit.MINUTES // 15 minutes
             )
                 .setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
@@ -434,12 +443,15 @@ class WeatherUpdateWorker(
         return try {
             Log.d(TAG, "Starting weather update work")
             
+            // Get current location
             val location = getCurrentLocation()
             if (location != null) {
                 Log.d(TAG, "Got location: \${location.first}, \${location.second}")
                 
+                // Fetch weather from your backend using location
                 val weatherData = fetchWeatherFromAPI(location.first, location.second)
                 if (weatherData != null) {
+                    // Save weather data
                     weatherCache.saveWeather(
                         temp = weatherData.temperature,
                         condition = weatherData.condition,
@@ -447,6 +459,7 @@ class WeatherUpdateWorker(
                         timestamp = System.currentTimeMillis()
                     )
                     
+                    // Save location separately (without named parameters)
                     val lastLocation = weatherCache.getLastLocation()
                     if (lastLocation != null) {
                         weatherCache.saveLastLocation(lastLocation.first, lastLocation.second)
@@ -475,6 +488,7 @@ class WeatherUpdateWorker(
             try {
                 val fusedLocationClient = LocationServices.getFusedLocationProviderClient(applicationContext)
                 
+                // Check location permission first
                 if (applicationContext.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                     fusedLocationClient.lastLocation
                         .addOnSuccessListener { location ->
@@ -503,9 +517,10 @@ class WeatherUpdateWorker(
         return try {
             val client = OkHttpClient()
             
-            val url = "https://data.endcorp.co/shortx/weather/current-conditions-widget?lat=\$latitude&lon=\$longitude"
+            // Your backend API endpoint for Google weather data
+            val url = "https://data.endcorp.co/shortx/weather/current-conditions-widget?lat=$latitude&lon=$longitude"
                         
-            Log.d(TAG, "Making API request to: \$url")
+            Log.d(TAG, "Making API request to: $url")
             
             val request = Request.Builder()
                 .url(url)
@@ -516,8 +531,9 @@ class WeatherUpdateWorker(
             
             if (response.isSuccessful) {
                 val responseBody = response.body?.string()
-                Log.d(TAG, "API response: \$responseBody")
+                Log.d(TAG, "API response: $responseBody")
                 
+                // Parse your actual API response
                 val weatherData = parseWeatherResponse(responseBody)
                 weatherData
             } else {
@@ -534,36 +550,45 @@ class WeatherUpdateWorker(
     private fun parseWeatherResponse(responseBody: String?): WeatherData? {
         return try {
             if (responseBody != null) {
+                // Parse the JSON response
                 val jsonObject = org.json.JSONObject(responseBody)
                 
+                // Navigate through the nested structure
                 val data = jsonObject.getJSONObject("data")
                 val weatherData = data.getJSONObject("data")
                 
+                // Extract temperature
                 val temperatureObj = weatherData.getJSONObject("temperature")
                 val tempDegrees = temperatureObj.getInt("degrees")
                 val tempUnit = temperatureObj.getString("unit")
                 
+                // Format temperature with unit
                 val temperature = when (tempUnit) {
                     "CELSIUS" -> "\${tempDegrees}°C"
                     "FAHRENHEIT" -> "\${tempDegrees}°F"
                     else -> "\${tempDegrees}°"
                 }
                 
+                // Extract weather condition
                 val weatherCondition = weatherData.getJSONObject("weatherCondition")
                 val description = weatherCondition.getJSONObject("description")
                 val condition = description.getString("text")
                 
+                // Extract weather type for icon mapping
                 val weatherType = weatherCondition.getString("type")
                 val icon = mapWeatherTypeToIcon(weatherType)
                 
+                // Extract additional useful data
                 val isDaytime = weatherData.getBoolean("isDaytime")
                 
-                Log.d(TAG, "Parsed weather data: \$temperature, \$condition, \$icon, Daytime: \$isDaytime")
+                Log.d(TAG, "Parsed weather data: $temperature, $condition, $icon, Daytime: $isDaytime")
                 
                 WeatherData(
                     temperature = temperature,
                     condition = condition,
                     icon = icon,
+                    // latitude = latitude,
+                    // longitude = longitude,
                     timestamp = System.currentTimeMillis()
                 )
                 
@@ -600,6 +625,7 @@ class WeatherUpdateWorker(
     }
 }
 
+// Extension function to await Task
 suspend fun <T> Task<T>.await(): T? {
     return suspendCoroutine { continuation ->
         addOnCompleteListener { task ->
@@ -610,7 +636,8 @@ suspend fun <T> Task<T>.await(): T? {
             }
         }
     }
-}`;
+}
+`;
 };
 
 // Generate CacheMonitor.kt
@@ -637,8 +664,9 @@ class CacheMonitor(private val context: Context) : SharedPreferences.OnSharedPre
                 isRegistered = true
                 Log.d("CacheMonitor", "Started monitoring cache changes")
                 
+                // Log all current preferences
                 val allPrefs = prefs.all
-                Log.d("CacheMonitor", "Current preferences: \$allPrefs")
+                Log.d("CacheMonitor", "Current preferences: $allPrefs")
                 Log.d("CacheMonitor", "Listener registration successful")
             } catch (e: Exception) {
                 Log.e("CacheMonitor", "Error starting monitor", e)
@@ -663,6 +691,7 @@ class CacheMonitor(private val context: Context) : SharedPreferences.OnSharedPre
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         try {
+            // Safely get the value based on its type
             val value = when {
                 key == "temp" || key == "condition" || key == "icon" -> 
                     sharedPreferences?.getString(key, "N/A")
@@ -675,13 +704,14 @@ class CacheMonitor(private val context: Context) : SharedPreferences.OnSharedPre
                 else -> "Unknown type"
             }
             
-            Log.d("CacheMonitor", "Preference changed: key=\$key, value=\$value")
+            Log.d("CacheMonitor", "Preference changed: key=$key, value=$value")
             
             if (key == "temp" || key == "condition" || key == "icon" || key == "timestamp" || 
                 key == "update_counter" || key == "cache_refresh_trigger") {
                 
-                Log.d("CacheMonitor", "Weather cache updated (\$key), refreshing widget")
+                Log.d("CacheMonitor", "Weather cache updated ($key), refreshing widget")
 
+                // Send broadcast to trigger widget update
                 val intent = Intent(context, WeatherWidgetProvider::class.java)
                 intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
                 
@@ -701,49 +731,51 @@ class CacheMonitor(private val context: Context) : SharedPreferences.OnSharedPre
             Log.e("CacheMonitor", "Error in onSharedPreferenceChanged", e)
         }
     }
-}`;
+}
+`;
 };
 
 // Generate CacheMonitorManager.kt
 const generateCacheMonitorManager = () => {
   return `package com.betrweather.app.storage
 
+import android.app.Application
 import android.content.Context
 import android.util.Log
 
 object CacheMonitorManager {
+    private const val TAG = "CacheMonitorManager"
     private var cacheMonitor: CacheMonitor? = null
-    private var isStarted = false
-
+    private var isInitialized = false
+    
+    fun initialize(application: Application) {
+        if (!isInitialized) {
+            cacheMonitor = CacheMonitor(application.applicationContext)
+            cacheMonitor?.start()
+            isInitialized = true
+            Log.d(TAG, "CacheMonitor initialized with Application context")
+        }
+    }
+    
     fun start() {
-        if (!isStarted) {
-            try {
-                // We need a context, but we don't have one here
-                // The actual CacheMonitor will be created when needed
-                isStarted = true
-                Log.d("CacheMonitorManager", "CacheMonitorManager started")
-            } catch (e: Exception) {
-                Log.e("CacheMonitorManager", "Error starting CacheMonitorManager", e)
-                isStarted = false
-            }
+        if (isInitialized && cacheMonitor != null) {
+            cacheMonitor?.start()
+            Log.d(TAG, "CacheMonitor started")
         } else {
-            Log.d("CacheMonitorManager", "CacheMonitorManager already started")
+            Log.w(TAG, "CacheMonitor not initialized, cannot start")
         }
     }
-
+    
     fun stop() {
-        if (isStarted) {
-            try {
-                cacheMonitor?.stop()
-                cacheMonitor = null
-                isStarted = false
-                Log.d("CacheMonitorManager", "CacheMonitorManager stopped")
-            } catch (e: Exception) {
-                Log.e("CacheMonitorManager", "Error stopping CacheMonitorManager", e)
-            }
-        }
+        cacheMonitor?.stop()
+        Log.d(TAG, "CacheMonitor stopped")
     }
-}`;
+    
+    fun isRunning(): Boolean {
+        return cacheMonitor != null && isInitialized
+    }
+}
+`;
 };
 
 // Generate AndroidManifest.xml additions
