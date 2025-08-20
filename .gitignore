@@ -40,3 +40,10 @@ yarn-error.*
 app-example
 .env
 figma_ingest
+
+# widget generated files (will be regenerated on every build)
+android/app/src/main/java/com/betrweather/app/widget/
+android/app/src/main/java/com/betrweather/app/storage/
+android/app/src/main/java/com/betrweather/app/worker/
+android/app/src/main/res/layout/weather_widget.xml
+android/app/src/main/res/xml/weather_widget_info.xml
