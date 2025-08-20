@@ -802,6 +802,192 @@ const generateManifestAdditions = () => {
     </provider>`;
 };
 
+// Add this new function to modify build.gradle
+const modifyBuildGradle = () => {
+    const buildGradlePath = path.join(__dirname, '../android/app/build.gradle');
+    
+    if (!fs.existsSync(buildGradlePath)) {
+      console.log('Warning: build.gradle not found, skipping dependency modifications');
+      return;
+    }
+    
+    try {
+      let content = fs.readFileSync(buildGradlePath, 'utf8');
+      
+      // Check if dependencies are already added
+      if (content.includes('com.squareup.okhttp3:okhttp')) {
+        console.log('Dependencies already present in build.gradle, skipping...');
+        return;
+      }
+      
+      // Find the dependencies block
+      const dependenciesPattern = /dependencies\s*\{/;
+      if (dependenciesPattern.test(content)) {
+        // Add dependencies after the dependencies { line
+        const newDependencies = `
+      // For HTTP requests
+      implementation 'com.squareup.okhttp3:okhttp:4.9.3'
+      
+      // For JSON parsing
+      implementation 'com.google.code.gson:gson:2.8.9'
+      
+      // WorkManager for background tasks
+      implementation "androidx.work:work-runtime-ktx:2.9.0"
+      
+      // Google Play Services for location
+      implementation "com.google.android.gms:play-services-location:21.0.1"
+      
+      // Kotlin coroutines
+      implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1"
+      implementation "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.1"
+  `;
+        
+        content = content.replace(
+          /dependencies\s*\{/,
+          `dependencies {${newDependencies}`
+        );
+        
+        fs.writeFileSync(buildGradlePath, content);
+        console.log('✅ Dependencies added to build.gradle');
+      } else {
+        console.log('Warning: Could not find dependencies block in build.gradle');
+      }
+    } catch (error) {
+      console.error('Error modifying build.gradle:', error);
+    }
+  };
+
+  // Add this new function to modify AndroidManifest.xml
+const modifyAndroidManifest = () => {
+    const manifestPath = path.join(__dirname, '../android/app/src/main/AndroidManifest.xml');
+    
+    if (!fs.existsSync(manifestPath)) {
+      console.log('Warning: AndroidManifest.xml not found, skipping manifest modifications');
+      return;
+    }
+    
+    try {
+      let content = fs.readFileSync(manifestPath, 'utf8');
+      
+      // Check if widget receiver is already added
+      if (content.includes('WeatherWidgetProvider')) {
+        console.log('Widget receiver already present in AndroidManifest.xml, skipping...');
+        return;
+      }
+      
+      // Find the application tag
+      const applicationPattern = /<application[^>]*>/;
+      if (applicationPattern.test(content)) {
+        // Add widget receiver and permissions before the closing </application> tag
+        const widgetManifest = `
+      <!-- Weather Widget -->
+      <receiver android:name=".widget.WeatherWidgetProvider"
+          android:exported="true">
+          <intent-filter>
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          </intent-filter>
+          <meta-data
+              android:name="android.appwidget.provider"
+              android:resource="@xml/weather_widget_info" />
+      </receiver>
+  
+      <!-- Weather Update Worker -->
+      <provider
+          android:name="androidx.startup.InitializationProvider"
+          android:authorities="\${applicationId}.androidx-startup"
+          android:exported="false">
+          <meta-data
+              android:name="androidx.work.WorkManagerInitializer"
+              android:value="androidx.startup" />
+      </provider>`;
+        
+        // Add before closing </application> tag
+        content = content.replace(
+          /<\/application>/,
+          `${widgetManifest}
+  </application>`
+        );
+        
+        // Add permissions if they don't exist
+        const permissionsToAdd = [
+          'android.permission.ACCESS_COARSE_LOCATION',
+          'android.permission.ACCESS_FINE_LOCATION',
+          'android.permission.INTERNET',
+          'android.permission.ACCESS_BACKGROUND_LOCATION'
+        ];
+        
+        permissionsToAdd.forEach(permission => {
+          if (!content.includes(permission)) {
+            // Add permission after the opening <manifest> tag
+            content = content.replace(
+              /<manifest[^>]*>/,
+              `$&
+      <uses-permission android:name="${permission}" />`
+            );
+          }
+        });
+        
+        fs.writeFileSync(manifestPath, content);
+        console.log('✅ Widget receiver and permissions added to AndroidManifest.xml');
+      } else {
+        console.log('Warning: Could not find application tag in AndroidManifest.xml');
+      }
+    } catch (error) {
+      console.error('Error modifying AndroidManifest.xml:', error);
+    }
+  };
+
+
+  const modifyMainApplication = () => {
+    const mainApplicationPath = path.join(__dirname, '../android/app/src/main/java/com/betrweather/app/MainApplication.kt');
+    
+    if (!fs.existsSync(mainApplicationPath)) {
+      console.log('Warning: MainApplication.kt not found, skipping modifications');
+      return;
+    }
+  
+    try {
+      let content = fs.readFileSync(mainApplicationPath, 'utf8');
+  
+      // Check if CacheMonitorManager is already imported
+      if (content.includes('import com.betrweather.app.storage.CacheMonitorManager')) {
+        console.log('CacheMonitorManager import already present in MainApplication.kt, skipping...');
+        return;
+      }
+  
+      // Add import for CacheMonitorManager
+      content = content.replace(
+        /import expo\.modules\.ReactNativeHostWrapper/,
+        `import expo.modules.ReactNativeHostWrapper
+  import com.betrweather.app.storage.CacheMonitorManager`
+      );
+  
+      // Check if CacheMonitorManager.start() is already present
+      if (content.includes('CacheMonitorManager.start()')) {
+        console.log('CacheMonitorManager.start() already present in MainApplication.kt, skipping...');
+        return;
+      }
+  
+      // Add CacheMonitorManager.initialize() and CacheMonitorManager.start() after ApplicationLifecycleDispatcher.onApplicationCreate(this)
+      content = content.replace(
+        /ApplicationLifecycleDispatcher\.onApplicationCreate\(this\)/,
+        `ApplicationLifecycleDispatcher.onApplicationCreate(this)
+  
+      // Initialize CacheMonitor with Application context
+      CacheMonitorManager.initialize(this)
+  
+      // Start monitoring immediately
+      CacheMonitorManager.start()`
+      );
+  
+      fs.writeFileSync(mainApplicationPath, content);
+      console.log('✅ CacheMonitorManager import and initialization added to MainApplication.kt');
+    } catch (error) {
+      console.error('Error modifying MainApplication.kt:', error);
+    }
+  };
+  
+
 // Main function to generate all files
 const generateAndroidFiles = () => {
   const androidDir = path.join(__dirname, '../android/app/src/main');
@@ -857,6 +1043,15 @@ const generateAndroidFiles = () => {
     fs.writeFileSync(file.path, file.content);
     console.log(`Generated: ${path.relative(androidDir, file.path)}`);
   });
+
+    // Modify build.gradle to add dependencies
+    modifyBuildGradle();
+  
+    // Modify AndroidManifest.xml to add widget receiver and permissions
+    modifyAndroidManifest();
+
+    //modify MainApplication.kt to add CacheMonitorManager.start()
+    modifyMainApplication();
 
   console.log('\\nNote: You may need to manually add the manifest additions to your AndroidManifest.xml file.');
   console.log('Look for the "<!-- Weather Widget -->" section in the generated output above.');

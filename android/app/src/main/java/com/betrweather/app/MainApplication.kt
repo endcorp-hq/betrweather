@@ -15,7 +15,7 @@ import com.facebook.soloader.SoLoader
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
-import com.betrweather.app.storage.CacheMonitorManager
+  import com.betrweather.app.storage.CacheMonitorManager
 
 class MainApplication : Application(), ReactApplication {
 
@@ -49,12 +49,12 @@ class MainApplication : Application(), ReactApplication {
       load()
     }
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
-
-    // Initialize CacheMonitor with Application context
-    CacheMonitorManager.initialize(this)
-
-    // Start monitoring immediately
-    CacheMonitorManager.start()
+  
+      // Initialize CacheMonitor with Application context
+      CacheMonitorManager.initialize(this)
+  
+      // Start monitoring immediately
+      CacheMonitorManager.start()
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {

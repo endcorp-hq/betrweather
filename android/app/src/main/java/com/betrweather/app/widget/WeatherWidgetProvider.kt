@@ -22,16 +22,12 @@ class WeatherWidgetProvider : AppWidgetProvider() {
     companion object {
         private const val TAG = "WeatherWidgetProvider"
         private const val ACTION_WIDGET_CLICK = "WIDGET_CLICK"
-        // Remove the cacheMonitor variable - we'll use the manager instead
     }
 
-    
-    
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         Log.d(TAG, "First widget added - starting background services")
 
-        // Start worker
         val weatherWorkRequest = PeriodicWorkRequestBuilder<com.betrweather.app.worker.WeatherUpdateWorker>(
             15, TimeUnit.MINUTES
         ).build()
@@ -42,7 +38,6 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             weatherWorkRequest
         )
 
-        // Start monitoring cache using the manager
         CacheMonitorManager.start()
         Log.d(TAG, "Weather update worker scheduled + cache monitor started")
     }
@@ -51,11 +46,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         super.onDisabled(context)
         Log.d(TAG, "Last widget removed - stopping background services")
 
-        // Cancel worker
         WorkManager.getInstance(context).cancelUniqueWork("weather_updates")
-
-        // Note: We DON'T stop the CacheMonitor here anymore
-        // It will keep running even when widgets are removed
         Log.d(TAG, "Weather update worker cancelled (CacheMonitor keeps running)")
     }
     
@@ -78,12 +69,10 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 
                 val views = RemoteViews(context.packageName, R.layout.weather_widget)
                 
-                // Update widget with real weather data
                 views.setTextViewText(R.id.temperature_text, weatherData.temperature)
                 views.setTextViewText(R.id.condition_text, weatherData.condition)
                 views.setTextViewText(R.id.refresh_counter_text, "Refresh counter: $updateCounter")
                 
-                // Set click intent to open the app
                 val intent = Intent(context, MainActivity::class.java)
                 intent.action = ACTION_WIDGET_CLICK
                 val pendingIntent = PendingIntent.getActivity(
@@ -103,7 +92,6 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.condition_text, "Tap to refresh")
                 views.setTextViewText(R.id.refresh_counter_text, "Refresh counter: $updateCounter")
                 
-                // Set click intent to open the app
                 val intent = Intent(context, MainActivity::class.java)
                 intent.action = ACTION_WIDGET_CLICK
                 val pendingIntent = PendingIntent.getActivity(
