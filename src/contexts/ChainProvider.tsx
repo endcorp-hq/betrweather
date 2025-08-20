@@ -82,7 +82,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       return null;
     }
     
-    const chainString = `https://${currentChain}.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
+    const chainString = `https://${currentChain}.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
     const rpcUrl = chainString;
     
     // Reuse existing connection if RPC endpoint is the same
