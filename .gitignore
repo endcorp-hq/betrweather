@@ -44,3 +44,4 @@ dapp-store-build
 dapp-store-signing-keys
 /android
 /ios
+*.apk

@@ -10,6 +10,9 @@ config.resolver.extraNodeModules.crypto = require.resolve('expo-crypto');
 config.resolver.extraNodeModules.stream = require.resolve('stream-browserify');
 config.resolver.extraNodeModules.path = require.resolve('path-browserify');
 config.resolver.extraNodeModules.url = require.resolve('react-native-url-polyfill');
-config.resolver.unstable_enablePackageExports = true;
+
+config.resolver.unstable_enablePackageExports = true; 
+config.resolver.platforms = ['ios', 'android', 'native', 'web'];
+config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 
 module.exports = withNativeWind(config, { input: './global.css' })
