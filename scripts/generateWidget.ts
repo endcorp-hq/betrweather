@@ -244,6 +244,23 @@ class WeatherCache(private val context: Context) {
             Log.e("WeatherCache", "Error sending widget refresh broadcast", e)
         }
     }
+
+    fun getLastUpdateTimeFormatted(): String {
+        return try {
+            val lastUpdate = getLastUpdateTime()
+            if (lastUpdate == 0L) {
+                "Never updated"
+            } else {
+                val date = java.util.Date(lastUpdate)
+                val formatter = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
+                formatter.timeZone = java.util.TimeZone.getDefault()
+                "Updated: \${formatter.format(date)}"
+            }
+        } catch (e: Exception) {
+            Log.e("WeatherCache", "Error formatting last update time", e)
+            "Update time error"
+        }
+    }
 }
 
 data class WeatherData(
@@ -320,16 +337,16 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         try {
             val weatherCache = WeatherCache(context)
             val weatherData = weatherCache.getWeather()
-            val updateCounter = weatherCache.getUpdateCounter()
+            val lastUpdateFormatted = weatherCache.getLastUpdateTimeFormatted()
             
             if (weatherData != null) {
-                Log.d(TAG, "This is the weather found: \${weatherData.temperature}, \${weatherData.condition}, Update #\$updateCounter")
+                Log.d(TAG, "This is the weather found: \${weatherData.temperature}, \${weatherData.condition}")
                 
                 val views = RemoteViews(context.packageName, R.layout.weather_widget)
                 
                 views.setTextViewText(R.id.temperature_text, weatherData.temperature)
                 views.setTextViewText(R.id.condition_text, weatherData.condition)
-                views.setTextViewText(R.id.refresh_counter_text, "Refresh counter: \$updateCounter")
+                views.setTextViewText(R.id.refresh_counter_text, lastUpdateFormatted)
                 
                 val intent = Intent(context, MainActivity::class.java)
                 intent.action = ACTION_WIDGET_CLICK
@@ -340,7 +357,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 views.setOnClickPendingIntent(R.id.widget_container, pendingIntent)
                 
                 appWidgetManager.updateAppWidget(appWidgetId, views)
-                Log.d(TAG, "Widget updated successfully with weather data, Update #\$updateCounter")
+                Log.d(TAG, "Widget updated successfully with weather data")
                 
             } else {
                 Log.d(TAG, "No weather data available for widget")
@@ -348,7 +365,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 val views = RemoteViews(context.packageName, R.layout.weather_widget)
                 views.setTextViewText(R.id.temperature_text, "No Data")
                 views.setTextViewText(R.id.condition_text, "Tap to refresh")
-                views.setTextViewText(R.id.refresh_counter_text, "Refresh counter: \$updateCounter")
+                views.setTextViewText(R.id.refresh_counter_text, lastUpdateFormatted)
                 
                 val intent = Intent(context, MainActivity::class.java)
                 intent.action = ACTION_WIDGET_CLICK

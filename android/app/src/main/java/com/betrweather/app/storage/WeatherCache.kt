@@ -171,6 +171,23 @@ class WeatherCache(private val context: Context) {
             Log.e("WeatherCache", "Error sending widget refresh broadcast", e)
         }
     }
+
+    fun getLastUpdateTimeFormatted(): String {
+        return try {
+            val lastUpdate = getLastUpdateTime()
+            if (lastUpdate == 0L) {
+                "Never updated"
+            } else {
+                val date = java.util.Date(lastUpdate)
+                val formatter = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
+                formatter.timeZone = java.util.TimeZone.getDefault()
+                "Updated: ${formatter.format(date)}"
+            }
+        } catch (e: Exception) {
+            Log.e("WeatherCache", "Error formatting last update time", e)
+            "Update time error"
+        }
+    }
 }
 
 data class WeatherData(
