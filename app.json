@@ -32,7 +32,11 @@
         "backgroundColor": "transparent",
         "barStyle": "light-content",
         "translucent": true
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/logo/betrCloud.png",
@@ -40,7 +44,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "c3a05e4f-e013-4e57-9631-3eb01b3044fb"
+        "projectId": "c74fa337-f626-4991-9c13-d122aa54cec9"
       }
     },
     "plugins": [
