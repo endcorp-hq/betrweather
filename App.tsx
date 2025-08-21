@@ -10,7 +10,7 @@ import {
 } from "@/contexts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppNavigator } from "./src/navigators/AppNavigator";
-import { ShortxProvider } from "@/hooks";
+import { ShortxProvider } from "./src/hooks/solana";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View } from "react-native";
 import { StatusBar } from "expo-status-bar";

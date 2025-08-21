@@ -1,8 +1,8 @@
 import { View, Text, TouchableOpacity, Image } from "react-native";
-import { useAuthorization } from "@/hooks";
+import { useAuthorization } from "../../hooks/solana/useAuthorization";
 import { DefaultBg } from "../ui";
 import { ConnectButton } from "./sign-in-ui";
-import { useChainToggle } from "@/hooks";
+import { useChainToggle } from "../../hooks/useChainToggle";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
 
 // Chain Toggle Component

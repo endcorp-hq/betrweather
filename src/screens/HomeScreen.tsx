@@ -22,7 +22,8 @@ import {
   CurrentConditions,
   DefaultBg,
 } from "@/components";
-import { useWeatherData, useLocation } from "@/hooks";
+import { useWeatherData } from "../hooks/useWeatherData";
+import { useLocation } from "../hooks/useLocation";
 import { getLocalTimeForTimezone, getBackgroundVideo } from "@/utils";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DailyDetailScreen } from "./DailyDetailScreen";

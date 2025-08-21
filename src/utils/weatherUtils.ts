@@ -1,5 +1,4 @@
-import { WXMV1HourlyData, WXMV1ForecastDay } from "../types/weather";
-import { WeatherType, getTimeOfDaySuffix } from "../hooks/useWeatherData";
+import { WXMV1HourlyData, WXMV1ForecastDay, WeatherType, getTimeOfDaySuffix } from "../types/weather";
 import {
   GoogleDailyForecastResponse,
   GoogleHourlyForecastResponse,

@@ -7,12 +7,8 @@ import {
   Text,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import {
-  useShortx,
-  useAuthorization,
-  useCreateAndSendTx,
-  useRealTimeMarkets,
-} from "@/hooks";
+import { useShortx, useAuthorization, useCreateAndSendTx } from "../hooks/solana";
+import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
 import React, {
   useEffect,
   useRef,
@@ -838,11 +834,11 @@ export default function SlotMachineScreen() {
             </View>
           )}
 
-          {error && !loadingMarket && (
+          {Boolean(error) && !loadingMarket && (
             <MaterialCard variant="filled" style={styles.errorCard}>
               <Text style={styles.errorTitle}>Error</Text>
               <Text style={styles.errorMessage}>
-                {extractErrorMessage(error)}
+                {extractErrorMessage(error as Error)}
               </Text>
             </MaterialCard>
           )}
