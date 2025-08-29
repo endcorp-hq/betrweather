@@ -941,8 +941,8 @@ const widgetLayout = `<?xml version="1.0" encoding="utf-8"?>
 
 const widgetInfo = `<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="140dp"
-    android:minHeight="70dp"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
     android:updatePeriodMillis="2100000"
     android:initialLayout="@layout/widget_layout"
     android:resizeMode="horizontal|vertical"
