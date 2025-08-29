@@ -13,6 +13,7 @@ import {
 } from "@/utils";
 import { burnPosition } from "src/utils/positionUtils";
 import { toWeb3JsTransaction } from '@metaplex-foundation/umi-web3js-adapters';
+import { useChain } from "@/contexts";
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
@@ -20,6 +21,7 @@ export function usePositions() {
   const { getMarketById, payoutPosition } = useShortx();
   const { toast } = useToast();
   const { createAndSendTx } = useCreateAndSendTx();
+  const { currentChain } = useChain();
 
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
@@ -224,7 +226,7 @@ export function usePositions() {
       }
 
       try {
-        const burnTx = await burnPosition(position, selectedAccount?.publicKey);
+        const burnTx = await burnPosition(position, selectedAccount?.publicKey, currentChain || "devnet");
 
         if (!burnTx) {
           toast.update(loadingToastId, {

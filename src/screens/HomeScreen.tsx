@@ -52,8 +52,14 @@ export function HomeScreen() {
   const backgroundImageHeight = screenHeight * 0.7;
 
   const { toast } = useToast();
-  const { latitude, longitude, detailedLocation, error: locationError, isLoading: locationLoading } = useLocation();
-  
+  const {
+    latitude,
+    longitude,
+    detailedLocation,
+    error: locationError,
+    isLoading: locationLoading,
+  } = useLocation();
+
   const { timeZoneId, loadingTimeZone } = useTimeZone(
     searchedLocation?.lat || latitude,
     searchedLocation?.lon || longitude,
@@ -137,24 +143,24 @@ export function HomeScreen() {
   };
 
   const currentData = {
-        hourlyForecastData: hourlyForecast,
-        dailyForecastData: dailyForecast,
-        weather: currentWeather,
-        isLoading: isLoading,
-        hasError: hasError,
-        errorMessage: errorMessage,
-        source: currentWeatherSource,
-        userH3Index: userH3Index,
-        description: currentWeather?.description,
-      };
+    hourlyForecastData: hourlyForecast,
+    dailyForecastData: dailyForecast,
+    weather: currentWeather,
+    isLoading: isLoading,
+    hasError: hasError,
+    errorMessage: errorMessage,
+    source: currentWeatherSource,
+    userH3Index: userH3Index,
+    description: currentWeather?.description,
+  };
 
   // load video source into created player
-  useEffect(() => {    
+  useEffect(() => {
     const updateBackgroundVideo = async () => {
-      try {        
+      try {
         // Only update background when we have final data AND station detection is complete
         if (!currentData.isLoading && !currentData.hasError && timeZoneId) {
-          const source = await getBackgroundVideoSource(timeZoneId || "");          
+          const source = await getBackgroundVideoSource(timeZoneId || "");
           setBackgroundVideoSource(source);
 
           if (player && source) {
@@ -227,7 +233,7 @@ export function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     if (refreshing) return; // Prevent multiple simultaneous refreshes
-    
+
     setRefreshing(true);
 
     try {
@@ -330,328 +336,343 @@ export function HomeScreen() {
     );
   }
 
-  // Main renderer
-  return selectedDayDetail ? (
-    <DailyDetailScreen
-      selectedDay={selectedDayDetail}
-      onBack={handleBackFromDetail}
-      source={currentData.source || ""}
-    />
-  ) : (
-    <View style={{ flex: 1, backgroundColor: "black" }}>
-      {/* Top controls - fixed position */}
-      <Animated.View
-        style={{
-          position: "absolute",
-          top: 50,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          opacity: isSearchActive ? 0 : 1,
-        }}
-      >
-        <View className="flex-row justify-between items-center p-4">
-          <WeatherSourceIndicator
-            source={currentData.source || ""}
-            distance={undefined}
-            cellId={currentData.userH3Index}
-            userLatitude={searchedLocation?.lat || latitude}
-            userLongitude={searchedLocation?.lon || longitude}
-            station={currentData.weather?.station || null}
-          />
-        </View>
-      </Animated.View>
-
-      <Animated.View
-        style={{
-          position: "absolute",
-          top: 66,
-          right: 16,
-          zIndex: 1001,
-          opacity: 1,
-        }}
-      >
-        <SearchButton
-          onLocationSelect={handleLocationSelect}
-          onSearchToggle={handleSearchToggle}
-        />
-      </Animated.View>
-
-      {/* Main scrollable content with background video */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={{ backgroundColor: "black" }}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="white"
-            colors={["white"]}
-            progressBackgroundColor="rgba(255, 255, 255, 0.1)"
-          />
-        }
-      >
-        {/* Background video section */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.95 }}
-          animate={{
-            opacity: showAnimations ? 1 : 0,
-            scale: showAnimations ? 1 : 0.95,
-          }}
-          transition={{ type: "timing", duration: 300, delay: 0 }}
-          style={{ height: backgroundImageHeight, position: "relative" }}
-        >
-          {/* Only show video when search is not active and we have a source */}
-          {!isSearchActive && player && backgroundVideoSource && (
-            <>
-              <VideoView
-                key={`${searchedLocation?.name || "current"}-${
-                  currentData.weather?.icon
-                }`}
-                player={player}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  width: "100%",
-                  height: backgroundImageHeight,
-                }}
-                contentFit="cover"
-                allowsFullscreen={false}
-                allowsPictureInPicture={false}
-                nativeControls={false}
-              />
-
-              {/* Light tint overlay for better content visibility */}
-              <View
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: "rgba(0, 0, 0, 0.3)",
-                  zIndex: 1,
-                }}
-              />
-
-              {/* Blur Gradient Overlay */}
-              <LinearGradient
-                colors={["transparent", "rgba(0,0,0,1)"]}
-                locations={[0, 1]}
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: backgroundImageHeight * 0.4,
-                  zIndex: 2,
-                }}
-              />
-            </>
-          )}
-        </MotiView>
-
-        {/* Main weather display over the video */}
+  // Show main content when we have location data
+  if (latitude && longitude) {
+    return selectedDayDetail ? (
+      <DailyDetailScreen
+        onBack={handleBackFromDetail}
+        selectedDay={selectedDayDetail}
+        source={currentData.source || ""}
+      />
+    ) : (
+      <View style={{ flex: 1, backgroundColor: "black" }}>
+        {/* Top controls - fixed position */}
         <Animated.View
           style={{
             position: "absolute",
-            top: 0,
+            top: 50,
             left: 0,
             right: 0,
-            height: backgroundImageHeight,
+            zIndex: 1000,
             opacity: isSearchActive ? 0 : 1,
-            justifyContent: "center",
-            paddingHorizontal: 16,
-            paddingTop: 80,
-            zIndex: 3,
           }}
         >
-          {/* Back Button - Only show when location is searched */}
-          {searchedLocation && (
-            <MotiView
-              from={{ opacity: 0, translateY: -20 }}
-              animate={{
-                opacity: showAnimations ? 1 : 0,
-                translateY: showAnimations ? 0 : -20,
-              }}
-              transition={{ type: "timing", duration: 600, delay: 200 }}
-              style={{
-                width: 80,
-                flexDirection: "row",
-                justifyContent: "center",
-                alignItems: "center",
-                marginBottom: 0,
-                marginTop: 40,
-              }}
-            >
-              <TouchableOpacity
-                onPress={() => {
-                  setSearchedLocation(null);
-                }}
-                style={{
-                  backgroundColor: "rgba(255, 255, 255, 0.2)",
-                  borderRadius: 20,
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.3)",
-                }}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name="arrow-left"
-                  size={16}
-                  color="white"
-                />
-                <Text
-                  style={{
-                    color: "white",
-                    fontSize: 14,
-                    fontFamily: "Poppins-Medium",
-                    marginLeft: 6,
-                  }}
-                >
-                  Back
-                </Text>
-              </TouchableOpacity>
-            </MotiView>
-          )}
-
-          <MotiView
-            from={{ opacity: 0, translateY: 30 }}
-            animate={{
-              opacity: showAnimations ? 1 : 0,
-              translateY: showAnimations ? 0 : 30,
-            }}
-            transition={{ type: "timing", duration: 800, delay: 300 }}
-          >
-            <MainWeatherDisplay
-              city={
-                searchedLocation?.name ||
-                detailedLocation?.[0]?.subregion ||
-                "Your City"
-              }
-              temp={currentData.weather?.temp?.toString() || ""}
-              description={currentData.weather?.description || ""}
-              high={currentData.weather?.high?.toString() || ""}
-              low={currentData.weather?.low?.toString() || ""}
-              feelsLike={currentData.weather?.feelsLike?.toString() || ""}
+          <View className="flex-row justify-between items-center p-4">
+            <WeatherSourceIndicator
               source={currentData.source || ""}
-              weatherIcon={currentData.weather?.icon}
-              currentTimeZoneId={timeZoneId || ""}
+              distance={undefined}
+              cellId={currentData.userH3Index}
+              userLatitude={searchedLocation?.lat || latitude}
+              userLongitude={searchedLocation?.lon || longitude}
+              station={currentData.weather?.station || null}
             />
-          </MotiView>
+          </View>
         </Animated.View>
 
-        {/* Forecast content with black background */}
-        <View style={{ backgroundColor: "black", padding: 16 }}>
-          {/* Hourly Forecast */}
-          <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
-            <MotiView
-              from={{ opacity: 0, translateY: 40 }}
-              animate={{
-                opacity: showAnimations ? 1 : 0,
-                translateY: showAnimations ? 0 : 40,
-              }}
-              transition={{ type: "timing", duration: 700, delay: 500 }}
-            >
-              <GlassyCard style={{ marginBottom: 16 }}>
-                <Text className="text-white text-xl font-better-semi-bold my-2">
-                  Hourly Forecast
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingHorizontal: 8 }}
-                >
-                  {currentData.hourlyForecastData?.map(
-                    (h: any, idx: number) => (
-                      <HourlyForecastItem
-                        key={idx}
-                        time={h.time}
-                        temperature={
-                          Math.round(
-                            h.temperature?.degrees || h.temperature || 0
-                          ).toString() || "--"
-                        }
-                        description={h.description}
-                        icon={h.icon}
-                        iconUri={h.iconUri}
-                      />
-                    )
-                  )}
-                </ScrollView>
-              </GlassyCard>
-            </MotiView>
-          </Animated.View>
+        <Animated.View
+          style={{
+            position: "absolute",
+            top: 66,
+            right: 16,
+            zIndex: 1001,
+            opacity: 1,
+          }}
+        >
+          <SearchButton
+            onLocationSelect={handleLocationSelect}
+            onSearchToggle={handleSearchToggle}
+          />
+        </Animated.View>
 
-          {/* Daily Forecast */}
-          <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
-            <MotiView
-              from={{ opacity: 0, translateY: 40 }}
-              animate={{
-                opacity: showAnimations ? 1 : 0,
-                translateY: showAnimations ? 0 : 40,
-              }}
-              transition={{ type: "timing", duration: 700, delay: 700 }}
-            >
-              <GlassyCard style={{ marginBottom: 16 }}>
-                <Text className="text-white text-xl font-better-semi-bold my-2">
-                  {currentData.source?.includes("wxm")
-                    ? "7 Day Forecast"
-                    : "10 Day Forecast"}
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingHorizontal: 4 }}
-                >
-                  {currentData.dailyForecastData?.map((d: any, idx: number) => (
-                    <DailyForecastItem
-                      key={idx}
-                      day={d.day}
-                      highTemp={d.highTemp}
-                      lowTemp={d.lowTemp}
-                      iconUri={d.iconUri}
-                      icon={d.icon}
-                      rawData={currentData?.dailyForecastData?.[idx]}
-                      onPress={handleDailyForecastPress}
-                    />
-                  ))}
-                </ScrollView>
-              </GlassyCard>
-            </MotiView>
-          </Animated.View>
+        {/* Main scrollable content with background video */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={{ backgroundColor: "black" }}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="white"
+              colors={["white"]}
+              progressBackgroundColor="rgba(255, 255, 255, 0.1)"
+            />
+          }
+        >
+          {/* Background video section */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.95 }}
+            animate={{
+              opacity: showAnimations ? 1 : 0,
+              scale: showAnimations ? 1 : 0.95,
+            }}
+            transition={{ type: "timing", duration: 300, delay: 0 }}
+            style={{ height: backgroundImageHeight, position: "relative" }}
+          >
+            {/* Only show video when search is not active and we have a source */}
+            {!isSearchActive && player && backgroundVideoSource && (
+              <>
+                <VideoView
+                  key={`${searchedLocation?.name || "current"}-${
+                    currentData.weather?.icon
+                  }`}
+                  player={player}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    width: "100%",
+                    height: backgroundImageHeight,
+                  }}
+                  contentFit="cover"
+                  allowsFullscreen={false}
+                  allowsPictureInPicture={false}
+                  nativeControls={false}
+                />
 
-          {/* Current Conditions */}
-          <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
+                {/* Light tint overlay for better content visibility */}
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0, 0, 0, 0.3)",
+                    zIndex: 1,
+                  }}
+                />
+
+                {/* Blur Gradient Overlay */}
+                <LinearGradient
+                  colors={["transparent", "rgba(0,0,0,1)"]}
+                  locations={[0, 1]}
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: backgroundImageHeight * 0.4,
+                    zIndex: 2,
+                  }}
+                />
+              </>
+            )}
+          </MotiView>
+
+          {/* Main weather display over the video */}
+          <Animated.View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: backgroundImageHeight,
+              opacity: isSearchActive ? 0 : 1,
+              justifyContent: "center",
+              paddingHorizontal: 16,
+              paddingTop: 80,
+              zIndex: 3,
+            }}
+          >
+            {/* Back Button - Only show when location is searched */}
+            {searchedLocation && (
+              <MotiView
+                from={{ opacity: 0, translateY: -20 }}
+                animate={{
+                  opacity: showAnimations ? 1 : 0,
+                  translateY: showAnimations ? 0 : -20,
+                }}
+                transition={{ type: "timing", duration: 600, delay: 200 }}
+                style={{
+                  width: 80,
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginBottom: 0,
+                  marginTop: 40,
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() => {
+                    setSearchedLocation(null);
+                  }}
+                  style={{
+                    backgroundColor: "rgba(255, 255, 255, 0.2)",
+                    borderRadius: 20,
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.3)",
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-left"
+                    size={16}
+                    color="white"
+                  />
+                  <Text
+                    style={{
+                      color: "white",
+                      fontSize: 14,
+                      fontFamily: "Poppins-Medium",
+                      marginLeft: 6,
+                    }}
+                  >
+                    Back
+                  </Text>
+                </TouchableOpacity>
+              </MotiView>
+            )}
+
             <MotiView
-              from={{ opacity: 0, translateY: 40 }}
+              from={{ opacity: 0, translateY: 30 }}
               animate={{
                 opacity: showAnimations ? 1 : 0,
-                translateY: showAnimations ? 0 : 40,
+                translateY: showAnimations ? 0 : 30,
               }}
-              transition={{ type: "timing", duration: 700, delay: 900 }}
+              transition={{ type: "timing", duration: 800, delay: 300 }}
             >
-              <CurrentConditions
-                windSpeed={currentData.weather?.windSpeed?.toString() || ""}
-                windDesc={currentData.weather?.windDirection?.toString() || ""}
-                humidity={currentData.weather?.humidity?.toString() || ""}
-                dewPoint={currentData.weather?.dewPoint?.toString() || ""}
-                uv={currentData.weather?.uvIndex?.toString() || ""}
-                pressure={currentData.weather?.pressure?.toString() || ""}
-                precipitationRate={currentData.weather?.precipitationRate?.toString() || ""}
+              <MainWeatherDisplay
+                city={
+                  searchedLocation?.name ||
+                  detailedLocation?.[0]?.subregion ||
+                  "Your City"
+                }
+                temp={currentData.weather?.temp?.toString() || ""}
+                description={currentData.weather?.description || ""}
+                high={currentData.weather?.high?.toString() || ""}
+                low={currentData.weather?.low?.toString() || ""}
+                feelsLike={currentData.weather?.feelsLike?.toString() || ""}
+                source={currentData.source || ""}
+                weatherIcon={currentData.weather?.icon}
+                currentTimeZoneId={timeZoneId || ""}
               />
             </MotiView>
           </Animated.View>
-        </View>
-      </ScrollView>
+
+          {/* Forecast content with black background */}
+          <View style={{ backgroundColor: "black", padding: 16 }}>
+            {/* Hourly Forecast */}
+            <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
+              <MotiView
+                from={{ opacity: 0, translateY: 40 }}
+                animate={{
+                  opacity: showAnimations ? 1 : 0,
+                  translateY: showAnimations ? 0 : 40,
+                }}
+                transition={{ type: "timing", duration: 700, delay: 500 }}
+              >
+                <GlassyCard style={{ marginBottom: 16 }}>
+                  <Text className="text-white text-xl font-better-semi-bold my-2">
+                    Hourly Forecast
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 8 }}
+                  >
+                    {currentData.hourlyForecastData?.map(
+                      (h: any, idx: number) => (
+                        <HourlyForecastItem
+                          key={idx}
+                          time={h.time}
+                          temperature={
+                            Math.round(
+                              h.temperature?.degrees || h.temperature || 0
+                            ).toString() || "--"
+                          }
+                          description={h.description}
+                          icon={h.icon}
+                          iconUri={h.iconUri}
+                        />
+                      )
+                    )}
+                  </ScrollView>
+                </GlassyCard>
+              </MotiView>
+            </Animated.View>
+
+            {/* Daily Forecast */}
+            <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
+              <MotiView
+                from={{ opacity: 0, translateY: 40 }}
+                animate={{
+                  opacity: showAnimations ? 1 : 0,
+                  translateY: showAnimations ? 0 : 40,
+                }}
+                transition={{ type: "timing", duration: 700, delay: 700 }}
+              >
+                <GlassyCard style={{ marginBottom: 16 }}>
+                  <Text className="text-white text-xl font-better-semi-bold my-2">
+                    {currentData.source?.includes("wxm")
+                      ? "7 Day Forecast"
+                      : "10 Day Forecast"}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 4 }}
+                  >
+                    {currentData.dailyForecastData?.map(
+                      (d: any, idx: number) => (
+                        <DailyForecastItem
+                          key={idx}
+                          day={d.day}
+                          highTemp={d.highTemp}
+                          lowTemp={d.lowTemp}
+                          iconUri={d.iconUri}
+                          icon={d.icon}
+                          rawData={currentData?.dailyForecastData?.[idx]}
+                          onPress={handleDailyForecastPress}
+                        />
+                      )
+                    )}
+                  </ScrollView>
+                </GlassyCard>
+              </MotiView>
+            </Animated.View>
+
+            {/* Current Conditions */}
+            <Animated.View style={{ opacity: isSearchActive ? 0 : 1 }}>
+              <MotiView
+                from={{ opacity: 0, translateY: 40 }}
+                animate={{
+                  opacity: showAnimations ? 1 : 0,
+                  translateY: showAnimations ? 0 : 40,
+                }}
+                transition={{ type: "timing", duration: 700, delay: 900 }}
+              >
+                <CurrentConditions
+                  windSpeed={currentData.weather?.windSpeed?.toString() || ""}
+                  windDesc={
+                    currentData.weather?.windDirection?.toString() || ""
+                  }
+                  humidity={currentData.weather?.humidity?.toString() || ""}
+                  dewPoint={currentData.weather?.dewPoint?.toString() || ""}
+                  uv={currentData.weather?.uvIndex?.toString() || ""}
+                  pressure={currentData.weather?.pressure?.toString() || ""}
+                  precipitationRate={
+                    currentData.weather?.precipitationRate?.toString() || ""
+                  }
+                />
+              </MotiView>
+            </Animated.View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // Fallback loading state
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <Text style={{ color: "#FFFFFF", fontSize: 16 }}>Loading...</Text>
     </View>
   );
 }

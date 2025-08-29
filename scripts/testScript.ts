@@ -1008,3 +1008,9 @@ console.log("🎉 Widget code generated!");
 console.log(
   "📱 The widget will update every 15 minutes with the last update time"
 );
+console.log(
+  "🔧 Make sure to rebuild your Android app after running this script"
+);
+console.log(
+  "⚠️  If you get compilation errors, check that all imports were added correctly"
+);

@@ -13,7 +13,7 @@ export const ConnectionProvider: FC<ConnectionProviderProps> = ({
   const { connection } = useChain(); // Use connection from ChainProvider
 
   return (
-    <ConnectionContext.Provider value={{ connection }}>
+    <ConnectionContext.Provider value={{ connection: connection! }}>
       {children}
     </ConnectionContext.Provider>
   );

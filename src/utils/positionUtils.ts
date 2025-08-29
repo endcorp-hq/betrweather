@@ -178,11 +178,13 @@ export const calculateExpectedPayout = (position: PositionWithMarket) => {
   return Math.max(expectedPayout, userBetAmount);
 };
 
-export const burnPosition = async (position: PositionWithMarket, signerKey: PublicKey) => {
+export const burnPosition = async (position: PositionWithMarket, signerKey: PublicKey, currentChain: string) => {
   try {
  
     const signer = createNoopSigner(signerKey as any)
-    const umi = createUmi(process.env.EXPO_PUBLIC_SOLANA_RPC_URL!);
+    const chainString = `https://${currentChain}.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
+    const rpcUrl = chainString;
+    const umi = createUmi(rpcUrl);
     umi.use(signerIdentity(signer))
     const assetId = publicKey(position.assetId);
     const asset = await fetchAsset(umi, assetId);

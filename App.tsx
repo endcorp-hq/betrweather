@@ -31,7 +31,6 @@ export default function App() {
           <ShortxProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <SafeAreaProvider>
-    
                   <TimezoneProvider>
                     <AppNavigator />
                   </TimezoneProvider>
