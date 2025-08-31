@@ -37,9 +37,8 @@
         "translucent": true
       },
       "permissions": [
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_BACKGROUND_LOCATION"
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.INTERNET"
       ],
       "runtimeVersion": "1.0.0"
     },

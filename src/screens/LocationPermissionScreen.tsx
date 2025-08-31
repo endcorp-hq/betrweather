@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useLocation } from '../hooks/useLocation';
+import { LogoLoader } from '@/components';
 
 export const LocationPermissionScreen = () => {
   const navigation = useNavigation();
@@ -11,7 +12,8 @@ export const LocationPermissionScreen = () => {
     hasForegroundPermission,
     hasBackgroundPermission,
     requestAllPermissions,
-    openLocationSettings
+    openLocationSettings,
+    isLoading
   } = useLocation();
 
   const handleRequestPermissions = async () => {
@@ -36,12 +38,16 @@ export const LocationPermissionScreen = () => {
 
   // Check if we already have permissions and navigate automatically
   useEffect(() => {
-    if (hasForegroundPermission && hasBackgroundPermission) {
+    if (hasForegroundPermission && hasBackgroundPermission && !isLoading) {
       navigation.navigate('HomeStack' as never);
     }
   }, [hasForegroundPermission, hasBackgroundPermission, navigation]);
 
-  return (
+  return isLoading ? (
+    <View className="flex-1 bg-black justify-center items-center p-5">
+      <LogoLoader message="verifying location"/>
+    </View>
+  ) : (
     <View className="flex-1 bg-black justify-center items-center p-5">
       <View className="max-w-sm w-full items-center">
         <Text className="text-2xl font-better-bold text-white text-center mb-5">
@@ -53,14 +59,15 @@ export const LocationPermissionScreen = () => {
         </Text>
 
         <View className="mb-8 items-center">
-          <Text className="text-lg font-better-semibold text-white mb-4">
+          <Text className="text-lg font-better-regular text-white mb-4">
             We need:
           </Text>
-          <Text className="text-sm text-gray-300 font-better-regular mb-2">
+          <Text className="text-sm text-gray-300 font-better-semi-bold mb-2">
             • Location access while using the app
           </Text>
-          <Text className="text-sm text-gray-300 font-better-regular mb-2">
+          <Text className="text-sm text-gray-300 font-better-semi-bold mb-2">
             • Background location access for the weather widget
+              Set to - <Text className="font-better-bold">Allow all the time</Text>
           </Text>
         </View>
 
@@ -69,22 +76,14 @@ export const LocationPermissionScreen = () => {
           onPress={handleRequestPermissions}
           disabled={isRequesting}
         >
-          <Text className="text-white text-lg font-better-semi-bold">
+          <Text className="text-white text-lg font-better-regular">
             {isRequesting ? 'Requesting...' : 'Grant Location Access'}
           </Text>
         </TouchableOpacity>
 
-        {/* <TouchableOpacity
-          className="bg-transparent py-3 px-6 rounded-lg border border-gray-600 items-center mb-5 w-full"
-          onPress={handleOpenSettings}
-        >
-          <Text className="text-white text-base">
-            Open Device Settings
-          </Text>
-        </TouchableOpacity> */}
-
         <Text className="text-xs text-gray-500 text-center italic">
           You can change these permissions anytime in your device settings.
+          Background location access is needed for the weather widget to update periodically.
         </Text>
       </View>
     </View>

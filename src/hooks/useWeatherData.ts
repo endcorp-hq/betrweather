@@ -11,7 +11,6 @@ import {
   parseDailyForecastData,
   parseHourlyForecastData,
 } from "src/utils/weatherUtils";
-import { WeatherType, isDayTime, getTimeOfDaySuffix } from "../types/weather";
 
 export function useWeatherData(
   latitude: number,

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import * as Location from "expo-location";
 import { Platform, Alert, Linking } from "react-native";
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 export const useLocation = () => {
   const [error, setError] = useState<string | null>(null);
@@ -104,11 +106,12 @@ export const useLocation = () => {
 
   const getLocation = async () => {
     try {
-      let coords = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 10000,
-        distanceInterval: 100
+      let coords = await Location.getLastKnownPositionAsync({
       });
+
+      if(!coords) {
+        throw new Error("No location found");
+      }
       
       setLatitude(coords.coords.latitude);
       setLongitude(coords.coords.longitude);

@@ -109,7 +109,7 @@ export const getWeatherXMIcon = (weatherType?: WeatherType): string => {
     case "windy_night":
       return "💨";
     case "partly_cloudy_night":
-      return "🌤️";
+      return "🌥️";
 
     default:
       return "☀️"; // Default fallback
@@ -275,8 +275,9 @@ export const parseCurrentWeatherData = (
     let result = {
       temp: Math.round(data.weather?.observation.temperature || 0).toString() + "°",
       description: data.weather?.observation.icon
-        ?.replace(/-day|-night/g, "")
-        .replace("extreme", "sunny"),
+        ?.replace(/extreme-day/g, "sunny")
+        .replace(/extreme-night/g, "cloudy")
+        .replace(/-day|-night/g, ""),
       icon: getWeatherXMIcon(
         mapWXMV1IconToWeatherType(
           data.weather?.observation.icon ?? "",

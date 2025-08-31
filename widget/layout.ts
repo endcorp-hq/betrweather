@@ -1,0 +1,117 @@
+//this is the layout file for the widget.
+
+export const widgetLayout = `<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="4dp"
+    android:background="@android:color/transparent"
+    android:gravity="start">
+
+    <!-- Left Side: Weather Information -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="start"
+        android:padding="4dp">
+
+        <TextView
+            android:id="@+id/current_date_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Today"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:shadowColor="#7F000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="2"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/weather_temp_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="25°C"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:shadowColor="#7F000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="2"
+            android:fontFamily="sans-serif-regular"
+            android:layout_marginTop="2dp" />
+
+         <!-- description of the weather. Convert to icons when image views are figured out -->
+        <TextView
+            android:id="@+id/weather_description_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sunny"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:shadowColor="#7F000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="2"
+            android:fontFamily="sans-serif-regular"
+            android:layout_marginTop="2dp" />
+
+        <!-- Last updated text (get rid in prod) -->
+        <TextView
+            android:id="@+id/last_update_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Last Updated: Never"
+            android:textColor="#ffffff"
+            android:textSize="12sp"
+            android:shadowColor="#7F000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="2"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginTop="4dp" />
+
+    </LinearLayout>
+
+    <!-- Right Side: Error Display (only show when there's an error) -->
+    <LinearLayout
+        android:id="@+id/error_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="end"
+        android:padding="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/error_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Error message here"
+            android:textColor="#FF6B6B"
+            android:textSize="8sp"
+            android:shadowColor="#7F000000"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="2"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="end"
+            android:maxLines="2"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+</LinearLayout>`;
+
+export const widgetInfo = `<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="60dp"
+    android:updatePeriodMillis="2100000"
+    android:initialLayout="@layout/widget_layout"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />`; // some phones have a category
