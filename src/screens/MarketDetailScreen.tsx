@@ -568,10 +568,13 @@ function SwipeableBetCard({
           {/* Close Arrow */}
           <TouchableOpacity
             onPress={() => {
-              setIsExpanded(false);
-              if (scrollViewRef.current) {
-                scrollViewRef.current.scrollTo({ y: 0, animated: true });
-              }
+              // Use requestAnimationFrame to prevent frame drops during heavy operations
+              requestAnimationFrame(() => {
+                setIsExpanded(false);
+                if (scrollViewRef.current) {
+                  scrollViewRef.current.scrollTo({ y: 0, animated: true });
+                }
+              });
             }}
             style={styles.closeButton}
             activeOpacity={0.7}

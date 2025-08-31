@@ -1,1 +1,1 @@
-export { SwipeablePositionCard } from './SwipeablePositionCard'; 
+export { SwipeablePositionCard } from './SwipeablePositionCard';
