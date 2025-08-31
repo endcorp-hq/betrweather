@@ -179,11 +179,6 @@ import { useAuthorization } from "./useAuthorization";
           if(!currentChain || !connection) {
             throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing chain or RPC URL");
           }
-
-          console.log("connection", connection.rpcEndpoint);
-
-          // const testConnection = new Connection(process.env.EXPO_PUBLIC_SOLANA_RPC_URL || "", { commitment: "confirmed" });
-          
   
           if (
             !process.env.EXPO_PUBLIC_ADMIN_KEY ||

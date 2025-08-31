@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { checkWhitelistNFTs } from "../../utils/checkNft";
 import { useToast } from "@/contexts";
+// import { useWidgetCache } from '@/hooks';
 
 const DEVNET_CHAIN: Chain = "solana:devnet";
 
@@ -122,6 +123,8 @@ export function useAuthorization() {
     },
   });
 
+  // const { saveWalletAddress, removeWalletAddress } = useWidgetCache();
+
   const handleAuthorizationResult = useCallback(
     async (
       authorizationResult: AuthorizationResult,
@@ -153,7 +156,8 @@ export function useAuthorization() {
               timestamp: Date.now(),
             },
           };
-          await setAuthorization(nextAuthWithSession);
+          setAuthorization(nextAuthWithSession);
+          // await saveWalletAddress(nextAuthorization.selectedAccount.publicKey.toBase58(), "mainnet");
           toast.success("Login Successful.");
           return nextAuthWithSession;
         }
@@ -171,6 +175,7 @@ export function useAuthorization() {
       
       // in case of devnet or mainnet conditions satisfies, set the authorization in async storage
       await setAuthorization(devnetAuthSession);
+      // await saveWalletAddress(nextAuthorization.selectedAccount.publicKey.toBase58(), "devnet");
       return devnetAuthSession;
     },
     [authorization, setAuthorization] // Fix: add setAuthorization to dependencies
@@ -215,8 +220,9 @@ export function useAuthorization() {
       }
       await wallet.deauthorize({ auth_token: authorization.authToken });
       await setAuthorization(null);
+      // await removeWalletAddress();
     },
-    [authorization, setAuthorization] // Fix: add setAuthorization to dependencies
+    [authorization, setAuthorization]
   );
 
   return useMemo(

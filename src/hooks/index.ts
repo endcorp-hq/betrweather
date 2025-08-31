@@ -11,4 +11,7 @@ export { useRealTimeMarkets } from './useRealTimeMarkets';
 export * from './solana'
 export { useChainToggle } from './useChainToggle';
 
+// Widget Cache Hook (not used currently)
+export { useWidgetCache } from './useWidgetCache';
+
 // Note: usePositions is exported separately to avoid circular dependencies
