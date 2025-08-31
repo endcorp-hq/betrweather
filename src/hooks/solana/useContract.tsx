@@ -215,7 +215,7 @@ import { useAuthorization } from "./useAuthorization";
         }
         if (client) {
           const m = await client.trade.getMarketsByAuthority(authority);
-          console.log("markets", m);
+          // console.log("markets", m);
           setMarkets(m || []);
         }
       } catch (err: unknown) {
@@ -292,18 +292,18 @@ import { useAuthorization } from "./useAuthorization";
             nextPositionId: latestEvent.nextPositionId.toString(),
           };
           
-          console.log(`Updated market ${latestEvent.marketId} with real-time data:`, {
-            volume: latestEvent.volume,
-            yesLiquidity: latestEvent.yesLiquidity,
-            noLiquidity: latestEvent.noLiquidity,
-            winningDirection: latestEvent.winningDirection,
-            originalWinningDirection: existingMarket.winningDirection
-          });
+          // console.log(`Updated market ${latestEvent.marketId} with real-time data:`, {
+          //   volume: latestEvent.volume,
+          //   yesLiquidity: latestEvent.yesLiquidity,
+          //   noLiquidity: latestEvent.noLiquidity,
+          //   winningDirection: latestEvent.winningDirection,
+          //   originalWinningDirection: existingMarket.winningDirection
+          // });
           
           return updatedMarkets;
         } else {
           // This is a new market, fetch it from the blockchain
-          console.log(`New market detected: ${latestEvent.marketId}, fetching details...`);
+          // console.log(`New market detected: ${latestEvent.marketId}, fetching details...`);
           
           // Fetch the new market and add it to the list
           const fetchNewMarket = async () => {
@@ -315,10 +315,10 @@ import { useAuthorization } from "./useAuthorization";
                     // Check if market already exists to prevent duplicates
                     const marketExists = prev.some(market => market.marketId === latestEvent.marketId.toString());
                     if (marketExists) {
-                      console.log(`Market ${latestEvent.marketId} already exists in list, skipping...`);
+                      // console.log(`Market ${latestEvent.marketId} already exists in list, skipping...`);
                       return prev;
                     }
-                    console.log(`Added new market ${latestEvent.marketId} to the list`);
+                    // console.log(`Added new market ${latestEvent.marketId} to the list`);
                     return [newMarket, ...prev];
                   });
                 }
@@ -344,7 +344,7 @@ import { useAuthorization } from "./useAuthorization";
             "positionEvent",
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (event: any) => {
-              console.log("positionEvent received:", event);
+              // console.log("positionEvent received:", event);
               setRecentTrades((prev) => [
                 {
                   positionId: event.positionId.toNumber(),
@@ -367,18 +367,18 @@ import { useAuthorization } from "./useAuthorization";
             "marketEvent",
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (event: any) => {
-              console.log("=== MARKET EVENT RECEIVED ===");
-              console.log("Raw event:", event);
-              console.log("Event type:", typeof event);
-              console.log("Event keys:", Object.keys(event));
-              console.log("Market ID:", event.marketId?.toNumber());
-              console.log("Volume:", event.volume?.toNumber());
-              console.log("State:", event.marketState?.toString());
-              console.log("================================");
+              // console.log("=== MARKET EVENT RECEIVED ===");
+              // console.log("Raw event:", event);
+              // console.log("Event type:", typeof event);
+              // console.log("Event keys:", Object.keys(event));
+              // console.log("Market ID:", event.marketId?.toNumber());
+              // console.log("Volume:", event.volume?.toNumber());
+              // console.log("State:", event.marketState?.toString());
+              // console.log("================================");
               
               setMarketEvents((prev) => {
                 // Temporarily remove duplicate checking to debug
-                console.log(`Processing market event for market ${event.marketId.toNumber()} with volume ${event.volume.toNumber()}`);
+                // console.log(`Processing market event for market ${event.marketId.toNumber()} with volume ${event.volume.toNumber()}`);
                 
                 // Convert winningDirection from object format to enum
                 let winningDirection: WinningDirection;
@@ -398,7 +398,7 @@ import { useAuthorization } from "./useAuthorization";
                   winningDirection = event.winningDirection as WinningDirection;
                 }
                 
-                console.log(`Adding market event for market ${event.marketId.toNumber()} with volume ${event.volume.toNumber()}`);
+                // console.log(`Adding market event for market ${event.marketId.toNumber()} with volume ${event.volume.toNumber()}`);
                 
                 return [
                   {
