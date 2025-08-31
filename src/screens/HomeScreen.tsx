@@ -25,6 +25,7 @@ import {
 import { useWeatherData } from "../hooks/useWeatherData";
 import { useLocation } from "../hooks/useLocation";
 import { getLocalTimeForTimezone, getBackgroundVideo } from "@/utils";
+import theme from "../theme";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DailyDetailScreen } from "./DailyDetailScreen";
 import { useFocusEffect } from "@react-navigation/native";
@@ -393,8 +394,8 @@ export function HomeScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="white"
-              colors={["white"]}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary, theme.colors.secondary, theme.colors.tertiary]}
               progressBackgroundColor="rgba(255, 255, 255, 0.1)"
             />
           }
