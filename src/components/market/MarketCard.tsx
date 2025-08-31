@@ -167,13 +167,16 @@ export function MarketCard({ market, index = 0, animatedValue }: {
   const handlePress = useCallback(() => {
     if (isNavigating) return; // Prevent multiple presses
     
-    setIsNavigating(true);
-    navigation.navigate("MarketDetail", { id: market.marketId });
-    
-    // Reset navigation state after a short delay
-    setTimeout(() => {
-      setIsNavigating(false);
-    }, 1000);
+    // Use requestAnimationFrame to prevent frame drops during navigation
+    requestAnimationFrame(() => {
+      setIsNavigating(true);
+      navigation.navigate("MarketDetail", { id: market.marketId });
+      
+      // Reset navigation state after a short delay
+      setTimeout(() => {
+        setIsNavigating(false);
+      }, 1000);
+    });
   }, [navigation, market.marketId, isNavigating]);
 
   return (
