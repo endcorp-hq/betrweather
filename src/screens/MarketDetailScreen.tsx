@@ -617,6 +617,7 @@ export default function SlotMachineScreen() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [error, setError] = useState<unknown>(null);
+  const [isFetchingMarket, setIsFetchingMarket] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Memoize real-time market lookup
@@ -625,8 +626,16 @@ export default function SlotMachineScreen() {
     [realTimeMarkets, id]
   );
 
-  // Determine if we're still loading
-  const isLoading = loadingMarkets || !selectedMarket;
+  // Immediately set the market if it's available from real-time data
+  useEffect(() => {
+    if (realTimeMarket && !selectedMarket) {
+      setSelectedMarket(realTimeMarket);
+    }
+  }, [realTimeMarket, selectedMarket]);
+
+  // Optimized loading logic: only show loading if we don't have the market data
+  // and we're not in the middle of fetching markets
+  const isLoading = !selectedMarket && (loadingMarkets || isFetchingMarket);
 
   useEffect(() => {
     async function fetchMarket() {
@@ -635,6 +644,16 @@ export default function SlotMachineScreen() {
         setSelectedMarket(realTimeMarket);
         return;
       }
+
+      // Check if we have the market in our cached list
+      const cachedMarket = realTimeMarkets.find(market => market.marketId === id);
+      if (cachedMarket) {
+        setSelectedMarket(cachedMarket);
+        return;
+      }
+
+      // Only show loading state if we don't have the market anywhere
+      setIsFetchingMarket(true);
 
       // Fallback to fetching from blockchain
       try {
@@ -651,13 +670,15 @@ export default function SlotMachineScreen() {
         );
         setError(error as unknown);
         setSelectedMarket(null);
+      } finally {
+        setIsFetchingMarket(false);
       }
     }
 
     if (id) {
       fetchMarket();
     }
-  }, [id, realTimeMarket, getMarketById]);
+  }, [id, realTimeMarket, getMarketById, realTimeMarkets]);
 
   useEffect(() => {
     const token = getMarketToken(selectedMarket?.mint || "");
@@ -828,7 +849,7 @@ export default function SlotMachineScreen() {
             </Text>
           </TouchableOpacity>
 
-          {isLoading && (
+          {isLoading && !selectedMarket && (
             <View className="flex-1 items-center justify-center h-full mt-20">
               <LogoLoader message="Loading market" />
             </View>
