@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { View } from 'react-native';
 import { CustomToast, ToastConfig, ToastType, ToastPosition } from './CustomToast';
+import { setToastHandler } from '../../utils/toastUtils';
 
 interface ToastContextType {
   toast: {
@@ -28,6 +29,22 @@ interface ToastItem extends ToastConfig {
 
 export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const [toasts, setToasts] = useState<Map<string, ToastItem>>(new Map());
+
+  // Register the toast handler with the standalone utility
+  useEffect(() => {
+    setToastHandler({
+      success: (title: string, message?: string, options?: Partial<ToastConfig>) =>
+        showToast({ type: 'success', title, message, ...options }),
+      error: (title: string, message?: string, options?: Partial<ToastConfig>) =>
+        showToast({ type: 'error', title, message, ...options }),
+      warning: (title: string, message?: string, options?: Partial<ToastConfig>) =>
+        showToast({ type: 'warning', title, message, ...options }),
+      info: (title: string, message?: string, options?: Partial<ToastConfig>) =>
+        showToast({ type: 'info', title, message, ...options }),
+      loading: (title: string, message?: string, options?: Partial<ToastConfig>) =>
+        showToast({ type: 'loading', title, message, duration: 0, ...options }),
+    });
+  }, []);
 
   const generateId = () => `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 

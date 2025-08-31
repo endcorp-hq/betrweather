@@ -14,7 +14,7 @@ import { toUint8Array } from "js-base64";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { checkWhitelistNFTs } from "../../utils/checkNft";
-import { useToast } from "@/contexts";
+import { toast } from "../../utils/toastUtils";
 // import { useWidgetCache } from '@/hooks';
 
 const DEVNET_CHAIN: Chain = "solana:devnet";
@@ -111,7 +111,6 @@ export const APP_IDENTITY = {
 
 export function useAuthorization() {
   const queryClient = useQueryClient();
-  const {toast} = useToast();
   const { data: authorization, isLoading } = useQuery({
     queryKey: ["wallet-authorization"],
     queryFn: () => fetchAuthorization(),
