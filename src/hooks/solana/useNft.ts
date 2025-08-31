@@ -36,15 +36,26 @@ export interface NftMetadata {
 
 export function useNftMetadata() {
   const { selectedAccount } = useAuthorization();
-  const {currentChain} = useChain()
+  const { currentChain } = useChain();
   const [loading, setLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const fetchNftMetadata = async (
-    marketId?: string
+    marketId?: string,
+    retryAttempt = 0
   ): Promise<NftMetadata[] | null> => {
-    if (!selectedAccount?.publicKey) return null;
+    if (!selectedAccount?.publicKey) {
+      // console.log("useNftMetadata: No selected account");
+      return null;
+    }
+    
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds between retries
     
     setLoading(true);
+    setLastError(null);
+    
     try {
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001'}/nft/fetch-valid-positions`,
@@ -63,14 +74,49 @@ export function useNftMetadata() {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`useNftMetadata: HTTP ${response.status} error:`, errorText);
+        
+        // Handle specific error cases
+        if (response.status === 400) {
+          const errorMessage = `Backend validation error (400): ${errorText}`;
+          console.warn(`useNftMetadata: ${errorMessage}`);
+          
+          // If this is a retry attempt and we haven't exceeded max retries
+          if (retryAttempt < maxRetries) {
+            // console.log(`useNftMetadata: Retrying in ${retryDelay}ms... (attempt ${retryAttempt + 1}/${maxRetries})`);
+            setRetryCount(retryAttempt + 1);
+            
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            
+            // Recursive retry
+            return fetchNftMetadata(marketId, retryAttempt + 1);
+          } else {
+            // Max retries exceeded
+            const finalError = `Max retries (${maxRetries}) exceeded. Last error: ${errorMessage}`;
+            console.error(`useNftMetadata: ${finalError}`);
+            setLastError(finalError);
+            setRetryCount(0); // Reset retry count
+            return null;
+          }
+        } else {
+          // Non-400 errors
+          const errorMessage = `HTTP error! status: ${response.status}, message: ${errorText}`;
+          console.error(`useNftMetadata: ${errorMessage}`);
+          setLastError(errorMessage);
+          setRetryCount(0);
+          return null;
+        }
       }
 
+      // Success case
       const result = await response.json();
+      // console.log(`useNftMetadata: Success response:`, result);
       
       // Handle the actual response format with 'data' array
       if (result.success && result.data && Array.isArray(result.data)) {
-        return result.data.map((position: any) => ({
+        const metadata = result.data.map((position: any) => ({
           assetId: position.assetId,
           positionId: position.positionId,
           positionNonce: position.positionNonce,
@@ -79,16 +125,49 @@ export function useNftMetadata() {
           marketId: position.marketId,
           market: position.market, // Include the full market data
         }));
+        
+        // console.log(`useNftMetadata: Processed ${metadata.length} positions`);
+        setRetryCount(0); // Reset retry count on success
+        return metadata;
+      } else {
+        console.warn(`useNftMetadata: Unexpected response format:`, result);
+        setLastError(`Unexpected response format from backend`);
+        setRetryCount(0);
+        return null;
       }
       
-      return null;
     } catch (error) {
-      console.error("Error fetching NFT metadata from backend:", error);
-      return null;
+      console.error("useNftMetadata: Network or other error:", error);
+      
+      // Handle network errors with retry logic
+      if (retryAttempt < maxRetries) {
+        // console.log(`useNftMetadata: Network error, retrying in ${retryDelay}ms... (attempt ${retryAttempt + 1}/${maxRetries})`);
+        setRetryCount(retryAttempt + 1);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        
+        // Recursive retry
+        return fetchNftMetadata(marketId, retryAttempt + 1);
+      } else {
+        // Max retries exceeded
+        const finalError = `Max retries (${maxRetries}) exceeded. Last error: ${error instanceof Error ? error.message : String(error)}`;
+        console.error(`useNftMetadata: ${finalError}`);
+        setLastError(finalError);
+        setRetryCount(0);
+        return null;
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  return { fetchNftMetadata, loading };
+  return { 
+    fetchNftMetadata, 
+    loading, 
+    retryCount, 
+    lastError,
+    // Helper function to reset error state
+    clearError: () => setLastError(null)
+  };
 }
