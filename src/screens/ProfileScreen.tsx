@@ -1,9 +1,11 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
+  RefreshControl,
+  TouchableOpacity,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { DefaultBg, LogoLoader, SwipeablePositionCard } from "@/components";
@@ -17,44 +19,59 @@ import { calculatePayout } from "@/utils";
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
-  const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout, handleBurnPosition } = usePositions();
+  const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout, handleBurnPosition, lastError, retryCount } = usePositions();
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasAttemptedInitialLoad, setHasAttemptedInitialLoad] = useState(false);
+  
+  // Reset the flag when account changes
+  React.useEffect(() => {
+    setHasAttemptedInitialLoad(false);
+  }, [selectedAccount?.publicKey?.toString()]);
 
   // Refresh data when screen comes into focus (e.g., after returning from Phantom)
   useFocusEffect(
     useCallback(() => {
-      if (selectedAccount) {
+      if (selectedAccount && positions.length === 0 && !hasAttemptedInitialLoad) {
+        // Only trigger refresh if we don't have positions loaded yet and haven't attempted before
+        setHasAttemptedInitialLoad(true);
+        // Use background refresh to avoid loading UI
         refreshPositions();
       }
-    }, [selectedAccount, refreshPositions])
+    }, [selectedAccount, refreshPositions, positions.length, hasAttemptedInitialLoad])
   );
 
-  useEffect(() => {
-    // Only fetch data if wallet is connected
-    if (selectedAccount) {
-      refreshPositions();
-    }
-  }, [selectedAccount, refreshPositions]);
+
 
   const handleCardPress = useCallback((marketId: number) => {
     navigation.navigate("MarketDetail", { id: marketId.toString() });
   }, [navigation]);
 
-  // Show loading state while fetching data
-  if (loading || loadingMarkets) {
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Use regular refresh for pull-to-refresh
+      await refreshPositions();
+      // Reset the flag after a successful manual refresh
+      setHasAttemptedInitialLoad(false);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshPositions]);
+
+  // Show loading state only for initial load, not for background refreshes
+  if (loading && positions.length === 0 && !hasAttemptedInitialLoad) {
     return (
       <DefaultBg>
         <View style={styles.loadingContainer}>
           <LogoLoader
-            message={
-              loading ? "Loading your positions" : "Loading market details"
-            }
+            message="Loading your positions"
           />
         </View>
       </DefaultBg>
     );
   }
 
-  if (!loading && !loadingMarkets && positions.length === 0) {
+  if (positions.length === 0) {
     return (
       <DefaultBg>
         <View style={styles.loadingContainer}>
@@ -64,6 +81,10 @@ export default function ProfileScreen() {
           <Text style={styles.subtitle} className="px-4 text-center">
             Start betting on markets to see your positions here
           </Text>
+          {hasAttemptedInitialLoad && (
+            <Text style={styles.subtitle} className="px-4 text-center mt-2 text-gray-400">
+            </Text>
+          )}
         </View>
       </DefaultBg>
     );
@@ -183,12 +204,74 @@ export default function ProfileScreen() {
           </MotiView>
         </View>
 
+        {/* Info Section */}
+        <View style={styles.infoSection}>
+          <Text style={styles.infoText}>
+            New bets may take 1 - 2 minutes to display
+          </Text>
+        </View>
+
+        {/* Error Section */}
+        {lastError && (
+          <View style={styles.errorSection}>
+            <MaterialCommunityIcons
+              name="alert-circle"
+              size={20}
+              color="#ef4444"
+            />
+            <View style={styles.errorContent}>
+              <Text style={styles.errorTitle}>Loading Error</Text>
+              <Text style={styles.errorMessage}>
+                {lastError.includes("400") 
+                  ? "New bets may still be processing on the blockchain"
+                  : "Failed to load positions. Please try again."}
+              </Text>
+              {retryCount > 0 && (
+                <Text style={styles.retryInfo}>
+                  Retry {retryCount}/3 completed
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              onPress={handleRefresh}
+              disabled={refreshing || loadingMarkets}
+              style={[
+                styles.retryButton,
+                (refreshing || loadingMarkets) && styles.retryButtonDisabled
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="refresh"
+                size={16}
+                color={refreshing || loadingMarkets ? "#9ca3af" : "#ffffff"}
+              />
+              <Text style={[
+                styles.retryButtonText,
+                (refreshing || loadingMarkets) && styles.retryButtonTextDisabled
+              ]}>
+                Retry
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+
+        
         {/* Positions Section with Moti animations */}
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="rgba(255, 255, 255, 0.8)"
+              colors={["rgba(255, 255, 255, 0.8)"]}
+            />
+          }
         >
+          {/* Show confirmed positions */}
           {positions.length === 0 ? (
             <MotiView
               from={{
@@ -273,6 +356,90 @@ const styles = StyleSheet.create({
   subtitle: {
     color: theme.colors.onSurfaceVariant,
     fontSize: 16,
+    fontFamily: "Poppins-Regular",
+  },
+  infoSection: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  infoText: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  errorSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  errorContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  errorTitle: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
+    marginBottom: 4,
+  },
+  errorMessage: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 12,
+    fontFamily: 'Poppins-Regular',
+    lineHeight: 16,
+  },
+  retryInfo: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontFamily: 'Poppins-Medium',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ef4444',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#ef4444',
+  },
+  retryButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    borderColor: '#9ca3af',
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
+    marginLeft: 6,
+  },
+  retryButtonTextDisabled: {
+    color: '#6b7280',
+  },
+
+  sectionTitle: {
+    color: theme.colors.onSurface,
+    fontSize: 18,
+    fontWeight: "600",
+    fontFamily: "Poppins-SemiBold",
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 14,
     fontFamily: "Poppins-Regular",
   },
   statsContainer: {
