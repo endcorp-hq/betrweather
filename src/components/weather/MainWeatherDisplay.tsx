@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Image } from "react-native";
-import { RefractiveBgCard } from "../ui/RefractiveBgCard";
+import { DarkCard } from "../ui/DarkCard";
 import {
   getWeatherXMIcon,
   mapWXMV1IconToWeatherType,
@@ -76,7 +76,7 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
       className="items-center justify-center"
       style={{ minHeight: 300, marginTop: 20 }}
     >
-      <RefractiveBgCard
+      <DarkCard
         style={{
           width: 320,
           height: 340,
@@ -165,7 +165,7 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
             )}
           </View>
         </View>
-      </RefractiveBgCard>
+      </DarkCard>
     </View>
   );
 };

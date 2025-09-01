@@ -18,7 +18,7 @@ import React, {
 } from "react";
 import {
   formatMarketDuration,
-  RefractiveBgCard,
+  DarkCard,
   DynamicTextInput,
   LogoLoader,
   MaterialCard,
@@ -273,7 +273,7 @@ function SwipeableBetCard({
           />
         )}
 
-        <RefractiveBgCard style={{ flex: 1, minHeight: 420 }} borderRadius={20}>
+        <DarkCard style={{ flex: 1, minHeight: 420 }} borderRadius={20}>
           <View style={styles.swipeCardInner}>
             {/* Status Badge */}
             <View style={styles.statusBadge}>
@@ -439,7 +439,7 @@ function SwipeableBetCard({
               </View>
             </View>
           </View>
-        </RefractiveBgCard>
+        </DarkCard>
       </Animated.View>
 
       {/* Expand/Collapse Arrow - Outside animated container */}

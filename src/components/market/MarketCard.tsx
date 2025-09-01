@@ -3,7 +3,7 @@ import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Market, MarketType, WinningDirection } from "@endcorp/depredict";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { RefractiveBgCard } from "../ui";
+import { DarkCard } from "../ui";
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
   if (!endTimestamp) return "market ended";
@@ -208,7 +208,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
         }}
         disabled={isNavigating}
       >
-        <RefractiveBgCard style={styles.card} borderRadius={16}>
+        <DarkCard style={styles.card} borderRadius={16}>
           {/* Header with status badge */}
           <View style={styles.headerRow}>
             <View style={styles.statusBadge}>
@@ -330,7 +330,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
               return null;
             })()}
           </View>
-        </RefractiveBgCard>
+        </DarkCard>
       </Pressable>
     </Animated.View>
   );

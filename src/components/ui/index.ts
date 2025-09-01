@@ -1,7 +1,7 @@
 // UI Components
 export { default as GlassyCard } from './GlassyCard';
 export { default as MaterialCard } from './MaterialCard';
-export { RefractiveBgCard } from './RefractiveBgCard';
+export { DarkCard } from './DarkCard';
 export { CustomTabBar } from './CustomTabBar';
 export { AppModal } from './app-modal';
 export { DynamicTextInput } from './dynamicTextInput';

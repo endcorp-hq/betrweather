@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
-import {RefractiveBgCard} from '../ui/RefractiveBgCard';
+import {DarkCard} from '../ui/DarkCard';
 
 interface DailyForecastItemProps {
   day: string;
@@ -84,7 +84,7 @@ export function DailyForecastItem({
       onPress={() => onPress?.(rawData)}
       activeOpacity={0.8}
     >
-    <RefractiveBgCard
+    <DarkCard
       style={{
         width: 86,
         height: 208,
@@ -129,7 +129,7 @@ export function DailyForecastItem({
       <Text className="text-gray-300 text-base font-better-light text-center">
         {lowTemp}
       </Text>
-    </RefractiveBgCard>
+    </DarkCard>
     </TouchableOpacity>
   );
 } 
