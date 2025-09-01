@@ -13,7 +13,7 @@ import {
 import { toUint8Array } from "js-base64";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
-import { useCheckWhitelistNFTs } from "../../utils/checkNft";
+import { checkWhitelistNFTs } from "../../utils/checkNft";
 import { toast } from "../../utils/toastUtils";
 // import { useWidgetCache } from '@/hooks';
 
@@ -111,7 +111,6 @@ export const APP_IDENTITY = {
 
 export function useAuthorization() {
   const queryClient = useQueryClient();
-  const { checkWhitelistNFTs } = useCheckWhitelistNFTs();
   const { data: authorization, isLoading } = useQuery({
     queryKey: ["wallet-authorization"],
     queryFn: () => fetchAuthorization(),
@@ -137,7 +136,8 @@ export function useAuthorization() {
       
       if (chainIdentifier?.includes("mainnet")) {
         const authResult = await checkWhitelistNFTs(
-          nextAuthorization.selectedAccount.publicKey.toBase58()
+          nextAuthorization.selectedAccount.publicKey.toBase58(),
+          true // isMainnet = true
         );
 
         if (!authResult.authorized) {
@@ -178,7 +178,7 @@ export function useAuthorization() {
       // await saveWalletAddress(nextAuthorization.selectedAccount.publicKey.toBase58(), "devnet");
       return devnetAuthSession;
     },
-    [authorization, setAuthorization, checkWhitelistNFTs]
+    [authorization, setAuthorization]
   );
 
   const authorizeSession = useCallback(

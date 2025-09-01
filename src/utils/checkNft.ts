@@ -9,13 +9,12 @@ export type AuthResult = {
   tier: "seeker" | "superteam" | "none";
 };
 
+// Seeker Genesis Token addresses from official documentation
+const SGT_METADATA_AUTHORITY = 'GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4';
+const SGT_METADATA_ADDRESS = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te';
+
 // Our Whitelist NFTs
 const whitelistNFTs = [
-  {
-    mint: "2DMMamkkxQ6zDMBtkFp8KH7FoWzBMBA1CGTYwom4QH6Z",
-    type: "SPL-Token",
-    name: "Seeker Phone",
-  },
   {
     mint: "Str4rEwcTfvMRUsnF1mUEE5EMgaiBwpc5zw1axC9Ktk",
     type: "MPL-Core",
@@ -28,38 +27,106 @@ const whitelistNFTs = [
   },
 ];
 
-async function checkSeekerPhoneNFT(
-  walletAddress: string,
-  seekerPhoneMint: string
+async function checkGenesisSeekerNFT(
+  connection: Connection,
+  walletAddress: string
 ) {
-
   try {
-    console.log(`Checking for Seeker Phone NFT...`);
-    const response = await connection.getTokenAccountsByOwner(
-      new PublicKey(walletAddress),
-      {
-        mint: new PublicKey(seekerPhoneMint),
-      }
-    );
-
-    if (response.value.length > 0) {
-      console.log(`Seeker Phone NFT found`);
-      return true;
-    } else {
-      console.log(`Seeker Phone NFT not found`);
+    console.log(`\n🔍 Checking for Seeker Genesis Token using official verification method`);
+    console.log(`📋 Metadata Authority: ${SGT_METADATA_AUTHORITY}`);
+    console.log(`📋 Metadata Address: ${SGT_METADATA_ADDRESS}`);
+    
+    // Test the connection first
+    try {
+      console.log(`🔗 Testing connection...`);
+      const slot = await connection.getSlot();
+      console.log(`✅ Connection successful, current slot: ${slot}`);
+    } catch (connError) {
+      console.error(`❌ Connection test failed:`, connError);
       return false;
     }
+    
+    console.log(`🔍 Using searchAssets API to find Seeker Genesis Token...`);
+    
+    // Use the searchAssets API as per official documentation
+    let page = 1;
+    let totalAssetsChecked = 0;
+    
+    while (true) {
+      console.log(`📄 Checking page ${page}...`);
+      
+      const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'my-id',
+          method: 'searchAssets',
+          params: {
+            ownerAddress: walletAddress,
+            tokenType: 'all',
+            limit: 1000,
+            page: page
+          }
+        })
+      });
+
+      const data = await response.json();
+      const assets = data.result?.items || [];
+      
+      console.log(`📊 Found ${assets.length} assets on page ${page}`);
+      
+      if (assets.length === 0) {
+        console.log(`📄 No more assets found, stopping search`);
+        break;
+      }
+      
+      totalAssetsChecked += assets.length;
+      
+      for (const asset of assets) {
+        console.log(`🔍 Checking asset: ${asset.id}`);
+        
+        // Check for metadata pointer extension as per official docs
+        const metadataPointer = asset.mint_extensions?.metadata_pointer;
+        
+        if (metadataPointer) {
+          console.log(`📋 Found metadata pointer:`);
+          console.log(`   Authority: ${metadataPointer.authority}`);
+          console.log(`   Metadata Address: ${metadataPointer.metadata_address}`);
+          
+          if (metadataPointer.authority === SGT_METADATA_AUTHORITY &&
+              metadataPointer.metadata_address === SGT_METADATA_ADDRESS) {
+            console.log(`✅ SEEDER GENESIS TOKEN FOUND!`);
+            console.log(`   Asset ID: ${asset.id}`);
+            console.log(`   Mint: ${asset.mint}`);
+            return true;
+          }
+        }
+      }
+      
+      page++;
+    }
+    
+    console.log(`\n❌ No Seeker Genesis Token found in wallet.`);
+    console.log(`\n💡 Debugging info:`);
+    console.log(`- Total assets checked: ${totalAssetsChecked}`);
+    console.log(`- Pages searched: ${page - 1}`);
+    console.log(`- Expected metadata authority: ${SGT_METADATA_AUTHORITY}`);
+    console.log(`- Expected metadata address: ${SGT_METADATA_ADDRESS}`);
+    
+    return false;
   } catch (error) {
-    console.error("Error checking Seeker Phone NFT:", error);
+    console.error("❌ Error checking Seeker Genesis Token:", error);
     return false;
   }
 }
 
 async function checkSuperteamNFT(
+  connection: Connection,
   walletAddress: string,
   collectionAddress: string
 ) {
-  const umi = createUmi(RPC_ADDRESS);
+  const umi = createUmi(connection.rpcEndpoint);
 
   umi.use(dasApi());
 
@@ -79,42 +146,71 @@ async function checkSuperteamNFT(
   }
 }
 
-// Main function to check whitelist
+// Function to check whitelist NFTs for mainnet
 export async function checkWhitelistNFTs(
-  walletAddress: string
+  walletAddress: string,
+  isMainnet: boolean = false
 ): Promise<AuthResult> {
-  const seekerAuth = await checkSeekerPhoneNFT(
-    walletAddress,
-    whitelistNFTs[0].mint
+  console.log(`\n🔍 Starting NFT whitelist check for wallet: ${walletAddress}`);
+  console.log(`🌐 Network: ${isMainnet ? 'mainnet' : 'devnet'}`);
+  
+  // Only perform NFT checks on mainnet
+  if (!isMainnet) {
+    console.log(`⏭️  NFT check skipped - not on mainnet`);
+    return {
+      authorized: false,
+      tier: "none",
+    };
+  }
+
+  console.log(`🔗 Creating mainnet connection...`);
+  // Create connection for mainnet
+  const mainnetRpcUrl = `https://mainnet.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
+  console.log(`🔗 RPC URL: ${mainnetRpcUrl.replace(process.env.EXPO_PUBLIC_HELIUS_API_KEY || '', '[API_KEY_HIDDEN]')}`);
+  console.log(`🔑 API Key configured: ${process.env.EXPO_PUBLIC_HELIUS_API_KEY ? 'Yes' : 'No'}`);
+  
+  const connection = new Connection(mainnetRpcUrl);
+
+  console.log(`🔍 Checking for Genesis Seeker NFT...`);
+  const seekerAuth = await checkGenesisSeekerNFT(
+    connection,
+    walletAddress
   );
 
   if (seekerAuth) {
+    console.log(`✅ Genesis Seeker NFT found - user authorized as seeker`);
     return {
       authorized: true,
       tier: "seeker",
     };
   } else {
-    console.log("Seeker Phone NFT not found, checking for Superteam NFT");
+    console.log(`❌ Genesis Seeker NFT not found, checking for Superteam NFT...`);
     const superteamAuth = await checkSuperteamNFT(
+      connection,
       walletAddress,
-      whitelistNFTs[1].mint
+      whitelistNFTs[0].mint
     );
     if (superteamAuth) {
+      console.log(`✅ Superteam NFT found - user authorized as superteam`);
       return {
         authorized: true,
         tier: "superteam",
       };
     } else {
+      console.log(`❌ Superteam NFT not found, checking for Superteam India NFT...`);
       const superteamIndiaAuth = await checkSuperteamNFT(
+        connection,
         walletAddress,
-        whitelistNFTs[2].mint
+        whitelistNFTs[1].mint
       );
       if (superteamIndiaAuth) {
+        console.log(`✅ Superteam India NFT found - user authorized as superteam`);
         return {
           authorized: true,
           tier: "superteam",
         };
       }
+      console.log(`❌ No whitelisted NFTs found - user not authorized`);
       return {
         authorized: false,
         tier: "none",
