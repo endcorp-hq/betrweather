@@ -181,8 +181,7 @@ import { useAuthorization } from "./useAuthorization";
           }
   
           if (
-            !process.env.EXPO_PUBLIC_ADMIN_KEY ||
-            !process.env.EXPO_PUBLIC_USDC_MINT
+            !process.env.EXPO_PUBLIC_ADMIN_KEY
           ) {
            
             throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing environment variables");
