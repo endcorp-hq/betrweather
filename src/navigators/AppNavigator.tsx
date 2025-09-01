@@ -49,18 +49,18 @@ const GuardedDetailScreen = () => {
   );
 };
 
-// Remove RouteGuard and just return the Stack.Navigator directly
+// Start with weather page by default, show permission screen only when needed
 const AppStack = () => {
   return (
-    <Stack.Navigator initialRouteName={"LocationPermission"}>
-      <Stack.Screen
-        name="LocationPermission"
-        component={LocationPermissionScreen}
-        options={{ headerShown: false }}
-      />
+    <Stack.Navigator initialRouteName="HomeStack">
       <Stack.Screen
         name="HomeStack"
         component={HomeNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="LocationPermission"
+        component={LocationPermissionScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

@@ -28,7 +28,7 @@ import { getLocalTimeForTimezone, getBackgroundVideo } from "@/utils";
 import theme from "../theme";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DailyDetailScreen } from "./DailyDetailScreen";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useToast, useTimeZone } from "@/contexts";
 
 interface SearchedLocation {
@@ -40,6 +40,7 @@ interface SearchedLocation {
 }
 
 export function HomeScreen() {
+  const navigation = useNavigation();
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchedLocation, setSearchedLocation] =
     useState<SearchedLocation | null>(null);
@@ -59,6 +60,11 @@ export function HomeScreen() {
     detailedLocation,
     error: locationError,
     isLoading: locationLoading,
+    hasForegroundPermission,
+    hasBackgroundPermission,
+    hasCheckedPermissions,
+    refreshLocation,
+    forceRefreshPermissions,
   } = useLocation();
 
   const { timeZoneId, loadingTimeZone } = useTimeZone(
@@ -72,6 +78,25 @@ export function HomeScreen() {
     player.loop = true;
     player.muted = true;
   });
+
+    // Check location permissions and navigate to permission screen if needed
+  useEffect(() => {
+    if (!locationLoading && !hasForegroundPermission) {
+      // Only require foreground permission for basic app usage
+      // Background permission is optional for widgets
+      navigation.navigate('LocationPermission' as never);
+    }
+  }, [hasForegroundPermission, locationLoading, navigation]);
+
+  // Check location permissions on app launch and navigate to permission screen if needed
+  useEffect(() => {
+    // Only check permissions once when the app launches and permissions have been checked
+    if (hasCheckedPermissions && !locationLoading && !hasForegroundPermission) {
+      // Only require foreground permission for basic app usage
+      // Background permission is optional for widgets
+      navigation.navigate('LocationPermission' as never);
+    }
+  }, [hasCheckedPermissions, hasForegroundPermission, locationLoading, navigation]);
 
   // pause/play video for performance
   useFocusEffect(
@@ -92,10 +117,10 @@ export function HomeScreen() {
             player.pause();
           } catch (error) {
             console.log("Error pausing video:", error);
-          }
         }
-      };
-    }, [player, backgroundVideoSource])
+      }
+    };
+  }, [player, backgroundVideoSource])
   );
 
   // Stabilize the parameters
@@ -238,33 +263,39 @@ export function HomeScreen() {
     setRefreshing(true);
 
     try {
-      setRefreshCounter((prev) => prev + 1);
+      // If we don't have location data, try to refresh permissions and location
+      if (!latitude || !longitude) {
+        await forceRefreshPermissions();
+      } else {
+        // Normal weather data refresh
+        setRefreshCounter((prev) => prev + 1);
 
-      // Wait for the data fetch
-      const waitForData = () => {
-        return new Promise<void>((resolve) => {
-          const checkLoading = () => {
-            if (!currentData.isLoading && !currentData.hasError) {
-              resolve();
-            } else {
-              setTimeout(checkLoading, 100);
-            }
-          };
-          checkLoading();
-        });
-      };
+        // Wait for the data fetch
+        const waitForData = () => {
+          return new Promise<void>((resolve) => {
+            const checkLoading = () => {
+              if (!currentData.isLoading && !currentData.hasError) {
+                resolve();
+              } else {
+                setTimeout(checkLoading, 100);
+              }
+            };
+            checkLoading();
+          });
+        };
 
-      await Promise.race([
-        waitForData(),
-        new Promise((resolve) => setTimeout(resolve, 10000)), // max 10 second timeout
-      ]);
+        await Promise.race([
+          waitForData(),
+          new Promise((resolve) => setTimeout(resolve, 10000)), // max 10 second timeout
+        ]);
+      }
     } catch (error) {
       console.error("Error during refresh:", error);
       toast.error("Could not refresh weather data");
     } finally {
       setRefreshing(false);
     }
-  }, [refreshing, currentData.isLoading, currentData.hasError]);
+  }, [refreshing, currentData.isLoading, currentData.hasError, latitude, longitude, forceRefreshPermissions]);
 
   //loading renderer
   if (currentData.isLoading || locationLoading || loadingTimeZone) {
@@ -332,6 +363,141 @@ export function HomeScreen() {
               🌤️ Weather services are experiencing temporary issues
             </Text>
           </View>
+        </View>
+      </DefaultBg>
+    );
+  }
+
+  // Show refreshable interface when permissions checked but no location data
+  if (hasCheckedPermissions && !locationLoading && !latitude && !longitude && !hasForegroundPermission) {
+    return (
+      <DefaultBg>
+        <View style={{ flex: 1, backgroundColor: "black" }}>
+          {/* Top controls - fixed position */}
+          <Animated.View
+            style={{
+              position: "absolute",
+              top: 50,
+              left: 0,
+              right: 0,
+              zIndex: 1000,
+              opacity: isSearchActive ? 0 : 1,
+            }}
+          >
+            <View className="flex-row justify-between items-center p-4">
+              <WeatherSourceIndicator
+                source=""
+                distance={undefined}
+                cellId=""
+                userLatitude={0}
+                userLongitude={0}
+                station={null}
+              />
+            </View>
+          </Animated.View>
+
+          <Animated.View
+            style={{
+              position: "absolute",
+              top: 66,
+              right: 16,
+              zIndex: 1001,
+              opacity: 1,
+            }}
+          >
+            <SearchButton
+              onLocationSelect={handleLocationSelect}
+              onSearchToggle={handleSearchToggle}
+            />
+          </Animated.View>
+
+          {/* Main scrollable content with refresh control */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={{ backgroundColor: "black" }}
+            contentContainerStyle={{ paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={theme.colors.primary}
+                colors={[theme.colors.primary, theme.colors.secondary, theme.colors.tertiary]}
+                progressBackgroundColor="rgba(255, 255, 255, 0.1)"
+              />
+            }
+          >
+            {/* Content area with refresh message */}
+            <View style={{ height: backgroundImageHeight, justifyContent: 'center', alignItems: 'center' }}>
+              <Text className="text-white text-xl font-better-bold text-center mb-4">
+                Location Access Required
+              </Text>
+              <Text className="text-gray-300 text-base font-better-regular text-center mb-6 leading-6">
+                Pull down to refresh and check location permissions
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </DefaultBg>
+    );
+  }
+
+  // Show checking permissions state while polling
+  if (hasCheckedPermissions && !hasForegroundPermission) {
+    return (
+      <DefaultBg>
+        <View style={{ flex: 1, backgroundColor: "black" }}>
+          {/* Top controls - fixed position */}
+          <Animated.View
+            style={{
+              position: "absolute",
+              top: 50,
+              left: 0,
+              right: 0,
+              zIndex: 1000,
+              opacity: isSearchActive ? 0 : 1,
+            }}
+          >
+            <View className="flex-row justify-between items-center p-4">
+              <WeatherSourceIndicator
+                source=""
+                distance={undefined}
+                cellId=""
+                userLatitude={0}
+                userLongitude={0}
+                station={null}
+              />
+            </View>
+          </Animated.View>
+
+          <Animated.View
+            style={{
+              position: "absolute",
+              top: 66,
+              right: 16,
+              zIndex: 1001,
+              opacity: 1,
+            }}
+          >
+            <SearchButton
+              onLocationSelect={handleLocationSelect}
+              onSearchToggle={handleSearchToggle}
+            />
+          </Animated.View>
+
+          {/* Main scrollable content */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={{ backgroundColor: "black" }}
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
+            {/* Content area with checking permissions message */}
+            <View style={{ height: backgroundImageHeight, justifyContent: 'center', alignItems: 'center' }}>
+              <LogoLoader message="checking location permissions" />
+              <Text className="text-gray-300 text-base font-better-regular text-center mt-4 leading-6">
+                Please grant location access in the permission dialog
+              </Text>
+            </View>
+          </ScrollView>
         </View>
       </DefaultBg>
     );
