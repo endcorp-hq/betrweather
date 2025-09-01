@@ -11,6 +11,7 @@ export const LocationPermissionScreen = () => {
     hasForegroundPermission,
     hasBackgroundPermission,
     requestAllPermissions,
+    isLoading,
   } = useLocation();
 
   const handleRequestPermissions = async () => {
