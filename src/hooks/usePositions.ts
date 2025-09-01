@@ -14,6 +14,7 @@ import {
 } from "@/utils";
 import { burnPosition } from "src/utils/positionUtils";
 import { toWeb3JsTransaction } from "@metaplex-foundation/umi-web3js-adapters";
+import { getMarketToken } from "src/utils/marketUtils";
 
 import { useChain } from "@/contexts";
 
@@ -113,7 +114,7 @@ export function usePositions() {
         success: operation === 'claim' ? 'Payout Claimed!' : 'Position Burned!',
         successMessage: (amount: number) => 
           operation === 'claim' 
-            ? `Successfully claimed ${amount.toFixed(4)} SOL!`
+            ? `Successfully claimed ${amount.toFixed(4)} ${getMarketToken(position.market.mint)}!`
             : 'Position successfully burned!',
         error: operation === 'claim' ? 'Failed to claim payout' : 'Failed to burn position'
       };
