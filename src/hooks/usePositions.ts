@@ -152,7 +152,7 @@ export function usePositions() {
 
         // Show immediate feedback that transaction is being processed
         toast.update(loadingToastId, {
-          type: "success",
+          type: "loading",
           title: "Processing...",
           message: labels.processingTx,
           duration: 2000,
@@ -167,14 +167,6 @@ export function usePositions() {
             signature = await createAndSendTx([], true, tx);
 
             if (signature) {
-              // Update toast to show transaction sent
-              toast.update(loadingToastId, {
-                type: "success",
-                title: labels.transactionSent,
-                message: labels.processingBlockchain,
-                duration: 4000,
-              });
-
               // Remove position from UI immediately for better UX
               setPositions((prev) =>
                 prev.filter(
@@ -186,16 +178,17 @@ export function usePositions() {
                 )
               );
 
-              // Show final success message
+              // Show final success message by updating the existing toast
               const successMessage = operation === 'claim' 
                 ? labels.successMessage(calculatePayout(position) || 0)
                 : labels.successMessage(0);
                 
-              toast.success(
-                labels.success,
-                successMessage,
-                { position: "top", duration: 4000 }
-              );
+              toast.update(loadingToastId, {
+                type: "success",
+                title: labels.success,
+                message: successMessage,
+                duration: 4000,
+              });
 
               // Reset claiming state immediately
               setPositionClaiming(position.positionId, position.positionNonce, false);
