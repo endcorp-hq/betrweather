@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import * as Location from "expo-location";
 import { Platform, Alert, Linking } from "react-native";
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
 
 export const useLocation = () => {
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +26,12 @@ export const useLocation = () => {
 
   const requestBackgroundPermission = async () => {
     try {
+      console.log("requestBackgroundPermission");
       // Check if we already have background permission
       const backgroundStatus = await Location.getBackgroundPermissionsAsync();
-      
+      console.log("backgroundStatus", backgroundStatus);
       if (backgroundStatus.status === "granted") {
+        console.log("backgroundStatus is granted");
         setHasBackgroundPermission(true);
         return true;
       }
@@ -39,22 +39,6 @@ export const useLocation = () => {
       // Request background permission
       const { status } = await Location.requestBackgroundPermissionsAsync();
       setHasBackgroundPermission(status === "granted");
-      
-      if (status !== "granted") {
-        // Show explanation and guide user to settings
-        Alert.alert(
-          "Background Location Permission Required",
-          "Background location access is needed for the weather widget to update when the app is not active. Please enable it in your device settings.",
-          [
-            { text: "Cancel", style: "cancel" },
-            { 
-              text: "Open Settings", 
-              onPress: () => openLocationSettings() 
-            }
-          ]
-        );
-        return false;
-      }
       return true;
     } catch (error) {
       console.error('Error requesting background permission:', error);
@@ -75,7 +59,7 @@ export const useLocation = () => {
     setError(null);
 
     try {
-      // First request foreground permission
+      // // First request foreground permission
       const foregroundGranted = await requestForegroundPermission();
       if (!foregroundGranted) {
         setError("Foreground location permission is required");
@@ -106,12 +90,11 @@ export const useLocation = () => {
 
   const getLocation = async () => {
     try {
-      let coords = await Location.getLastKnownPositionAsync({
+      let coords = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 10000,
+        distanceInterval: 100
       });
-
-      if(!coords) {
-        throw new Error("No location found");
-      }
       
       setLatitude(coords.coords.latitude);
       setLongitude(coords.coords.longitude);

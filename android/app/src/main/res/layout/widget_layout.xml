@@ -1,6 +1,4 @@
-//this is the layout file for the widget.
-
-export const widgetLayout = `<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
@@ -62,13 +60,4 @@ export const widgetLayout = `<?xml version="1.0" encoding="utf-8"?>
             android:layout_marginTop="2dp" />
     </LinearLayout>
 
-</LinearLayout>`;
-
-export const widgetInfo = `<?xml version="1.0" encoding="utf-8"?>
-<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="110dp"
-    android:minHeight="60dp"
-    android:updatePeriodMillis="2100000"
-    android:initialLayout="@layout/widget_layout"
-    android:resizeMode="horizontal|vertical"
-    android:widgetCategory="home_screen" />`; // some phones have a category
+</LinearLayout>

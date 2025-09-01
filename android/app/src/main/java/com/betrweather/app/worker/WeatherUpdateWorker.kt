@@ -1,6 +1,4 @@
-//this is the worker file. It is used to update the widget with fresh data.
-//work manager runs every 15 mins on average. 
-export const weatherUpdateWorker = `package com.betrweather.app.worker
+package com.betrweather.app.worker
 
 import android.content.Context
 import android.content.Intent
@@ -86,7 +84,7 @@ class WeatherUpdateWorker(
                 // Get current location with fallback strategy and caching
                 val location = getCurrentLocationWithFallbackAndCache()
                 if (location != null) {
-                    Log.d(TAG, "[Worker-$workerId] Location obtained: \${location.first}, \${location.second}")
+                    Log.d(TAG, "[Worker-$workerId] Location obtained: ${location.first}, ${location.second}")
                     
                     // Update location cache with successful location
                     updateLocationCache(location.first, location.second)
@@ -199,7 +197,7 @@ class WeatherUpdateWorker(
                         (fusedLocation.first * 10.0).roundToInt() / 10.0,
                         (fusedLocation.second * 10.0).roundToInt() / 10.0
                     )
-                    Log.d(TAG, "[Worker-$workerId] Rounded location: \${roundedLocation.first}, \${roundedLocation.second}")
+                    Log.d(TAG, "[Worker-$workerId] Rounded location: ${roundedLocation.first}, ${roundedLocation.second}")
                     return@withContext roundedLocation
                 }
                 
@@ -213,7 +211,7 @@ class WeatherUpdateWorker(
                         (locationManagerLocation.first * 10.0).roundToInt() / 10.0,
                         (locationManagerLocation.second * 10.0).roundToInt() / 10.0
                     )
-                    Log.d(TAG, "[Worker-$workerId] Rounded location: \${roundedLocation.first}, \${roundedLocation.second}")
+                    Log.d(TAG, "[Worker-$workerId] Rounded location: ${roundedLocation.first}, ${roundedLocation.second}")
                     return@withContext roundedLocation
                 }
                 
@@ -221,7 +219,7 @@ class WeatherUpdateWorker(
                 Log.d(TAG, "[Worker-$workerId] All location providers failed, trying cached location")
                 val cachedLocation = getCachedLocation()
                 if (cachedLocation != null) {
-                    Log.d(TAG, "[Worker-$workerId] Using cached location: \${cachedLocation.first}, \${cachedLocation.second}")
+                    Log.d(TAG, "[Worker-$workerId] Using cached location: ${cachedLocation.first}, ${cachedLocation.second}")
                     return@withContext cachedLocation
                 }
                 
@@ -246,7 +244,7 @@ class WeatherUpdateWorker(
                 
                 locationTask.addOnSuccessListener { location ->
                     if (location != null) {
-                        Log.d(TAG, "[Worker-$workerId] FusedLocationProviderClient success: \${location.latitude}, \${location.longitude}")
+                        Log.d(TAG, "[Worker-$workerId] FusedLocationProviderClient success: ${location.latitude}, ${location.longitude}")
                         continuation.resume(Pair(location.latitude, location.longitude))
                     } else {
                         Log.w(TAG, "[Worker-$workerId] FusedLocationProviderClient returned null")
@@ -287,7 +285,7 @@ class WeatherUpdateWorker(
                     val lastKnownLocation = locationManager.getLastKnownLocation(provider)
                     
                     if (lastKnownLocation != null) {
-                        Log.d(TAG, "[Worker-$workerId] LocationManager success: \${lastKnownLocation.latitude}, \${lastKnownLocation.longitude}")
+                        Log.d(TAG, "[Worker-$workerId] LocationManager success: ${lastKnownLocation.latitude}, ${lastKnownLocation.longitude}")
                         continuation.resume(Pair(lastKnownLocation.latitude, lastKnownLocation.longitude))
                     } else {
                         Log.w(TAG, "[Worker-$workerId] LocationManager lastKnownLocation is null")
@@ -315,7 +313,7 @@ class WeatherUpdateWorker(
             val locationListener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
                     try {
-                        Log.d(TAG, "[Worker-$workerId] LocationManager onLocationChanged: \${location.latitude}, \${location.longitude}")
+                        Log.d(TAG, "[Worker-$workerId] LocationManager onLocationChanged: ${location.latitude}, ${location.longitude}")
                         locationManager.removeUpdates(this)
                         continuation.resume(Pair(location.latitude, location.longitude))
                     } catch (e: Exception) {
@@ -369,13 +367,13 @@ class WeatherUpdateWorker(
                 // Round to 1 decimal place for consistency
                 val roundedLat = (lat.toDouble() * 10.0).roundToInt() / 10.0
                 val roundedLon = (lon.toDouble() * 10.0).roundToInt() / 10.0
-                Log.d(TAG, "[Worker-$workerId] Using cached location: $roundedLat, $roundedLon (age: \${cacheAge / (60 * 60 * 1000)} hours)")
+                Log.d(TAG, "[Worker-$workerId] Using cached location: $roundedLat, $roundedLon (age: ${cacheAge / (60 * 60 * 1000)} hours)")
                 Pair(roundedLat, roundedLon)
             } else {
                 if (lat == 0f || lon == 0f) {
                     Log.d(TAG, "[Worker-$workerId] No cached location available")
                 } else {
-                    Log.d(TAG, "[Worker-$workerId] Cached location expired (age: \${cacheAge / (60 * 60 * 1000)} hours)")
+                    Log.d(TAG, "[Worker-$workerId] Cached location expired (age: ${cacheAge / (60 * 60 * 1000)} hours)")
                 }
                 null
             }
@@ -442,24 +440,24 @@ class WeatherUpdateWorker(
                 // Use withTimeout to prevent hanging
                 withTimeout(20_000L) { // 20 seconds timeout
                     val response = client.newCall(request).execute()
-                    Log.d(TAG, "[Worker-$workerId] Response received: \${response.code}")
+                    Log.d(TAG, "[Worker-$workerId] Response received: ${response.code}")
                     
                     if (response.isSuccessful) {
                         val responseBody = response.body?.string()
-                        Log.d(TAG, "[Worker-$workerId] API response body length: \${responseBody?.length ?: 0}")
+                        Log.d(TAG, "[Worker-$workerId] API response body length: ${responseBody?.length ?: 0}")
                         
                         // Parse your actual API response
                         val weatherData = parseWeatherResponse(responseBody)
                         if (weatherData != null) {
-                            Log.d(TAG, "[Worker-$workerId] Weather data parsed successfully: \${weatherData.temperature}, \${weatherData.condition}")
+                            Log.d(TAG, "[Worker-$workerId] Weather data parsed successfully: ${weatherData.temperature}, ${weatherData.condition}")
                         } else {
                             Log.w(TAG, "[Worker-$workerId] Failed to parse weather response")
                             lastParsingError = "Failed to parse API response"
                         }
                         weatherData
                     } else {
-                        Log.e(TAG, "[Worker-$workerId] API call failed: \${response.code}")
-                        lastHttpError = "HTTP \${response.code}"
+                        Log.e(TAG, "[Worker-$workerId] API call failed: ${response.code}")
+                        lastHttpError = "HTTP ${response.code}"
                         null
                     }
                 }
@@ -481,8 +479,8 @@ class WeatherUpdateWorker(
                         Log.e(TAG, "[Worker-$workerId] Connection failed")
                     }
                     else -> {
-                        lastNetworkError = "Network error: \${e.message}"
-                        Log.e(TAG, "[Worker-$workerId] Generic network error: \${e.message}")
+                        lastNetworkError = "Network error: ${e.message}"
+                        Log.e(TAG, "[Worker-$workerId] Generic network error: ${e.message}")
                     }
                 }
                 null
@@ -517,13 +515,13 @@ class WeatherUpdateWorker(
             val isDaytime = data.optBoolean("isDaytime", true)
             
             Log.d(TAG, "[Worker-$workerId] JSON parsed successfully")
-            Log.d(TAG, "[Worker-$workerId] Parsed weather data: \${tempDegrees}°C, $description, Daytime: $isDaytime")
+            Log.d(TAG, "[Worker-$workerId] Parsed weather data: ${tempDegrees}°C, $description, Daytime: $isDaytime")
             
             // Format temperature with unit
             val formattedTemperature = when (tempUnit) {
-                "CELSIUS" -> "\${tempDegrees}°C"
-                "FAHRENHEIT" -> "\${tempDegrees}°F"
-                else -> "\${tempDegrees}°"
+                "CELSIUS" -> "${tempDegrees}°C"
+                "FAHRENHEIT" -> "${tempDegrees}°F"
+                else -> "${tempDegrees}°"
             }
             
             WeatherData(
@@ -567,7 +565,7 @@ class WeatherUpdateWorker(
                     // views.setTextViewText(com.betrweather.app.R.id.error_text, "")
                     
                     
-                    Log.d(TAG, "[Worker-$workerId] Widget updated with weather data: \${weatherData.temperature}, \${weatherData.condition} - Errors cleared")
+                    Log.d(TAG, "[Worker-$workerId] Widget updated with weather data: ${weatherData.temperature}, ${weatherData.condition} - Errors cleared")
                 } else {
                     // Error case: Keep existing data, show error on right side
                     // Don't update the weather fields - let them keep their current values
@@ -590,7 +588,7 @@ class WeatherUpdateWorker(
                 appWidgetManager.updateAppWidget(appWidgetId, views)
                 
             } catch (e: Exception) {
-                Log.e(TAG, "[Worker-$workerId] Error updating widget $appWidgetId: \${e.message}")
+                Log.e(TAG, "[Worker-$workerId] Error updating widget $appWidgetId: ${e.message}")
             }
         }
     }
@@ -665,7 +663,7 @@ class WeatherUpdateWorker(
                     
                     if (attempt < maxRetries) {
                         val delayMs = (5000L * (1 shl (attempt - 1))).coerceAtMost(30000L) // 5s, 10s, 20s, max 30s
-                        Log.d(TAG, "[Worker-$workerId] Waiting \${delayMs}ms before retry...")
+                        Log.d(TAG, "[Worker-$workerId] Waiting ${delayMs}ms before retry...")
                         delay(delayMs)
                         continue
                     } else {
@@ -686,7 +684,7 @@ class WeatherUpdateWorker(
                     
                     if (attempt < maxRetries) {
                         val delayMs = (5000L * (1 shl (attempt - 1))).coerceAtMost(30000L)
-                        Log.d(TAG, "[Worker-$workerId] Waiting \${delayMs}ms before retry...")
+                        Log.d(TAG, "[Worker-$workerId] Waiting ${delayMs}ms before retry...")
                         delay(delayMs)
                     }
                 }
@@ -696,7 +694,7 @@ class WeatherUpdateWorker(
                 
                 if (attempt < maxRetries) {
                     val delayMs = (5000L * (1 shl (attempt - 1))).coerceAtMost(30000L)
-                    Log.d(TAG, "[Worker-$workerId] Waiting \${delayMs}ms before retry after exception...")
+                    Log.d(TAG, "[Worker-$workerId] Waiting ${delayMs}ms before retry after exception...")
                     delay(delayMs)
                 } else {
                     // Set appropriate error based on exception type
@@ -704,7 +702,7 @@ class WeatherUpdateWorker(
                         is java.net.SocketTimeoutException -> lastTimeoutError = "Request timed out after $maxRetries attempts"
                         is java.net.UnknownHostException -> lastNetworkError = "DNS failed after $maxRetries attempts"
                         is java.net.ConnectException -> lastNetworkError = "Connection failed after $maxRetries attempts"
-                        else -> lastNetworkError = "Network error after $maxRetries attempts: \${e.message ?: "Unknown error"}"
+                        else -> lastNetworkError = "Network error after $maxRetries attempts: ${e.message ?: "Unknown error"}"
                     }
                 }
             }
@@ -727,8 +725,8 @@ class WeatherUpdateWorker(
         
         return when {
             diffMinutes < 1 -> "Just now"
-            diffMinutes < 60 -> "\${diffMinutes}m ago"
-            else -> "\${diffMinutes / 60}h ago"
+            diffMinutes < 60 -> "${diffMinutes}m ago"
+            else -> "${diffMinutes / 60}h ago"
         }
     }
 
@@ -742,4 +740,4 @@ class WeatherUpdateWorker(
         val prefs = context.getSharedPreferences("WeatherWidget", Context.MODE_PRIVATE)
         prefs.edit().putLong("last_update_time", System.currentTimeMillis()).apply()
     }
-}`;
+}

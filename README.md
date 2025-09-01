@@ -86,7 +86,7 @@ cd betrweather
 yarn install
 
 # Start development server
-yarn start
+yarn start android 
 
 # Build for Android (EAS Build - recommended)
 yarn build
@@ -126,8 +126,6 @@ cd android
 
 - **Mobile Wallet Adapter**: Seamless wallet integration
 - **Native Android**: Optimized for Android performance
-- **Offline Support**: Core functionality works without internet
-- **Push Notifications**: Market updates and position alerts
 - **Biometric Auth**: Secure wallet access
 - **Background Location**: Widget updates and notifications
 
