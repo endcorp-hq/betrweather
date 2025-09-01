@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   useAuthorization,
   useNftMetadata,
   useShortx,
   useCreateAndSendTx,
 } from "./solana";
+
 import { useToast } from "../contexts/CustomToast/ToastProvider";
 import {
   PositionWithMarket,
@@ -12,9 +13,9 @@ import {
   extractErrorMessage,
 } from "@/utils";
 import { burnPosition } from "src/utils/positionUtils";
-import { toWeb3JsTransaction } from '@metaplex-foundation/umi-web3js-adapters';
-import { useChain } from "@/contexts";
+import { toWeb3JsTransaction } from "@metaplex-foundation/umi-web3js-adapters";
 
+import { useChain } from "@/contexts";
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
@@ -28,7 +29,6 @@ export function usePositions() {
   const [loadingMarkets, setLoadingMarkets] = useState(false);
   const lastRefreshTime = useRef<number>(0);
   const isRefreshing = useRef(false);
-
 
   // Add a function to update claiming state for a specific position
   const setPositionClaiming = useCallback(
@@ -45,21 +45,11 @@ export function usePositions() {
     []
   );
 
-  // Refresh function that prevents unnecessary calls
-  const refreshPositions = useCallback(async (force = false, showLoading = true) => {
-    if (!selectedAccount || isRefreshing.current) return;
-    
-    // Prevent refreshing too frequently (minimum 5 seconds between calls)
-    const now = Date.now();
-    if (!force && now - lastRefreshTime.current < 5000) {
-      return;
-    }
+  // Manual refresh function
+  const refreshPositions = useCallback(async () => {
+    if (!selectedAccount) return;
 
-    isRefreshing.current = true;
-    if (showLoading) {
-      setLoadingMarkets(true);
-    }
-    
+    setLoadingMarkets(true);
     try {
       const metadata = await fetchNftMetadata();
       if (metadata) {
@@ -95,64 +85,13 @@ export function usePositions() {
         );
 
         setPositions(validPositions);
-        lastRefreshTime.current = now;
       }
     } catch (error) {
       console.error("Error refreshing positions:", error);
-      
-      // Show user-friendly error messages for different scenarios
-      if (lastError) {
-        if (lastError.includes("400") && retryCount > 0) {
-          // This is a retry scenario - show informative message
-          toast.error(
-            "Loading Positions",
-            `New bets may still be processing. Retry ${retryCount}/3 completed.`,
-            { position: "top", duration: 3000 }
-          );
-        } else if (lastError.includes("Max retries")) {
-          // Max retries exceeded
-          toast.error(
-            "Loading Failed",
-            "Unable to load positions after multiple attempts. Please try again later.",
-            { position: "top", duration: 5000 }
-          );
-        } else {
-          // Other errors
-          toast.error(
-            "Loading Error",
-            "Failed to load positions. Please check your connection and try again.",
-            { position: "top", duration: 4000 }
-          );
-        }
-      }
     } finally {
-      if (showLoading) {
-        setLoadingMarkets(false);
-      }
-      isRefreshing.current = false;
+      setLoadingMarkets(false);
     }
-  }, [selectedAccount, fetchNftMetadata, getMarketById, lastError, retryCount, toast]);
-
-
-
-  // Manual refresh function for user-initiated refreshes
-  const manualRefresh = useCallback(() => {
-    refreshPositions(true, true); // Force refresh with loading
-  }, [refreshPositions]);
-
-  // Initial fetch with delay to allow new bets to process
-  React.useEffect(() => {
-    if (selectedAccount && positions.length === 0 && !loading) {
-      // Only trigger initial fetch if we don't have positions loaded yet and not currently loading
-      const initialFetchTimer = setTimeout(() => {
-        refreshPositions(true, false); // Initial fetch without loading UI
-      }, 3000);
-
-      return () => clearTimeout(initialFetchTimer);
-    }
-  }, [selectedAccount, refreshPositions, positions.length, loading]);
-
-
+  }, [selectedAccount, fetchNftMetadata, getMarketById]);
 
   // Unified transaction handler for both claim and burn operations
   const handlePositionTransaction = useCallback(
@@ -161,48 +100,36 @@ export function usePositions() {
       operation: 'claim' | 'burn',
       createTransaction: () => Promise<any>
     ) => {
-      const operationLabels = {
-        claim: {
-          loading: "Claiming Payout",
-          processing: "Processing your claim...",
-          processingTx: "Sending claim transaction to blockchain...",
-          transactionSent: "Claim transaction sent!",
-          processingBlockchain: "Your claim is being processed on the blockchain...",
-          success: "Claim Successful!",
-          successMessage: (amount: number) => `Successfully claimed $${amount.toFixed(2)} payout`,
-          error: "Failed to claim payout"
-        },
-        burn: {
-          loading: "Burning Position",
-          processing: "Processing your position...",
-          processingTx: "Sending burn transaction to blockchain...",
-          transactionSent: "Burn transaction sent!",
-          processingBlockchain: "Your position is being burned on the blockchain...",
-          success: "Burn Successful!",
-          successMessage: (amount?: number) => "Successfully burned your position",
-          error: "Failed to burn position"
-        }
-      };
-
-      const labels = operationLabels[operation];
-
       // Set claiming state for this specific position
       setPositionClaiming(position.positionId, position.positionNonce, true);
+
+      // Define labels based on operation
+      const labels = {
+        loading: operation === 'claim' ? 'Claiming Payout' : 'Burning Position',
+        processing: operation === 'claim' ? 'Processing your claim...' : 'Processing your burn...',
+        processingTx: 'Transaction sent to blockchain...',
+        transactionSent: 'Transaction Sent',
+        processingBlockchain: 'Processing on blockchain...',
+        success: operation === 'claim' ? 'Payout Claimed!' : 'Position Burned!',
+        successMessage: (amount: number) => 
+          operation === 'claim' 
+            ? `Successfully claimed ${amount.toFixed(4)} SOL!`
+            : 'Position successfully burned!',
+        error: operation === 'claim' ? 'Failed to claim payout' : 'Failed to burn position'
+      };
 
       // Show loading toast
       const loadingToastId = toast.loading(
         labels.loading,
         labels.processing,
-        {
-          position: "top",
-        }
+        { position: "top" }
       );
 
       if (!selectedAccount) {
         toast.update(loadingToastId, {
           type: "error",
           title: "Error",
-          message: "Please connect your wallet to continue",
+          message: "Please connect your wallet",
           duration: 4000,
         });
         setPositionClaiming(position.positionId, position.positionNonce, false);
@@ -219,11 +146,7 @@ export function usePositions() {
             message: "Failed to create transaction",
             duration: 4000,
           });
-          setPositionClaiming(
-            position.positionId,
-            position.positionNonce,
-            false
-          );
+          setPositionClaiming(position.positionId, position.positionNonce, false);
           return;
         }
 
@@ -238,8 +161,11 @@ export function usePositions() {
         // Send the transaction in background to avoid blocking UI
         Promise.resolve().then(async () => {
           try {
-            const signature = await createAndSendTx([], true, tx);
-            
+            let signature;
+
+            // Send the transaction using createAndSendTx (handles both claim and burn)
+            signature = await createAndSendTx([], true, tx);
+
             if (signature) {
               // Update toast to show transaction sent
               toast.update(loadingToastId, {
@@ -257,8 +183,8 @@ export function usePositions() {
                       p.positionId === position.positionId &&
                       p.positionNonce === position.positionNonce
                     )
-                  )
-                );
+                )
+              );
 
               // Show final success message
               const successMessage = operation === 'claim' 
@@ -281,11 +207,7 @@ export function usePositions() {
                 message: "Transaction failed. Please try again.",
                 duration: 4000,
               });
-              setPositionClaiming(
-                position.positionId,
-                position.positionNonce,
-                false
-              );
+              setPositionClaiming(position.positionId, position.positionNonce, false);
             }
           } catch (error) {
             console.error(`Error in background ${operation} transaction:`, error);
@@ -341,9 +263,14 @@ export function usePositions() {
     async (position: PositionWithMarket) => {
       if (!selectedAccount?.publicKey) return;
       
-      await handlePositionTransaction(position, 'burn', () =>
-        burnPosition(position, selectedAccount.publicKey, currentChain || "devnet")
-      );
+      await handlePositionTransaction(position, 'burn', async () => {
+        const umiTx = await burnPosition(position, selectedAccount, currentChain || "devnet");
+        if (!umiTx) return null;
+        
+        // Convert UMI transaction to Solana transaction
+        const solanaTx = toWeb3JsTransaction(umiTx);
+        return solanaTx;
+      });
     },
     [handlePositionTransaction, burnPosition, selectedAccount, currentChain]
   );
@@ -357,7 +284,7 @@ export function usePositions() {
     positions: validPositions,
     loading,
     loadingMarkets,
-    refreshPositions: manualRefresh, // Expose manual refresh instead of auto-refresh
+    refreshPositions,
     handleClaimPayout,
     handleBurnPosition,
     lastError,

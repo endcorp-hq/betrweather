@@ -1,5 +1,5 @@
 import { WinningDirection } from "@endcorp/depredict";
-import { createNoopSigner, publicKey, Signer, signerIdentity } from "@metaplex-foundation/umi";
+import { keypairIdentity, publicKey } from "@metaplex-foundation/umi";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
   burn,
@@ -7,7 +7,9 @@ import {
   collectionAddress,
   fetchCollection,
 } from "@metaplex-foundation/mpl-core";
-import { PublicKey } from "@solana/web3.js";
+
+
+
 
 export interface PositionWithMarket {
   assetId: string;
@@ -178,14 +180,17 @@ export const calculateExpectedPayout = (position: PositionWithMarket) => {
   return Math.max(expectedPayout, userBetAmount);
 };
 
-export const burnPosition = async (position: PositionWithMarket, signerKey: PublicKey, currentChain: string) => {
+export const burnPosition = async (
+  position: PositionWithMarket, 
+  signer: any, 
+  currentChain: string
+) => {
   try {
- 
-    const signer = createNoopSigner(signerKey as any)
     const chainString = `https://${currentChain}.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
     const rpcUrl = chainString;
     const umi = createUmi(rpcUrl);
-    umi.use(signerIdentity(signer))
+    umi.use(keypairIdentity(signer))
+    
     const assetId = publicKey(position.assetId);
     const asset = await fetchAsset(umi, assetId);
 
@@ -197,11 +202,15 @@ export const burnPosition = async (position: PositionWithMarket, signerKey: Publ
       collection = await fetchCollection(umi, collectionId);
     }
 
-    const tx = burn(umi, {
+    // Build the burn transaction
+    const tx = await burn(umi, {
       asset: asset,
       collection: collection,
     }).buildWithLatestBlockhash(umi);
 
+    console.log('UMI burn transaction built:', tx);
+
+    // Return the UMI transaction (will be converted and signed by the wallet adapter)
     return tx;
   } catch (error) {
     console.error("Error burning position", error);
