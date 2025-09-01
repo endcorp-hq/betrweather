@@ -13,7 +13,7 @@ import {
 import { toUint8Array } from "js-base64";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
-import { checkWhitelistNFTs } from "../../utils/checkNft";
+import { useCheckWhitelistNFTs } from "../../utils/checkNft";
 import { toast } from "../../utils/toastUtils";
 // import { useWidgetCache } from '@/hooks';
 
@@ -106,11 +106,12 @@ async function persistAuthorization(
 
 export const APP_IDENTITY = {
   name: "BetrWeather",
-  uri: "https://betrweather.com",
+  uri: "https://betrweather.xyz",
 };
 
 export function useAuthorization() {
   const queryClient = useQueryClient();
+  const { checkWhitelistNFTs } = useCheckWhitelistNFTs();
   const { data: authorization, isLoading } = useQuery({
     queryKey: ["wallet-authorization"],
     queryFn: () => fetchAuthorization(),
@@ -177,7 +178,7 @@ export function useAuthorization() {
       // await saveWalletAddress(nextAuthorization.selectedAccount.publicKey.toBase58(), "devnet");
       return devnetAuthSession;
     },
-    [authorization, setAuthorization] // Fix: add setAuthorization to dependencies
+    [authorization, setAuthorization, checkWhitelistNFTs]
   );
 
   const authorizeSession = useCallback(

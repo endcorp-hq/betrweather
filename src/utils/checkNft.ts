@@ -9,8 +9,6 @@ export type AuthResult = {
   tier: "seeker" | "superteam" | "none";
 };
 
-const RPC_ADDRESS = process.env.EXPO_PUBLIC_SOLANA_RPC_URL || "";
-
 // Our Whitelist NFTs
 const whitelistNFTs = [
   {
@@ -34,7 +32,6 @@ async function checkSeekerPhoneNFT(
   walletAddress: string,
   seekerPhoneMint: string
 ) {
-  const connection = new Connection(RPC_ADDRESS);
 
   try {
     console.log(`Checking for Seeker Phone NFT...`);
