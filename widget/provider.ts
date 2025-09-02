@@ -61,9 +61,23 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         try {
             val views = RemoteViews(context.packageName, com.betrweather.app.R.layout.widget_layout)
             
-            // Create click intent to open the app
-            val intent = Intent(context, com.betrweather.app.MainActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            // Check if background location permission is granted
+            val hasBackgroundLocationPermission = context.checkSelfPermission(
+                android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            
+            val intent = if (hasBackgroundLocationPermission) {
+                // Permission granted - open the app normally
+                Intent(context, com.betrweather.app.MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+            } else {
+                // Permission not granted - open app settings for location permission
+                Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = android.net.Uri.fromParts("package", context.packageName, null)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+            }
             
             val pendingIntent = PendingIntent.getActivity(
                 context,

@@ -538,6 +538,8 @@ class WeatherUpdateWorker(
         }
     }
 
+    // Update the updateWidgets method in WeatherUpdateWorker:
+
     private fun updateWidgets(weatherData: WeatherData?, errorMessage: String? = null) {
         val appWidgetManager = AppWidgetManager.getInstance(context)
         val appWidgetIds = appWidgetManager.getAppWidgetIds(
@@ -548,38 +550,29 @@ class WeatherUpdateWorker(
             try {
                 val views = RemoteViews(context.packageName, com.betrweather.app.R.layout.widget_layout)
                 
-                // ALWAYS update the last update time, regardless of success or failure
-                // val currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-                // views.setTextViewText(com.betrweather.app.R.id.last_update_text, "Last Updated: $currentTime")
+                // Check if we have location permissions
+                val hasForegroundPermission = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == 
+                    PackageManager.PERMISSION_GRANTED
+                val hasBackgroundPermission = context.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == 
+                    PackageManager.PERMISSION_GRANTED
                 
-                if (weatherData != null && !weatherData.hasError) {
+                if (!hasForegroundPermission || !hasBackgroundPermission) {
+                    // No permissions - show simple message
+                    views.setTextViewText(com.betrweather.app.R.id.current_date_text, "Click to enable")
+                    views.setTextViewText(com.betrweather.app.R.id.weather_temp_text, "location")
+                    views.setTextViewText(com.betrweather.app.R.id.weather_description_text, "permissions")
+                    
+                    Log.d(TAG, "[Worker-$workerId] Widget updated with permission request message")
+                } else if (weatherData != null && !weatherData.hasError) {
                     // Success case: Update with new weather data AND clear any previous errors
                     views.setTextViewText(com.betrweather.app.R.id.current_date_text, getCurrentDate())
                     views.setTextViewText(com.betrweather.app.R.id.weather_temp_text, weatherData.temperature)
                     views.setTextViewText(com.betrweather.app.R.id.weather_description_text, weatherData.condition)
                     
-                    // Hide error container completely when we have successful data
-                    // views.setViewVisibility(com.betrweather.app.R.id.error_container, android.view.View.GONE)
-                    
-                    // Clear any previous error messages
-                    // views.setTextViewText(com.betrweather.app.R.id.error_text, "")
-                    
-                    
                     Log.d(TAG, "[Worker-$workerId] Widget updated with weather data: ${weatherData.temperature}, ${weatherData.condition} - Errors cleared")
                 } else {
                     // Error case: Keep existing data, show error on right side
                     // Don't update the weather fields - let them keep their current values
-                    
-                    // Show error container with error message
-                    // views.setViewVisibility(com.betrweather.app.R.id.error_container, android.view.View.VISIBLE)
-                    
-                    // if (errorMessage != null) {
-                    //     views.setTextViewText(com.betrweather.app.R.id.error_text, errorMessage)
-                    // } else {
-                    //     views.setTextViewText(com.betrweather.app.R.id.error_text, "Update failed")
-                    // }
-                    
-                    
                     
                     Log.d(TAG, "[Worker-$workerId] Widget error displayed: $errorMessage")
                 }
