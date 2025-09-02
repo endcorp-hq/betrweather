@@ -1,0 +1,44 @@
+{
+  "assets": {
+    "./media/icon.png": {
+      "path": "./media/icon.png",
+      "sha256": "vy9WhX/Ymb8h3eqERhzzhJUg1V+dxiZqNfroDvfsfXY=",
+      "uri": "https://arweave.net/r-10crXpmkbnMyS5vRGxK6_Wj8V8hGHcf4lZl8pqceo"
+    },
+    "./media/screenshots/3.png": {
+      "path": "./media/screenshots/3.png",
+      "sha256": "7yBy97hfCF+Sd10y9FZWUdZPON7XU//9Qi1t8bQqwAU=",
+      "uri": "https://arweave.net/R6L6g8DUnGGyCku5987OkWo8ZThU8EX6B1pGuOko1qc"
+    },
+    "./media/screenshots/1.png": {
+      "path": "./media/screenshots/1.png",
+      "sha256": "0kifoGu/WKsbWV6GhFMx3Ii4bNSwZrunIgw+2N+s9+4=",
+      "uri": "https://arweave.net/IOETA5OFvG4FDdsw26O4x-Tmt4UlW_W8FvJ3sBgJvik"
+    },
+    "./media/screenshots/2.png": {
+      "path": "./media/screenshots/2.png",
+      "sha256": "CHe1R4Og4XcLxGb483dYDkDyvAjiN7fZ6iKzIrLHo3Q=",
+      "uri": "https://arweave.net/dETg0uhjpiqIc6kJ5nxvzquw9M0OvimmMSAsMHQO9ec"
+    },
+    "./media/banner.png": {
+      "path": "./media/banner.png",
+      "sha256": "FbtL4nlxE49CUQQVQa2NNa9WNs3TjxB/Ixjy5Ji2WeU=",
+      "uri": "https://arweave.net/YMvXcg3drEy1PFgx_wSEFWUlUmoz70apE89rTU_qTFA"
+    },
+    "./media/screenshots/4.png": {
+      "path": "./media/screenshots/4.png",
+      "sha256": "1+oxEHkyiM0MleFxWYF7QFQ4ShFENWhpxACaond/0Qo=",
+      "uri": "https://arweave.net/-WH3nQ0okphetND2nNZ2K5GPVFr86af2BhGNDrjRLUw"
+    },
+    "./media/featured.png": {
+      "path": "./media/featured.png",
+      "sha256": "g5VrY+vbCOFmn/D7WHAvXGmhx/oDprtQlec+chDNQLU=",
+      "uri": "https://arweave.net/dcc23sB3fgHRhluCwgDzengmX5MtuksDuE3qe2xRoko"
+    },
+    "../dapp-store-build/BetrWeather-v1.0.0-signed.apk": {
+      "path": "../dapp-store-build/BetrWeather-v1.0.0-signed.apk",
+      "sha256": "fikWFh6SRwiYuutKAibNdV+SmNssTQ67BYnFlpteyj0=",
+      "uri": "https://arweave.net/h6zFpWN1IfBEyw_h2oSlrHQOCJSymusrJFXDdJHbB1g"
+    }
+  }
+}

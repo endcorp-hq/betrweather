@@ -11,6 +11,7 @@ export const LocationPermissionScreen = () => {
     hasForegroundPermission,
     hasBackgroundPermission,
     requestAllPermissions,
+    isLoading,
   } = useLocation();
 
   const handleRequestPermissions = async () => {
@@ -31,10 +32,12 @@ export const LocationPermissionScreen = () => {
 
   // Check if we already have permissions and navigate automatically
   useEffect(() => {
-    if (hasForegroundPermission && hasBackgroundPermission) {
+    if (hasForegroundPermission && !isLoading) {
+      // Only require foreground permission for basic app usage
+      // Navigate to HomeStack since we can't go back
       navigation.navigate('HomeStack' as never);
     }
-  }, [hasForegroundPermission, hasBackgroundPermission, navigation]);
+  }, [hasForegroundPermission, isLoading, navigation]);
 
   return (
     <View className="flex-1 bg-black justify-center items-center p-5">
@@ -47,22 +50,18 @@ export const LocationPermissionScreen = () => {
           BetrWeather needs access to your location to provide accurate weather information and keep your widget updated.
         </Text>
 
-        <View className="mb-8 items-start flex flex-col justify-start">
-          
-          <Text className="text-sm text-gray-300 font-better-regular mb-2">
-            • Location access while using the app
+        <View className="mb-8 items-center">
+          <Text className="text-lg font-better-regular text-white mb-4">
+            We need:
           </Text>
-          <Text className="text-sm text-gray-300 font-better-regular mb-2">
-            • Background location access for the weather widget
+          <Text className="text-sm text-gray-300 font-better-semi-bold mb-2">
+            • Location access while using the app <Text className="text-green-400">(Required)</Text>
           </Text>
-          <Text className="text-sm text-gray-300 font-better-regular mb-2">
-            • You will be taken to the app location page
+          <Text className="text-sm text-gray-300 font-better-semi-bold mb-2">
+            • Background location access for the weather widget <Text className="text-yellow-400">(Optional)</Text>
           </Text>
-          <Text className="text-sm text-gray-300 font-better-regular mb-2">
-            • Please select <Text className="font-better-bold">Allow all the time</Text>
-          </Text>
-          <Text className="text-sm text-gray-300 font-better-regular mb-2">
-            • Return to the app
+          <Text className="text-xs text-gray-400 text-center mt-2">
+            Background access is only needed if you want the weather widget to update when the app is closed
           </Text>
         </View>
 

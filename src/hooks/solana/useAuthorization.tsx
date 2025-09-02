@@ -106,7 +106,7 @@ async function persistAuthorization(
 
 export const APP_IDENTITY = {
   name: "BetrWeather",
-  uri: "https://betrweather.com",
+  uri: "https://betrweather.xyz",
 };
 
 export function useAuthorization() {
@@ -136,7 +136,8 @@ export function useAuthorization() {
       
       if (chainIdentifier?.includes("mainnet")) {
         const authResult = await checkWhitelistNFTs(
-          nextAuthorization.selectedAccount.publicKey.toBase58()
+          nextAuthorization.selectedAccount.publicKey.toBase58(),
+          true // isMainnet = true
         );
 
         if (!authResult.authorized) {
@@ -177,7 +178,7 @@ export function useAuthorization() {
       // await saveWalletAddress(nextAuthorization.selectedAccount.publicKey.toBase58(), "devnet");
       return devnetAuthSession;
     },
-    [authorization, setAuthorization] // Fix: add setAuthorization to dependencies
+    [authorization, setAuthorization]
   );
 
   const authorizeSession = useCallback(

@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import * as Location from "expo-location";
 import { Platform, Alert, Linking } from "react-native";
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const useLocation = () => {
   const [error, setError] = useState<string | null>(null);
@@ -12,6 +15,7 @@ export const useLocation = () => {
   >(null);
   const [hasForegroundPermission, setHasForegroundPermission] = useState(false);
   const [hasBackgroundPermission, setHasBackgroundPermission] = useState(false);
+  const [hasCheckedPermissions, setHasCheckedPermissions] = useState(false);
 
   const requestForegroundPermission = async () => {
     try {
@@ -39,10 +43,44 @@ export const useLocation = () => {
       // Request background permission
       const { status } = await Location.requestBackgroundPermissionsAsync();
       setHasBackgroundPermission(status === "granted");
+      
+      if (status !== "granted") {
+        // Background permission is optional, just return false without showing error
+        return false;
+      }
       return true;
     } catch (error) {
       console.error('Error requesting background permission:', error);
       return false;
+    }
+  };
+
+  const savePermissionState = async (foreground: boolean, background: boolean) => {
+    try {
+      await AsyncStorage.setItem('locationPermissions', JSON.stringify({
+        foreground,
+        background,
+        timestamp: Date.now()
+      }));
+    } catch (error) {
+      console.error('Error saving permission state:', error);
+    }
+  };
+
+  const loadPermissionState = async () => {
+    try {
+      const cached = await AsyncStorage.getItem('locationPermissions');
+      if (cached) {
+        const { foreground, background, timestamp } = JSON.parse(cached);
+        // Check if cached state is less than 24 hours old
+        if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+          return { foreground, background };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error loading permission state:', error);
+      return null;
     }
   };
 
@@ -67,17 +105,13 @@ export const useLocation = () => {
         return false;
       }
 
-      // Then request background permission (only on Android 10+)
+      // Then request background permission (only on Android 10+, optional for widgets)
       if (Platform.OS === 'android' && Platform.Version >= 29) {
-        const backgroundGranted = await requestBackgroundPermission();
-        if (!backgroundGranted) {
-          setError("Background location permission is required for the widget");
-          setIsLoading(false);
-          return false;
-        }
+        await requestBackgroundPermission();
+        // Don't fail if background permission is denied - it's optional
       }
 
-      // Both permissions granted, get location
+      // Get location with foreground permission
       await getLocation();
       return true;
     } catch (error) {
@@ -116,27 +150,73 @@ export const useLocation = () => {
 
   const checkPermissions = async () => {
     try {
-      const foregroundStatus = await Location.getForegroundPermissionsAsync();
-      const backgroundStatus = await Location.getBackgroundPermissionsAsync();
+      // First check cached permissions to avoid unnecessary permission screen
+      const cachedPermissions = await loadPermissionState();
       
-      setHasForegroundPermission(foregroundStatus.status === "granted");
-      setHasBackgroundPermission(backgroundStatus.status === "granted");
-      
-      // If we have both permissions, get location
-      if (foregroundStatus.status === "granted" && backgroundStatus.status === "granted") {
-        await getLocation();
+      if (cachedPermissions && cachedPermissions.foreground) {
+        // We have cached foreground permission, check if it's still valid
+        const foregroundStatus = await Location.getForegroundPermissionsAsync();
+        const backgroundStatus = await Location.getBackgroundPermissionsAsync();
+        
+        const hasForeground = foregroundStatus.status === "granted";
+        const hasBackground = backgroundStatus.status === "granted";
+        
+        setHasForegroundPermission(hasForeground);
+        setHasBackgroundPermission(hasBackground);
+        
+        // Save current state
+        await savePermissionState(hasForeground, hasBackground);
+        
+        if (hasForeground) {
+          await getLocation();
+        } else {
+          // Permission was revoked, clear cache and show permission screen
+          await AsyncStorage.removeItem('locationPermissions');
+          setIsLoading(false);
+        }
       } else {
-        setIsLoading(false);
+        // No cached permissions, check current state
+        const foregroundStatus = await Location.getForegroundPermissionsAsync();
+        const backgroundStatus = await Location.getBackgroundPermissionsAsync();
+        
+        const hasForeground = foregroundStatus.status === "granted";
+        const hasBackground = backgroundStatus.status === "granted";
+        
+        setHasForegroundPermission(hasForeground);
+        setHasBackgroundPermission(hasBackground);
+        
+        // Save current state
+        await savePermissionState(hasForeground, hasBackground);
+        
+        if (hasForeground) {
+          await getLocation();
+        } else {
+          setIsLoading(false);
+        }
       }
+      
+      setHasCheckedPermissions(true);
     } catch (error) {
       console.error('Error checking permissions:', error);
       setIsLoading(false);
+      setHasCheckedPermissions(true);
     }
   };
 
   // Add a function to refresh location data
   const refreshLocation = async () => {
-    if (hasForegroundPermission && hasBackgroundPermission) {
+    if (hasForegroundPermission) {
+      await getLocation();
+    }
+  };
+
+  // Add a function to force re-check permissions and location
+  const forceRefreshPermissions = async () => {
+    // Only do a full permission check if we don't already have foreground permission
+    if (!hasForegroundPermission) {
+      await checkPermissions();
+    } else {
+      // If we already have permission, just get location data
       await getLocation();
     }
   };
@@ -144,6 +224,37 @@ export const useLocation = () => {
   useEffect(() => {
     checkPermissions();
   }, []);
+
+  // Poll permissions every 2 seconds on first launch until permissions are granted
+  useEffect(() => {
+    if (!hasCheckedPermissions || hasForegroundPermission) {
+      return; // Don't poll if we haven't checked yet or already have permissions
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // Check if permissions have been granted
+        const foregroundStatus = await Location.getForegroundPermissionsAsync();
+        const backgroundStatus = await Location.getBackgroundPermissionsAsync();
+        
+        const hasForeground = foregroundStatus.status === "granted";
+        const hasBackground = backgroundStatus.status === "granted";
+        
+        if (hasForeground) {
+          // Permissions granted, update state and get location
+          setHasForegroundPermission(true);
+          setHasBackgroundPermission(hasBackground);
+          await savePermissionState(hasForeground, hasBackground);
+          await getLocation();
+          clearInterval(pollInterval); // Stop polling
+        }
+      } catch (error) {
+        console.error('Error polling permissions:', error);
+      }
+    }, 2000); // Check every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [hasCheckedPermissions, hasForegroundPermission]);
 
   return {
     latitude,
@@ -153,8 +264,10 @@ export const useLocation = () => {
     error,
     hasForegroundPermission,
     hasBackgroundPermission,
+    hasCheckedPermissions,
     requestAllPermissions,
     openLocationSettings,
-    refreshLocation
+    refreshLocation,
+    forceRefreshPermissions
   };
 };

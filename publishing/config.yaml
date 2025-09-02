@@ -1,0 +1,51 @@
+publisher:
+  name: END Corp.
+  website: https://endcorp.co
+  email: info@endcorp.co
+app:
+  name: BetrWeather
+  address: J7UMc5FA2g9drg49jhiApvYroEHCCxxyh32BtEBX4NZB
+  android_package: com.betrweather.app
+  urls:
+    license_url: https://betrweather.xyz/license
+    copyright_url: https://betrweather.xyz/copyright
+    privacy_policy_url: https://betrweather.xyz/privacy
+    website: https://betrweather.xyz
+  media:
+    - purpose: icon
+      uri: ./media/icon.png
+release:
+  address: 9nrcHJt2f67zs9vsbi5UBR9WwGdgkxbeUoMsQn1LuWPc
+  media:
+    - purpose: icon
+      uri: ./media/icon.png
+    - purpose: banner
+      uri: ./media/banner.png
+    - purpose: featureGraphic
+      uri: ./media/featured.png
+    - purpose: screenshot
+      uri: ./media/screenshots/1.png
+    - purpose: screenshot
+      uri: ./media/screenshots/2.png
+    - purpose: screenshot
+      uri: ./media/screenshots/3.png
+    - purpose: screenshot
+      uri: ./media/screenshots/4.png
+  files:
+    - purpose: install
+      uri: ../dapp-store-build/BetrWeather-v1.0.0-signed.apk
+  catalog:
+    en-US:
+      name: BetrWeather
+      short_description: Predict the weather
+      long_description: BetrWeather is the default weather app for Solana Mobile, bringing weather predictions and betting to Solana Mobile. Users can bet on weather outcomes using Solana. Get real-time weather data, place predictions, and earn rewards for accurate forecasts.
+      new_in_version: BetrWeather is the default weather app for Solana Mobile.
+solana_mobile_dapp_publisher_portal:
+  google_store_package: com.betrweather.app
+  testing_instructions: Connect your Solana wallet and start betting on weather outcomes! Live markets on devnet, mainnet launching very soon, whitelisted for Seeker Genesis Token holders and Superteam members.
+lastSubmittedVersionOnChain:
+  address: 9nrcHJt2f67zs9vsbi5UBR9WwGdgkxbeUoMsQn1LuWPc
+  version_code: 15
+  apk_hash: fikWFh6SRwiYuutKAibNdV+SmNssTQ67BYnFlpteyj0=
+lastUpdatedVersionOnStore:
+  address: 9nrcHJt2f67zs9vsbi5UBR9WwGdgkxbeUoMsQn1LuWPc

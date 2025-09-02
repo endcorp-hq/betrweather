@@ -4,10 +4,10 @@
     "slug": "BetrWeather",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo/betrCloud_transbg.png",
+    "icon": "./assets/logo/betrCloud_whitebg.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/logo/betrCloud_transbg.png",
+      "image": "./assets/logo/betrCloud_whitebg.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -27,7 +27,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo/betrCloud_transbg.png",
+        "foregroundImage": "./assets/logo/betrCloud_whitebg.png",
         "backgroundColor": "#000000"
       },
       "package": "com.betrweather.app",
@@ -43,7 +43,7 @@
       "runtimeVersion": "1.0.0"
     },
     "web": {
-      "favicon": "./assets/logo/betrCloud_transbg.png",
+      "favicon": "./assets/logo/betrCloud_whitebg.png",
       "bundler": "metro"
     },
     "extra": {

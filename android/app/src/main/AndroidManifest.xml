@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-          <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
@@ -34,26 +34,14 @@
         <data android:scheme="exp+betrweather"/>
       </intent-filter>
     </activity>
-  
-          <!-- Weather Widget -->
-          <receiver android:name=".widget.WeatherWidgetProvider"
-              android:exported="true">
-              <intent-filter>
-                  <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-              </intent-filter>
-              <meta-data
-                  android:name="android.appwidget.provider"
-                  android:resource="@xml/weather_widget_info" />
-          </receiver>
-      
-          <!-- Weather Update Worker -->
-          <provider
-              android:name="androidx.startup.InitializationProvider"
-              android:authorities="${applicationId}.androidx-startup"
-              android:exported="false">
-              <meta-data
-                  android:name="androidx.work.WorkManagerInitializer"
-                  android:value="androidx.startup" />
-          </provider>
-      </application>
+    <receiver android:name=".widget.WeatherWidgetProvider" android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/weather_widget_info"/>
+    </receiver>
+    <provider android:name="androidx.startup.InitializationProvider" android:authorities="${applicationId}.androidx-startup" android:exported="false">
+      <meta-data android:name="androidx.work.WorkManagerInitializer" android:value="androidx.startup"/>
+    </provider>
+  </application>
 </manifest>
