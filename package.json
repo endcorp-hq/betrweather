@@ -1,6 +1,6 @@
 {
   "name": "betrweather",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -14,6 +14,7 @@
     "android:build": "cd android && ./gradlew assembleDebug",
     "android:build:release": "cd android && ./gradlew assembleRelease",
     "android:deps": "cd android && ./gradlew app:dependencies --configuration implementation",
+    "android:dapp": "npx eas build -p android --profile dapp-store --local",
     "test": "echo \"No tests specified\" && exit 0",
     "eas-build-pre-install": "corepack enable && yarn set version 4.9.2",
     "prebuild:android": "node scripts/generateWidget.js",

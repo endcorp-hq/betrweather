@@ -2,7 +2,7 @@
   "expo": {
     "name": "BetrWeather",
     "slug": "BetrWeather",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/logo/betrCloud_whitebg.png",
     "userInterfaceStyle": "automatic",
@@ -40,7 +40,7 @@
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.INTERNET"
       ],
-      "runtimeVersion": "1.0.0"
+      "runtimeVersion": "1.0.1"
     },
     "web": {
       "favicon": "./assets/logo/betrCloud_whitebg.png",

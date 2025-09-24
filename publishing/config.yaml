@@ -4,7 +4,7 @@ publisher:
   email: info@endcorp.co
 app:
   name: BetrWeather
-  address: J7UMc5FA2g9drg49jhiApvYroEHCCxxyh32BtEBX4NZB
+  address: F6AiboGWAoC15LVFpYUgp4qVPnD7BKheZ4hdHabsnomM
   android_package: com.betrweather.app
   urls:
     license_url: https://betrweather.xyz/license
@@ -15,7 +15,7 @@ app:
     - purpose: icon
       uri: ./media/icon.png
 release:
-  address: 9nrcHJt2f67zs9vsbi5UBR9WwGdgkxbeUoMsQn1LuWPc
+  address: AG6R5insmtYvF2hqeDb3admynLv3ic5f5QziJPD6qqA5
   media:
     - purpose: icon
       uri: ./media/icon.png
@@ -33,19 +33,26 @@ release:
       uri: ./media/screenshots/4.png
   files:
     - purpose: install
-      uri: ../dapp-store-build/BetrWeather-v1.0.0-signed.apk
+      uri: ../dapp-store-build/v1.0.1/BetrWeather-v1.0.1-signed.apk
   catalog:
     en-US:
       name: BetrWeather
       short_description: Predict the weather
       long_description: BetrWeather is the default weather app for Solana Mobile, bringing weather predictions and betting to Solana Mobile. Users can bet on weather outcomes using Solana. Get real-time weather data, place predictions, and earn rewards for accurate forecasts.
       new_in_version: BetrWeather is the default weather app for Solana Mobile.
+  android_details:
+    cert_fingerprint: bcebaebb5a09c2d193981a9bf80d4326f9c89fbb00600dbb2422db94f3b7108f
+    min_sdk: 24
+    version: 1.0.1
+    version_code: 17
+    locales:
+      - en-US
 solana_mobile_dapp_publisher_portal:
   google_store_package: com.betrweather.app
   testing_instructions: Connect your Solana wallet and start betting on weather outcomes! Live markets on devnet, mainnet launching very soon, whitelisted for Seeker Genesis Token holders and Superteam members.
 lastSubmittedVersionOnChain:
-  address: 9nrcHJt2f67zs9vsbi5UBR9WwGdgkxbeUoMsQn1LuWPc
-  version_code: 15
-  apk_hash: fikWFh6SRwiYuutKAibNdV+SmNssTQ67BYnFlpteyj0=
+  address: AG6R5insmtYvF2hqeDb3admynLv3ic5f5QziJPD6qqA5
+  version_code: 17
+  apk_hash: uTgav9lnNTy8e7V/vQ188e/vExAifssXruiCWARKvV4=
 lastUpdatedVersionOnStore:
-  address: 9nrcHJt2f67zs9vsbi5UBR9WwGdgkxbeUoMsQn1LuWPc
+  address: AG6R5insmtYvF2hqeDb3admynLv3ic5f5QziJPD6qqA5

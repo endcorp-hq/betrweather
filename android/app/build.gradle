@@ -92,7 +92,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0.0"
+        versionName "1.0.1"
+        resConfigs "en", "en_US"
     }
     signingConfigs {
         debug {
