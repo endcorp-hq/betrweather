@@ -38,8 +38,8 @@ release:
     en-US:
       name: BetrWeather
       short_description: Predict the weather
-      long_description: BetrWeather is the default weather app for Solana Mobile, bringing weather predictions and betting to Solana Mobile. Users can bet on weather outcomes using Solana. Get real-time weather data, place predictions, and earn rewards for accurate forecasts.
-      new_in_version: BetrWeather is the default weather app for Solana Mobile.
+      long_description: BetrWeather brings state of the art weather forecasts you can bet on to Solana Mobile. Get real-time weather data, place your predictions, and earn rewards for accurate forecasts.
+      new_in_version: BetrWeather brings state of the art weather forecasts you can bet on to Solana Mobile.
   android_details:
     cert_fingerprint: bcebaebb5a09c2d193981a9bf80d4326f9c89fbb00600dbb2422db94f3b7108f
     min_sdk: 24
