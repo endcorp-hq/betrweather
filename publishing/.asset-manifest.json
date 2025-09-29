@@ -44,6 +44,11 @@
       "path": "../dapp-store-build/v1.0.1/BetrWeather-v1.0.1-signed.apk",
       "sha256": "uTgav9lnNTy8e7V/vQ188e/vExAifssXruiCWARKvV4=",
       "uri": "https://arweave.net/_NvMFTCY2nG-d5cyLrkA1KhO5BCSdOGwKfbCJ-fQP_E"
+    },
+    "../dapp-store-build/v1.0.2/BetrWeather-v1.0.2-signed.apk": {
+      "path": "../dapp-store-build/v1.0.2/BetrWeather-v1.0.2-signed.apk",
+      "sha256": "197ufjY7EI+4fJQz+M4pUwJauzOjvnrTdynNrr6Bm1s=",
+      "uri": "https://arweave.net/eKR2oIeHcYTgnLsgY20dNJFc1yQmxz4e1pl9yZIoJ0c"
     }
   }
 }
