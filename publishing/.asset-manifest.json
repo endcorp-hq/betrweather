@@ -1,0 +1,54 @@
+{
+  "assets": {
+    "./media/icon.png": {
+      "path": "./media/icon.png",
+      "sha256": "vy9WhX/Ymb8h3eqERhzzhJUg1V+dxiZqNfroDvfsfXY=",
+      "uri": "https://arweave.net/tHfLCYZFpkXAwd9a0zF47WJZgQ8q401gjQGxwzckE-A"
+    },
+    "./media/screenshots/3.png": {
+      "path": "./media/screenshots/3.png",
+      "sha256": "7yBy97hfCF+Sd10y9FZWUdZPON7XU//9Qi1t8bQqwAU=",
+      "uri": "https://arweave.net/v6j0RYzN401lNRrQe18IbIikPlxvpt83tMm0ZNNYrIE"
+    },
+    "./media/banner.png": {
+      "path": "./media/banner.png",
+      "sha256": "FbtL4nlxE49CUQQVQa2NNa9WNs3TjxB/Ixjy5Ji2WeU=",
+      "uri": "https://arweave.net/Sn8DRzdbixYIP8Woa8BH6BCsS6FlLuCOtQ1lk3f335g"
+    },
+    "./media/screenshots/4.png": {
+      "path": "./media/screenshots/4.png",
+      "sha256": "1+oxEHkyiM0MleFxWYF7QFQ4ShFENWhpxACaond/0Qo=",
+      "uri": "https://arweave.net/f1LuYxhD-kkJNL0TWN86sm4ID0f6JTVA6SC7mK7fqhc"
+    },
+    "./media/screenshots/2.png": {
+      "path": "./media/screenshots/2.png",
+      "sha256": "CHe1R4Og4XcLxGb483dYDkDyvAjiN7fZ6iKzIrLHo3Q=",
+      "uri": "https://arweave.net/XX33TMMyCfUWRYbXa1YuqcO4M6LjpRCkSHRl2hw6e70"
+    },
+    "./media/screenshots/1.png": {
+      "path": "./media/screenshots/1.png",
+      "sha256": "0kifoGu/WKsbWV6GhFMx3Ii4bNSwZrunIgw+2N+s9+4=",
+      "uri": "https://arweave.net/tc_IKcI6kVyZUDPOtAD-QLheTt6gIFVPUIFDXKU9JBg"
+    },
+    "./media/featured.png": {
+      "path": "./media/featured.png",
+      "sha256": "g5VrY+vbCOFmn/D7WHAvXGmhx/oDprtQlec+chDNQLU=",
+      "uri": "https://arweave.net/04Px20MBiB7gfOv4vmkW9Gpy5thrJPFGRBF5DyMHTwY"
+    },
+    "../dapp-store-build/BetrWeather-v1.0.0-signed.apk": {
+      "path": "../dapp-store-build/BetrWeather-v1.0.0-signed.apk",
+      "sha256": "fikWFh6SRwiYuutKAibNdV+SmNssTQ67BYnFlpteyj0=",
+      "uri": "https://arweave.net/oztRtmsFMirz0EF5AKpJjEEEVkouBL8jfWoz4tUvNpI"
+    },
+    "../dapp-store-build/v1.0.1/BetrWeather-v1.0.1-signed.apk": {
+      "path": "../dapp-store-build/v1.0.1/BetrWeather-v1.0.1-signed.apk",
+      "sha256": "uTgav9lnNTy8e7V/vQ188e/vExAifssXruiCWARKvV4=",
+      "uri": "https://arweave.net/_NvMFTCY2nG-d5cyLrkA1KhO5BCSdOGwKfbCJ-fQP_E"
+    },
+    "../dapp-store-build/v1.0.2/BetrWeather-v1.0.2-signed.apk": {
+      "path": "../dapp-store-build/v1.0.2/BetrWeather-v1.0.2-signed.apk",
+      "sha256": "197ufjY7EI+4fJQz+M4pUwJauzOjvnrTdynNrr6Bm1s=",
+      "uri": "https://arweave.net/eKR2oIeHcYTgnLsgY20dNJFc1yQmxz4e1pl9yZIoJ0c"
+    }
+  }
+}

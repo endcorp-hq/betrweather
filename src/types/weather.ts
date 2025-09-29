@@ -152,3 +152,43 @@ export type LocalStationsAPIResponse = {
     distance: number;
   };
 };
+
+export type WeatherType =
+  | "sunny_day"
+  | "sunny_night"
+  | "cloudy_day"
+  | "cloudy_night"
+  | "rainy_day"
+  | "rainy_night"
+  | "stormy_day"
+  | "stormy_night"
+  | "snowy_day"
+  | "snowy_night"
+  | "foggy_day"
+  | "foggy_night"
+  | "windy_day"
+  | "windy_night"
+  | "partly_cloudy_day"
+  | "partly_cloudy_night"
+  | null;
+
+// Helper function to determine if it's day or night based on timestamp
+export const isDayTime = (timestamp: string | Date, isLocalTime?: boolean): boolean => {
+  if (isLocalTime) {
+    const time = timestamp as string;
+    const isDay = parseFloat(time.split(":")[0]) > 6 && parseFloat(time.split(":")[0]) < 18;
+    return isDay;
+  }
+  const date = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
+  const hour = date.getHours();
+  // Consider day time from 6 AM to 6 PM (6:00 - 18:00)
+  return hour >= 6 && hour < 18;
+};
+
+// Helper function to get time of day suffix
+export const getTimeOfDaySuffix = (
+  timestamp: string | Date,
+  isLocalTime?: boolean
+): "_day" | "_night" => {
+  return isDayTime(timestamp, isLocalTime) ? "_day" : "_night";
+};

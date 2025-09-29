@@ -8,35 +8,33 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import GlassyCard from '../components/ui/GlassyCard';
-import { getWeatherXMIcon, mapWXMV1IconToWeatherType } from '../utils/weatherDataProcessor';
+import { getWeatherXMIcon, mapWXMV1IconToWeatherType } from '../utils/weatherUtils';
 
 interface DailyDetailScreenProps {
   selectedDay: any;
   onBack: () => void;
-  isUsingLocalStation: boolean;
+  source: string;
 }
 
-export function DailyDetailScreen({ selectedDay, onBack, isUsingLocalStation }: DailyDetailScreenProps) {
+export function DailyDetailScreen({ selectedDay, onBack, source }: DailyDetailScreenProps) {
   if (!selectedDay) return null;
+
+  console.log("selectedDay", selectedDay);
 
   // Extract data based on the data source
   const getDayData = () => {
-    if (isUsingLocalStation && selectedDay.daily) {
-      // WXMV1 data structure
-      // Create a timestamp for the middle of the day for day/night determination
-      const dayTimestamp = new Date(selectedDay.date);
-      dayTimestamp.setHours(12, 0, 0, 0); // Set to noon
-      
+    if (source?.includes("wxm") && selectedDay) {
       return {
-        date: selectedDay.date,
-        highTemp: selectedDay.daily.temperature_max ? `${Math.round(selectedDay.daily.temperature_max)}°` : "--",
-        lowTemp: selectedDay.daily.temperature_min ? `${Math.round(selectedDay.daily.temperature_min)}°` : "--",
-        icon: getWeatherXMIcon(mapWXMV1IconToWeatherType(selectedDay.daily.icon ?? "", dayTimestamp)),
-        precipitation: selectedDay.daily.precipitation_probability ? `${Math.round(selectedDay.daily.precipitation_probability)}%` : "0%",
-        humidity: selectedDay.daily.humidity ? `${Math.round(selectedDay.daily.humidity)}%` : "--",
-        windSpeed: selectedDay.daily.wind_speed ? `${Math.round(selectedDay.daily.wind_speed)} mph` : "--",
-        pressure: selectedDay.daily.pressure ? `${Math.round(selectedDay.daily.pressure)} mb` : "--",
-        uvIndex: selectedDay.daily.uv_index ? `${Math.round(selectedDay.daily.uv_index)}` : "--",
+        date: selectedDay.day,
+        highTemp: selectedDay.highTemp ? `${parseFloat(selectedDay.highTemp).toFixed(0)}°` : "--",
+        lowTemp: selectedDay.lowTemp ? `${parseFloat(selectedDay.lowTemp).toFixed(0)}°` : "--",
+        icon: selectedDay.icon,
+        precipitation: selectedDay.precipitation ? `${Math.round(selectedDay.precipitation)}%` : "0%",
+        humidity: selectedDay.humidity ? `${Math.round(selectedDay.humidity)}%` : "--",
+        windSpeed: selectedDay.windSpeed ? `${Math.round(selectedDay.windSpeed)} mph` : "--",
+        pressure: selectedDay.pressure ? `${Math.round(selectedDay.pressure)} mb` : "--",
+        uvIndex: selectedDay.uvIndex ? `${Math.round(selectedDay.uvIndex)}` : "--",
+        dewPoint: selectedDay.dewPoint ? `${Math.round(selectedDay.dewPoint)}°` : "--",
       };
     } else {      
       // Create a timestamp for the middle of the day for day/night determination
@@ -61,38 +59,6 @@ export function DailyDetailScreen({ selectedDay, onBack, isUsingLocalStation }: 
 
   const dayData = getDayData();
 
-  const formatDate = (dateInput: any) => {
-    try {
-      let date;
-      
-      if (isUsingLocalStation && selectedDay.daily) {
-        // WXMV1 date format
-        date = new Date(dateInput);
-      } else {
-        // Google API date format
-        if (dateInput?.year && dateInput?.month && dateInput?.day) {
-          date = new Date(dateInput.year, dateInput.month - 1, dateInput.day);
-        } else {
-          date = new Date(dateInput);
-        }
-      }
-      
-      if (isNaN(date.getTime())) {
-        return "Invalid Date";
-      }
-      
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'long',
-        month: 'long', 
-        day: 'numeric',
-        year: 'numeric'
-      });
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return "Invalid Date";
-    }
-  };
-
   return (
     <View style={{ flex: 1, backgroundColor: 'black' }}>
       {/* Header - Fixed position with proper status bar handling */}
@@ -100,7 +66,7 @@ export function DailyDetailScreen({ selectedDay, onBack, isUsingLocalStation }: 
         flexDirection: 'row', 
         alignItems: 'center', 
         paddingHorizontal: 16, 
-        paddingTop: 50, // Increased for status bar
+        paddingTop: 80, // Increased for status bar
         paddingBottom: 20,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 255, 255, 0.1)',
@@ -147,6 +113,7 @@ export function DailyDetailScreen({ selectedDay, onBack, isUsingLocalStation }: 
         style={{ flex: 1}}
         contentContainerStyle={{ 
           padding: 16,
+          paddingBottom: 100,
         }}
       >
         {/* Main Day Info */}
@@ -163,7 +130,7 @@ export function DailyDetailScreen({ selectedDay, onBack, isUsingLocalStation }: 
                 fontFamily: 'Poppins-Bold',
                 marginBottom: 8,
               }}>
-                {formatDate(dayData.date)}
+                {dayData.date}
               </Text>
               
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>

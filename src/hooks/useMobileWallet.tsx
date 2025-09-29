@@ -1,30 +1,30 @@
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
-import { Account, useAuthorization } from "../solana/useAuthorization";
+import { Account, useAuthorization } from "./solana/useAuthorization";
 import {
   Transaction,
   TransactionSignature,
   VersionedTransaction,
 } from "@solana/web3.js";
 import { useCallback, useMemo } from "react";
-import { SignInPayload } from "@solana-mobile/mobile-wallet-adapter-protocol";
+import { Chain, SignInPayload } from "@solana-mobile/mobile-wallet-adapter-protocol";
 
 export function useMobileWallet() {
   const { authorizeSessionWithSignIn, authorizeSession, deauthorizeSession } =
     useAuthorization();
 
-  const connect = useCallback(async (): Promise<Account> => {
+  const connect = useCallback(async (chainIdentifier?: Chain): Promise<Account> => {
     return await transact(async (wallet) => {
-      return await authorizeSession(wallet);
+      return await authorizeSession(wallet, chainIdentifier);
     });
   }, [authorizeSession]);
 
   const signIn = useCallback(
-    async (signInPayload: SignInPayload): Promise<Account> => {
+    async (signInPayload: SignInPayload, chainIdentifier?: Chain): Promise<Account> => {
       return await transact(async (wallet) => {
-        return await authorizeSessionWithSignIn(wallet, signInPayload);
+        return await authorizeSessionWithSignIn(wallet, signInPayload, chainIdentifier);
       });
     },
-    [authorizeSession]
+    [authorizeSessionWithSignIn]
   );
 
   const disconnect = useCallback(async (): Promise<void> => {
@@ -96,6 +96,6 @@ export function useMobileWallet() {
       signTransaction,
       signMessage,
     }),
-    [signAndSendTransaction, signMessage]
+    [connect, signIn, disconnect, signAndSendTransaction, signTransaction, signMessage]
   );
 }

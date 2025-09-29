@@ -43,6 +43,7 @@ This project is submitted to the [Solana Mobile Hackathon](https://solanamobile.
 - **Prediction Markets**: [DePredict protocol](https://github.com/endcorp-hq/depredict)
 - **UI**: NativeWind (Tailwind CSS) + Custom components
 - **State Management**: React Query + AsyncStorage
+- **Native Development**: Kotlin for Android widgets and specialized features
 
 ## 📸 Screenshots
 
@@ -65,14 +66,15 @@ This project is submitted to the [Solana Mobile Hackathon](https://solanamobile.
 - **Add more data sources**: Ingest more data from decentralised climate and weather projects to improve weather prediction and forecasting. 
 - **Rewards and gamification**: Implement rewards, streaks, achievements for people who predict the weather!
 
-
 ## 🔧 Development Setup
 
 ### Prerequisites
 - Node.js 18+
 - Yarn package manager
-- Android Studio (for local builds)
+- Android Studio (for native development)
 - Expo CLI
+- Java 17+ (for Android builds)
+- Android SDK 34+
 
 ### Quick Start
 ```bash
@@ -84,17 +86,48 @@ cd betrweather
 yarn install
 
 # Start development server
-yarn start
+yarn start android 
 
-# Build for Android
+# Build for Android (EAS Build - recommended)
 yarn build
+
+# Build for Android (local)
+yarn build:local
 ```
 
 ### Environment Setup
-1. Install Expo CLI: `npm install -g @expo/cli`
-2. Install Android Studio and configure Android SDK
-3. Set up Android emulator or connect physical device
-4. Install Solana wallet app on device/emulator
+1. **Install Expo CLI**: `npm install -g @expo/cli`
+2. **Install Android Studio** and configure Android SDK
+3. **Set up Android emulator** or connect physical device
+4. **Install Solana wallet app** on device/emulator
+5. **Configure environment variables** (see `.env.example`)
+
+### Native Development (Kotlin)
+This project includes native Kotlin development for:
+- **Android Widgets**: Weather widgets for home screen
+- **Background Services**: Location updates and notifications
+- **Native Modules**: Performance-critical features
+- **Custom Permissions**: Location and notification handling
+
+#### Building Native Components
+```bash
+cd android
+./gradlew assembleDebug
+./gradlew assembleRelease
+```
+
+#### Native Development Workflow
+1. **Modify Kotlin code** in `android/app/src/main/java/`
+2. **Update AndroidManifest.xml** for new permissions
+3. **Rebuild native modules**: `./gradlew clean && ./gradlew assembleDebug`
+4. **Test changes** on device/emulator
+
+## 🎯 Solana Mobile Features
+
+- **Mobile Wallet Adapter**: Seamless wallet integration
+- **Native Android**: Optimized for Android performance
+- **Biometric Auth**: Secure wallet access
+- **Background Location**: Widget updates and notifications
 
 ## 📊 Project Structure
 

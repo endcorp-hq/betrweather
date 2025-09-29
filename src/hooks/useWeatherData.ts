@@ -1,298 +1,187 @@
 import { useAPI } from "./useAPI";
-import { useLocation } from "./useLocation";
-import {
-  WeatherAPIResponse,
-  HourlyAPIResponse,
-  DailyAPIResponse,
-  WXMV1ForecastDailyResponse,
-  WXMV1ForecastHourlyResponse,
-} from "../types/weather";
+
 import { getH3Index } from "../utils/h3";
+import {
+  DailyForecastResponse,
+  HourlyForecastResponse,
+  WeatherXMWXMv1Response,
+} from "src/types/wxm-types";
+import {
+  parseCurrentWeatherData,
+  parseDailyForecastData,
+  parseHourlyForecastData,
+} from "src/utils/weatherUtils";
 
-export type WeatherType = 
-  | "sunny_day" | "sunny_night"
-  | "cloudy_day" | "cloudy_night" 
-  | "rainy_day" | "rainy_night"
-  | "stormy_day" | "stormy_night"
-  | "snowy_day" | "snowy_night"
-  | "foggy_day" | "foggy_night"
-  | "windy_day" | "windy_night"
-  | "partly_cloudy_day" | "partly_cloudy_night"
-  | null;
-
-// Helper function to determine if it's day or night based on timestamp
-export const isDayTime = (timestamp: string | Date): boolean => {
-  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
-  const hour = date.getHours();
-  
-  // Consider day time from 6 AM to 6 PM (6:00 - 18:00)
-  return hour >= 6 && hour < 18;
-};
-
-// Helper function to get time of day suffix
-export const getTimeOfDaySuffix = (timestamp: string | Date): "_day" | "_night" => {
-  return isDayTime(timestamp) ? "_day" : "_night";
-};
-
-// 🚩 DATA SOURCE FLAG - Modify this to test different sources
-// "wxmv1" = Force WXMV1 only, "google" = Force Google only, null = Default (WXMV1 with Google fallback)
-const FORCE_DATA_SOURCE: "wxmv1" | "google" | null = null;
-
-function mapApiToWeatherType(apiData: any): WeatherType {
-  if (!apiData) return null;
-  let iconCode = apiData.weatherCondition?.iconCode;
-  let icon = apiData.weatherCondition?.icon;
-  let iconBaseUri = apiData.weatherCondition?.iconBaseUri;
-  let type = apiData.weatherCondition?.type;
-  let desc = apiData.weatherCondition?.description?.text;
-  iconCode = iconCode ? String(iconCode).toLowerCase() : "";
-  icon = icon ? String(icon).toLowerCase() : "";
-  iconBaseUri = iconBaseUri ? String(iconBaseUri).toLowerCase() : "";
-  type = type ? String(type).toLowerCase() : "";
-  desc = desc ? String(desc).toLowerCase() : "";
-  const all = `${iconCode} ${icon} ${iconBaseUri} ${type} ${desc}`;
-  
-  // Get current time for day/night determination
-  const now = new Date();
-  const timeSuffix = getTimeOfDaySuffix(now);
-  
-  let baseWeatherType: string | null = null;
-  if (all.includes("cloud")) baseWeatherType = "cloudy";
-  else if (all.includes("rain")) baseWeatherType = "rainy";
-  else if (all.includes("storm")) baseWeatherType = "stormy";
-  else if (all.includes("snow")) baseWeatherType = "snowy";
-  else if (all.includes("fog")) baseWeatherType = "foggy";
-  else if (all.includes("wind")) baseWeatherType = "windy";
-  else if (all.includes("partly")) baseWeatherType = "partly_cloudy";
-  else if (all.includes("sun") || all.includes("clear")) baseWeatherType = "sunny";
-  else baseWeatherType = null;
-  
-  return baseWeatherType ? `${baseWeatherType}${timeSuffix}` as WeatherType : null;
-}
-
-function mapWXMV1ToWeatherType(wxmv1Data: any): WeatherType {
-  if (!wxmv1Data) return null;
-  
-  // WXMV1 data structure is different - it has icon field directly
-  const icon = wxmv1Data.icon ? String(wxmv1Data.icon).toLowerCase() : "";
-  
-  // Use timestamp from wxmv1Data if available, otherwise use current time
-  const timestamp = wxmv1Data.timestamp ? wxmv1Data.timestamp : new Date();
-  const timeSuffix = getTimeOfDaySuffix(timestamp);
-  
-  let baseWeatherType: string | null = null;
-  if (icon.includes("cloud")) baseWeatherType = "cloudy";
-  else if (icon.includes("rain")) baseWeatherType = "rainy";
-  else if (icon.includes("storm")) baseWeatherType = "stormy";
-  else if (icon.includes("snow")) baseWeatherType = "snowy";
-  else if (icon.includes("fog")) baseWeatherType = "foggy";
-  else if (icon.includes("wind")) baseWeatherType = "windy";
-  else if (icon.includes("partly")) baseWeatherType = "partly_cloudy";
-  else if (icon.includes("overcast")) baseWeatherType = "cloudy";
-  else if (icon.includes("sun") || icon.includes("clear")) baseWeatherType = "sunny";
-  else baseWeatherType = null;
-  
-  return baseWeatherType ? `${baseWeatherType}${timeSuffix}` as WeatherType : null;
-}
-
-export const useWeatherData = () => {
-  const {
-    latitude,
-    longitude,
-    detailedLocation,
-    isLoading: loadingLocation,
-    error: errorLocation,
-  } = useLocation();
-
-  // Only create URLs and fetch data if we have valid coordinates
-  const hasValidLocation =
-    latitude && longitude && !loadingLocation && !errorLocation;
-
+export function useWeatherData(
+  latitude: number,
+  longitude: number,
+  timeZoneId: string,
+  refreshTrigger?: number
+) {
+  const hasValidLocation = latitude && longitude;
   let userH3Index: string | null = null;
   if (hasValidLocation) {
     userH3Index = getH3Index(latitude, longitude);
   }
 
-  // Get current date and format it as yyyy-mm-dd
+  // Dates
   const today = new Date();
   const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);  
+  tomorrow.setDate(tomorrow.getDate() + 1);
   const sixDaysFromNow = new Date(today);
   sixDaysFromNow.setDate(sixDaysFromNow.getDate() + 6);
 
-  const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0]; // yyyy-mm-dd format
-  };
-
+  const formatDate = (date: Date) => date.toISOString().split("T")[0];
   const todayFormatted = formatDate(today);
   const tomorrowFormatted = formatDate(tomorrow);
   const sixDaysFormatted = formatDate(sixDaysFromNow);
 
-  // Always fetch Google API in parallel for faster fallback
+  // --- 1. Current Weather ---
   const {
-    data: baseWeatherResponse,
-    isLoading: loadingbaseWeather,
-    error: errorbaseWeather,
-  } = useAPI<{ data: WeatherAPIResponse; message: string }>(
-    `${process.env.EXPO_PUBLIC_BACKEND_URL}/google-weather/current-conditions` || "",
+    data: currentWeatherResp,
+    isLoading: loadingCurrentWeather,
+    error: errorCurrentWeather,
+  } = useAPI<WeatherXMWXMv1Response>(
+    `${process.env.EXPO_PUBLIC_BACKEND_URL}/weather/current-conditions`,
     {
       method: "POST",
       body: JSON.stringify({
+        h3Indices: userH3Index ? [userH3Index] : [],
+        minQod: 0.9,
+        from: todayFormatted,
+        to: tomorrowFormatted,
         latitude,
         longitude,
       }),
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     },
-    { 
-      enabled: !!hasValidLocation,
-      staleTime: 300000, // 5 minutes cache
-      gcTime: 600000, // 10 minutes garbage collection
+    {
+      enabled: !!hasValidLocation && !!userH3Index,
+      refreshTrigger,
     }
   );
 
-  const { data: baseHourlyResponse, isLoading: loadingbaseHourly } =
-    useAPI<{ data: HourlyAPIResponse; message: string }>(
-      `${process.env.EXPO_PUBLIC_BACKEND_URL}/google-weather/hourly-forecast` || "",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          latitude,
-          longitude,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-      { 
-        enabled: !!hasValidLocation,
-        staleTime: 300000, // 5 minutes cache
-        gcTime: 600000, // 10 minutes garbage collection
-      }
-    );
-
-  const { data: baseDailyResponse, isLoading: loadingBaseDaily } =
-    useAPI<{ data: DailyAPIResponse; message: string }>(
-      `${process.env.EXPO_PUBLIC_BACKEND_URL}/google-weather/daily-forecast` || "",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          latitude,
-          longitude,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-      { 
-        enabled: !!hasValidLocation,
-        staleTime: 300000, // 5 minutes cache
-        gcTime: 600000, // 10 minutes garbage collection
-      }
-    );
-
-  // Extract data from the wrapped response
-  const baseWeather = baseWeatherResponse?.data;
-  const baseHourly = baseHourlyResponse?.data;
-  const baseDaily = baseDailyResponse?.data;
-
-  // Get hourly forecast from wxmv1 (today to tomorrow) - with caching
+  // --- 2. Hourly Forecast ---
   const {
-    data: wxmv1HourlyForecastData,
-    isLoading: loadingWxmv1Forecast,
-    error: errorWxmv1Forecast,
-  } = useAPI<WXMV1ForecastHourlyResponse>(
-    `${process.env.EXPO_PUBLIC_BACKEND_URL}/wxm/forecast/wxmv1` || "",
+    data: hourlyForecastResp,
+    isLoading: loadingHourlyForecast,
+    error: errorHourlyForecast,
+  } = useAPI<HourlyForecastResponse>(
+    `${process.env.EXPO_PUBLIC_BACKEND_URL}/weather/hourly-forecast`,
     {
       method: "POST",
       body: JSON.stringify({
-        "cellId": userH3Index,
-        "from": todayFormatted,
-        "to": tomorrowFormatted,
-        "include": "hourly"
+        cellId: userH3Index,
+        from: todayFormatted,
+        to: tomorrowFormatted,
+        latitude,
+        longitude,
       }),
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     },
-    { 
+    {
       enabled: !!hasValidLocation && !!userH3Index,
-      // Add caching for faster subsequent loads
-      staleTime: 300000, // 5 minutes cache
-      gcTime: 600000, // 10 minutes garbage collection
+      refreshTrigger,
     }
   );
 
-  // Get daily forecast from wxmv1 (today to 6 days in future) - with caching
+  // --- 3. Daily Forecast ---
   const {
-    data: wxmv1DailyForecastData,
-    isLoading: loadingWxmv1DailyForecast,
-    error: errorWxmv1DailyForecast,
-  } = useAPI<WXMV1ForecastDailyResponse>(
-    `${process.env.EXPO_PUBLIC_BACKEND_URL}/wxm/forecast/wxmv1` || "",
+    data: dailyForecastResp,
+    isLoading: loadingDailyForecast,
+    error: errorDailyForecast,
+  } = useAPI<DailyForecastResponse>(
+    `${process.env.EXPO_PUBLIC_BACKEND_URL}/weather/daily-forecast`,
     {
       method: "POST",
       body: JSON.stringify({
-        "cellId": userH3Index,
-        "from": todayFormatted,
-        "to": sixDaysFormatted,
-        "include": "daily"
+        cellId: userH3Index,
+        from: todayFormatted,
+        to: sixDaysFormatted,
+        latitude,
+        longitude,
       }),
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     },
-    { 
+    {
       enabled: !!hasValidLocation && !!userH3Index,
-      // Add caching for faster subsequent loads
-      staleTime: 300000, // 5 minutes cache
-      gcTime: 600000, // 10 minutes garbage collection
+      refreshTrigger,
     }
   );
 
-  // Determine which data source to use - prioritize WXMV1 if available
-  const isUsingLocalStation = FORCE_DATA_SOURCE === "wxmv1" 
-    ? true 
-    : FORCE_DATA_SOURCE === "google" 
-    ? false 
-    : !!wxmv1HourlyForecastData?.forecast;
-    
-  const weather = isUsingLocalStation ? null : baseWeather;
-  const hourlyData = isUsingLocalStation ? null : baseHourly;
-  const dailyData = isUsingLocalStation ? null : baseDaily;
+  // --- Unwrap and Fallback Logic ---
+  // Current Weather
+  const currentWeatherData = currentWeatherResp?.data?.data ?? null;
+  const currentWeatherSource = currentWeatherResp?.data?.source ?? null;
 
-  // Determine weather type from the data source being used
-  const weatherType = isUsingLocalStation 
-    ? mapWXMV1ToWeatherType(wxmv1HourlyForecastData?.forecast[0]?.hourly?.[0]) 
-    : mapApiToWeatherType(weather);
+  let parsedCurrentWeatherData = null;
+  if (currentWeatherData && currentWeatherSource) {
+    parsedCurrentWeatherData = parseCurrentWeatherData(
+      currentWeatherData,
+      currentWeatherSource as string,
+      timeZoneId
+    );
+  }
 
+  // Hourly Forecast
+  const hourlyForecastData = hourlyForecastResp?.data?.data ?? null;
+  const hourlyForecastSource = hourlyForecastResp?.data?.source ?? null;
 
+  let parsedHourlyForecastData = null;
+  if (hourlyForecastData && hourlyForecastSource) {
+    parsedHourlyForecastData = parseHourlyForecastData(
+      hourlyForecastData,
+      hourlyForecastSource as string,
+      timeZoneId
+    );
+  }
 
-  // Optimized loading states - consider loading complete when we have any data
+  // Daily Forecast
+  const dailyForecastData = dailyForecastResp?.data?.data ?? null;
+  const dailyForecastSource = dailyForecastResp?.data?.source ?? null;
+
+  let parsedDailyForecastData = null;
+  if (dailyForecastData && dailyForecastSource) {
+    parsedDailyForecastData = parseDailyForecastData(
+      dailyForecastData,
+      dailyForecastSource as string
+    );
+  }
+
+  const highTemp = parsedDailyForecastData?.[0]?.highTemp ?? null;
+  const lowTemp = parsedDailyForecastData?.[0]?.lowTemp ?? null;
+
+  if (parsedCurrentWeatherData) {
+    parsedCurrentWeatherData = {
+      ...parsedCurrentWeatherData,
+      high: highTemp,
+      low: lowTemp,
+    };
+  }
+
+  // Loading and error states
   const isLoading =
-    loadingLocation ||
-    (loadingWxmv1Forecast && loadingWxmv1DailyForecast && loadingbaseWeather && loadingbaseHourly && loadingBaseDaily);
+    loadingCurrentWeather || loadingHourlyForecast || loadingDailyForecast;
 
-  // Error states - Only show error if both WXMV1 and Google APIs fail
-  const hasError = errorLocation || (errorWxmv1Forecast && errorWxmv1DailyForecast && errorbaseWeather);
+  const hasError =
+    errorCurrentWeather || errorHourlyForecast || errorDailyForecast;
+
   const errorMessage =
-    errorLocation || 
-    (errorWxmv1Forecast && errorWxmv1DailyForecast && errorbaseWeather ? 
-      "Unable to fetch weather data from any source" : 
-      null);
+    errorCurrentWeather?.message ||
+    errorHourlyForecast?.message ||
+    errorDailyForecast?.message ||
+    "Unable to fetch weather data from any source";
 
   return {
     // Data
-    wxmv1HourlyForecastData,
-    wxmv1DailyForecastData,
-    weather,
-    hourlyData,
-    dailyData,
-    detailedLocation,
+    currentWeather: parsedCurrentWeatherData,
+    currentWeatherSource,
+    hourlyForecast: parsedHourlyForecastData,
+    hourlyForecastSource,
+    dailyForecast: parsedDailyForecastData,
+    dailyForecastSource,
 
     // States
-    isUsingLocalStation,
     isLoading,
     hasError,
     errorMessage,
@@ -302,8 +191,5 @@ export const useWeatherData = () => {
     longitude,
     hasValidLocation,
     userH3Index,
-
-    // Weather Type for background
-    weatherType,
   };
-};
+}

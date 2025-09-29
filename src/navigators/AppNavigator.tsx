@@ -5,12 +5,12 @@
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
-import * as Screens from "../screens";
 import { HomeNavigator } from "./HomeNavigator";
 import { StatusBar } from "expo-status-bar";
 import MarketDetailScreen from "../screens/MarketDetailScreen";
 import { TopBar } from "../components/top-bar/top-bar-feature";
 import GuardedScreen from "../components/sign-in/guarded-screen";
+import { LocationPermissionScreen } from "../screens/LocationPermissionScreen";
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -26,7 +26,8 @@ import GuardedScreen from "../components/sign-in/guarded-screen";
  */
 
 type RootStackParamList = {
-  Home: undefined;
+  LocationPermission: undefined;
+  HomeStack: undefined;
   Settings: undefined;
   MarketDetail: { id: string };
   // 🔥 Your screens go here
@@ -48,20 +49,20 @@ const GuardedDetailScreen = () => {
   );
 };
 
-// Remove RouteGuard and just return the Stack.Navigator directly
+// Start with weather page by default, show permission screen only when needed
 const AppStack = () => {
   return (
-    <Stack.Navigator initialRouteName={"HomeStack"}>
+    <Stack.Navigator initialRouteName="HomeStack">
       <Stack.Screen
         name="HomeStack"
         component={HomeNavigator}
         options={{ headerShown: false }}
       />
-      {/* <Stack.Screen
-        name="Settings"
-        component={Screens.SettingsScreen}
-        options={{ headerShown: true, header: () => <TopBar /> }}
-      /> */}
+      <Stack.Screen
+        name="LocationPermission"
+        component={LocationPermissionScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="MarketDetail"
         component={GuardedDetailScreen}

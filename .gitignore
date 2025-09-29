@@ -40,3 +40,22 @@ yarn-error.*
 app-example
 .env
 figma_ingest
+dapp-store-build
+dapp-store-signing-keys
+
+# Android build artifacts (exclude build outputs, keep source)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/release/
+android/app/debug/
+android/.idea/
+
+# iOS build artifacts
+/ios
+
+# Build outputs
+*.apk
+*.aab
+*.ipa

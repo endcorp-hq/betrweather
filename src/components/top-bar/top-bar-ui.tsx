@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Account, useAuthorization } from "../../solana/useAuthorization";
+import { Account, useAuthorization } from "../../hooks/solana";
 import { useMobileWallet } from "../../hooks/useMobileWallet";
 import { useNavigation } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
@@ -15,7 +15,7 @@ export function TopBarWalletButton({
 }) {
   const { connect } = useMobileWallet();
   return (
-    <TouchableOpacity onPress={selectedAccount ? openMenu : connect} activeOpacity={0.8}>
+    <TouchableOpacity onPress={selectedAccount ? openMenu : () => connect()} activeOpacity={0.8}>
       <View
         style={{
           width: 40,

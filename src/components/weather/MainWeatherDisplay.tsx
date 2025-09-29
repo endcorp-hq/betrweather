@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Image } from "react-native";
-import { RefractiveBgCard } from "../ui/RefractiveBgCard";
+import { DarkCard } from "../ui/DarkCard";
 import {
   getWeatherXMIcon,
   mapWXMV1IconToWeatherType,
-} from "../../utils/weatherDataProcessor";
-import {
-  calculateLocalTimeForCoordinates,
-  getLocalTimeForTimezone,
-} from "../../utils/timezoneUtils";
+} from "../../utils/weatherUtils";
+import { getLocalTimeForTimezone } from "../../utils/timezoneUtils";
 
 interface MainWeatherDisplayProps {
   city: string;
@@ -17,18 +14,9 @@ interface MainWeatherDisplayProps {
   high: string;
   low: string;
   feelsLike: string;
-  isUsingLocalStation: boolean;
-  mmForecastData: any;
+  source: string;
   weatherIcon?: string;
-  searchedLocation?: {
-    name: string;
-    lat: number;
-    lon: number;
-  } | null;
-  currentLocationCoords?: {
-    lat: number;
-    lon: number;
-  } | null;
+  currentTimeZoneId: string;
 }
 
 export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
@@ -38,11 +26,9 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
   high,
   low,
   feelsLike,
-  isUsingLocalStation,
-  mmForecastData,
+  source,
   weatherIcon,
-  searchedLocation,
-  currentLocationCoords,
+  currentTimeZoneId,
 }) => {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDate, setCurrentDate] = useState<string>("");
@@ -51,20 +37,11 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
   useEffect(() => {
     const fetchTime = async () => {
       try {
-        let timezoneInfo = null;
-
-        if (searchedLocation) {
+        if (currentTimeZoneId) {
           // Get timezone for searched location
-          timezoneInfo = await calculateLocalTimeForCoordinates(
-            searchedLocation.lat,
-            searchedLocation.lon
-          );
-        } else if (currentLocationCoords) {
-          // Get timezone for current location
-          timezoneInfo = await calculateLocalTimeForCoordinates(
-            currentLocationCoords.lat,
-            currentLocationCoords.lon
-          );
+          const { time, date } = getLocalTimeForTimezone(currentTimeZoneId);
+          setCurrentTime(time);
+          setCurrentDate(date);
         } else {
           // Fallback to device timezone
           const deviceTimezone =
@@ -73,18 +50,6 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
           setCurrentTime(time);
           setCurrentDate(date);
           return;
-        }
-
-        if (timezoneInfo) {
-          setCurrentTime(timezoneInfo.time);
-          setCurrentDate(timezoneInfo.date);
-        } else {
-          // Fallback to device timezone
-          const deviceTimezone =
-            Intl.DateTimeFormat().resolvedOptions().timeZone;
-          const { time, date } = getLocalTimeForTimezone(deviceTimezone);
-          setCurrentTime(time);
-          setCurrentDate(date);
         }
       } catch (error) {
         console.error("Error fetching time:", error);
@@ -104,14 +69,14 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [searchedLocation, currentLocationCoords]);
+  }, [currentTimeZoneId]);
 
   return (
     <View
       className="items-center justify-center"
       style={{ minHeight: 300, marginTop: 20 }}
     >
-      <RefractiveBgCard
+      <DarkCard
         style={{
           width: 320,
           height: 340,
@@ -125,10 +90,23 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
         </Text>
 
         <View className="w-full flex justify-center items-center">
-          <Text style={{ color: "white", fontFamily: "Poppins-Regular", fontSize: 16 }}>
+          <Text
+            style={{
+              color: "white",
+              fontFamily: "Poppins-Regular",
+              fontSize: 16,
+            }}
+          >
             {currentTime}
           </Text>
-          <Text style={{ color: "white", fontFamily: "Poppins-Regular", fontSize: 14, opacity: 0.8 }}>
+          <Text
+            style={{
+              color: "white",
+              fontFamily: "Poppins-Regular",
+              fontSize: 14,
+              opacity: 0.8,
+            }}
+          >
             {currentDate}
           </Text>
         </View>
@@ -172,14 +150,9 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
 
           {/* Weather Icon */}
           <View className="ml-4">
-            {isUsingLocalStation ? (
+            {source?.includes("wxm") ? (
               <Text className="text-4xl">
-                {getWeatherXMIcon(
-                  mapWXMV1IconToWeatherType(
-                    mmForecastData?.icon ?? "",
-                    mmForecastData?.timestamp
-                  )
-                )}
+                {weatherIcon}
               </Text>
             ) : weatherIcon ? (
               <Image
@@ -192,7 +165,7 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
             )}
           </View>
         </View>
-      </RefractiveBgCard>
+      </DarkCard>
     </View>
   );
 };

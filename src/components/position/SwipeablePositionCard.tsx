@@ -26,6 +26,7 @@ interface SwipeablePositionCardProps {
   onClaim: () => Promise<void>;
   onPress: () => void;
   isClaiming: boolean;
+  onBurn: () => Promise<void>;
 }
 
 // Helper function to format market time and date
@@ -61,11 +62,12 @@ export function SwipeablePositionCard({
   onClaim,
   onPress,
   isClaiming,
+  onBurn
 }: SwipeablePositionCardProps) {
   // Check if position is claimable
   const isClaimable = isPositionClaimable(position);
   
-  // Check if position is lost (for hiding payout)
+  // Check if position is lost (for showing burn button)
   const isLost = position.market?.winningDirection !== WinningDirection.NONE && 
     ((position.direction === "Yes" && position.market.winningDirection === WinningDirection.NO) ||
      (position.direction === "No" && position.market.winningDirection === WinningDirection.YES));
@@ -76,16 +78,22 @@ export function SwipeablePositionCard({
     }
   };
 
+  const handleBurn = async () => {
+    if (isLost && !isClaiming) {
+      await onBurn();
+    }
+  };
+
   return (
     <View style={styles.cardContainer}>
       <ImageBackground
-        source={getWeatherBackground(position.marketId)}
+        source={getWeatherBackground(position)}
         style={styles.cardBackground}
         imageStyle={styles.cardBackgroundImage}
       >
         {isClaiming && (
           <View style={styles.loaderOverlay}>
-            <LogoLoader message="Claiming payout" />
+            <LogoLoader message={isClaimable ? "Claiming payout" : "Burning position"} />
           </View>
         )}
         
@@ -252,6 +260,28 @@ export function SwipeablePositionCard({
                 />
                 <Text className="text-white text-sm font-better-regular ml-2">
                   {isClaiming ? "Claiming..." : "Claim"}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Burn Button (only if lost) */}
+            {isLost && (
+              <TouchableOpacity
+                onPress={handleBurn}
+                style={[
+                  styles.burnButton,
+                  isClaiming && styles.burnButtonDisabled
+                ]}
+                activeOpacity={0.8}
+                disabled={isClaiming}
+              >
+                <MaterialCommunityIcons
+                  name="fire"
+                  size={16}
+                  color="white"
+                />
+                <Text className="text-white text-sm font-better-regular ml-2">
+                  {isClaiming ? "Burning..." : "Burn"}
                 </Text>
               </TouchableOpacity>
             )}
@@ -447,6 +477,22 @@ const styles = StyleSheet.create({
   },
   claimButtonDisabled: {
     backgroundColor: "rgba(16, 185, 129, 0.4)",
+  },
+  burnButton: {
+    flex: 1, // Take equal space
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center", // Center content
+    backgroundColor: "rgba(239, 68, 68, 0.8)", // Red background for burn
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.4)", // Same border as other buttons
+    height: 44, // Fixed height for both buttons
+  },
+  burnButtonDisabled: {
+    backgroundColor: "rgba(239, 68, 68, 0.4)",
   },
   buttonText: {
     color: "white",

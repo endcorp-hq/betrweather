@@ -1,37 +1,55 @@
-import { useState, useCallback } from "react";
-import { useAuthorization } from "../solana/useAuthorization";
-import { useNftMetadata } from "../solana/useNft";
-import { useShortx } from "../solana/useContract";
-import { useGlobalToast } from "../components/ui/ToastProvider";
-import { useCreateAndSendTx } from "../solana/useCreateAndSendTx";
-import { extractErrorMessage } from "../utils/helpers";
-import { PositionWithMarket, calculatePayout } from "../utils/positionUtils";
+import { useState, useCallback, useRef } from "react";
+import {
+  useAuthorization,
+  useNftMetadata,
+  useShortx,
+  useCreateAndSendTx,
+} from "./solana";
+
+import { useToast } from "../contexts/CustomToast/ToastProvider";
+import {
+  PositionWithMarket,
+  calculatePayout,
+  extractErrorMessage,
+} from "@/utils";
+import { burnPosition } from "src/utils/positionUtils";
+import { toWeb3JsTransaction } from "@metaplex-foundation/umi-web3js-adapters";
+import { getMarketToken } from "src/utils/marketUtils";
+
+import { useChain } from "@/contexts";
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
-  const { fetchNftMetadata, loading } = useNftMetadata();
+  const { fetchNftMetadata, loading, retryCount, lastError, clearError } = useNftMetadata();
   const { getMarketById, payoutPosition } = useShortx();
-  const { toast } = useGlobalToast();
+  const { toast } = useToast();
   const { createAndSendTx } = useCreateAndSendTx();
-  
+  const { currentChain } = useChain();
+
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
+  const lastRefreshTime = useRef<number>(0);
+  const isRefreshing = useRef(false);
 
   // Add a function to update claiming state for a specific position
-  const setPositionClaiming = useCallback((positionId: number, positionNonce: number, isClaiming: boolean) => {
-    setPositions(prev => 
-      prev.map(position => 
-        position.positionId === positionId && position.positionNonce === positionNonce
-          ? { ...position, isClaiming }
-          : position
-      )
-    );
-  }, []);
+  const setPositionClaiming = useCallback(
+    (positionId: number, positionNonce: number, isClaiming: boolean) => {
+      setPositions((prev) =>
+        prev.map((position) =>
+          position.positionId === positionId &&
+          position.positionNonce === positionNonce
+            ? { ...position, isClaiming }
+            : position
+        )
+      );
+    },
+    []
+  );
 
   // Manual refresh function
   const refreshPositions = useCallback(async () => {
     if (!selectedAccount) return;
-    
+
     setLoadingMarkets(true);
     try {
       const metadata = await fetchNftMetadata();
@@ -41,7 +59,7 @@ export function usePositions() {
           metadata.map(async (position) => {
             try {
               const market = await getMarketById(position.marketId);
-              if(!market) {
+              if (!market) {
                 // Return null instead of position with null market
                 return null;
               }
@@ -62,8 +80,9 @@ export function usePositions() {
         );
 
         // Filter out null values (positions without markets)
-        const validPositions = positionsWithMarkets.filter((position): position is NonNullable<typeof position> => 
-          position !== null
+        const validPositions = positionsWithMarkets.filter(
+          (position): position is NonNullable<typeof position> =>
+            position !== null
         );
 
         setPositions(validPositions);
@@ -73,100 +92,182 @@ export function usePositions() {
     } finally {
       setLoadingMarkets(false);
     }
-  }, [selectedAccount]);
+  }, [selectedAccount, fetchNftMetadata, getMarketById]);
 
-  const handleClaimPayout = useCallback(async (position: PositionWithMarket) => {
-    // Set claiming state for this specific position
-    setPositionClaiming(position.positionId, position.positionNonce, true);
+  // Unified transaction handler for both claim and burn operations
+  const handlePositionTransaction = useCallback(
+    async (
+      position: PositionWithMarket,
+      operation: 'claim' | 'burn',
+      createTransaction: () => Promise<any>
+    ) => {
+      // Set claiming state for this specific position
+      setPositionClaiming(position.positionId, position.positionNonce, true);
 
-    // Show loading toast
-    const loadingToastId = toast.loading(
-      "Claiming Payout",
-      "Processing your claim...",
-      {
-        position: "top",
-      }
-    );
+      // Define labels based on operation
+      const labels = {
+        loading: operation === 'claim' ? 'Claiming Payout' : 'Burning Position',
+        processing: operation === 'claim' ? 'Processing your claim...' : 'Processing your burn...',
+        processingTx: 'Transaction sent to blockchain...',
+        transactionSent: 'Transaction Sent',
+        processingBlockchain: 'Processing on blockchain...',
+        success: operation === 'claim' ? 'Payout Claimed!' : 'Position Burned!',
+        successMessage: (amount: number) => 
+          operation === 'claim' 
+            ? `Successfully claimed ${amount.toFixed(4)} ${getMarketToken(position.market.mint)}!`
+            : 'Position successfully burned!',
+        error: operation === 'claim' ? 'Failed to claim payout' : 'Failed to burn position'
+      };
 
-    if (!selectedAccount) {
-      toast.update(loadingToastId, {
-        type: "error",
-        title: "Error",
-        message: "Please connect your wallet to claim your payout",
-        duration: 4000,
-      });
-      setPositionClaiming(position.positionId, position.positionNonce, false);
-      return;
-    }
+      // Show loading toast
+      const loadingToastId = toast.loading(
+        labels.loading,
+        labels.processing,
+        { position: "top" }
+      );
 
-    try {
-      const tx = await payoutPosition({
-        marketId: position.marketId,
-        positionId: position.positionId,
-        positionNonce: position.positionNonce,
-        payer: selectedAccount?.publicKey,
-      });
-
-      if (!tx) {
+      if (!selectedAccount) {
         toast.update(loadingToastId, {
           type: "error",
           title: "Error",
-          message: "Failed to create transaction",
+          message: "Please connect your wallet",
           duration: 4000,
         });
         setPositionClaiming(position.positionId, position.positionNonce, false);
         return;
       }
 
-      // Send the transaction and wait for confirmation
-      const signature = await createAndSendTx([], true, tx);
-      
-      if (signature) {
-        // Transaction was successful - remove the position and show success
-        setPositions((prev) =>
-          prev.filter(
-            (p) =>
-              !(
-                p.positionId === position.positionId &&
-                p.positionNonce === position.positionNonce
-              )
-          )
-        );
+      try {
+        const tx = await createTransaction();
 
+        if (!tx) {
+          toast.update(loadingToastId, {
+            type: "error",
+            title: "Error",
+            message: "Failed to create transaction",
+            duration: 4000,
+          });
+          setPositionClaiming(position.positionId, position.positionNonce, false);
+          return;
+        }
+
+        // Show immediate feedback that transaction is being processed
         toast.update(loadingToastId, {
-          type: "success",
-          title: "Claim Successful!",
-          message: `Successfully claimed $${(
-            calculatePayout(position) || 0
-          ).toFixed(2)} payout`,
-          duration: 4000,
+          type: "loading",
+          title: "Processing...",
+          message: labels.processingTx,
+          duration: 2000,
         });
 
-        // Refresh positions to ensure UI is up to date
-        setTimeout(() => {
-          refreshPositions();
-        }, 1000);
-      } else {
-        // Transaction failed
+        // Send the transaction in background to avoid blocking UI
+        Promise.resolve().then(async () => {
+          try {
+            let signature;
+
+            // Send the transaction using createAndSendTx (handles both claim and burn)
+            signature = await createAndSendTx([], true, tx);
+
+            if (signature) {
+              // Remove position from UI immediately for better UX
+              setPositions((prev) =>
+                prev.filter(
+                  (p) =>
+                    !(
+                      p.positionId === position.positionId &&
+                      p.positionNonce === position.positionNonce
+                    )
+                )
+              );
+
+              // Show final success message by updating the existing toast
+              const successMessage = operation === 'claim' 
+                ? labels.successMessage(calculatePayout(position) || 0)
+                : labels.successMessage(0);
+                
+              toast.update(loadingToastId, {
+                type: "success",
+                title: labels.success,
+                message: successMessage,
+                duration: 4000,
+              });
+
+              // Reset claiming state immediately
+              setPositionClaiming(position.positionId, position.positionNonce, false);
+            } else {
+              // Transaction failed
+              toast.update(loadingToastId, {
+                type: "error",
+                title: "Error",
+                message: "Transaction failed. Please try again.",
+                duration: 4000,
+              });
+              setPositionClaiming(position.positionId, position.positionNonce, false);
+            }
+          } catch (error) {
+            console.error(`Error in background ${operation} transaction:`, error);
+            toast.update(loadingToastId, {
+              type: "error",
+              title: "Error",
+              message: "Transaction failed. Please try again.",
+              duration: 4000,
+            });
+            setPositionClaiming(position.positionId, position.positionNonce, false);
+          }
+        });
+
+      } catch (error) {
+        console.error(`Error ${operation}ing position:`, error);
         toast.update(loadingToastId, {
           type: "error",
           title: "Error",
-          message: "Transaction failed. Please try again.",
+          message: extractErrorMessage(error, labels.error),
           duration: 4000,
         });
         setPositionClaiming(position.positionId, position.positionNonce, false);
       }
-    } catch (error) {
-      console.error("Error claiming payout:", error);
-      toast.update(loadingToastId, {
-        type: "error",
-        title: "Error",
-        message: extractErrorMessage(error, "Failed to claim payout"),
-        duration: 4000,
+    },
+    [
+      selectedAccount,
+      createAndSendTx,
+      toast,
+      setPositionClaiming,
+      calculatePayout,
+    ]
+  );
+
+  // Claim payout handler
+  const handleClaimPayout = useCallback(
+    async (position: PositionWithMarket) => {
+      if (!selectedAccount?.publicKey) return;
+      
+      await handlePositionTransaction(position, 'claim', () =>
+        payoutPosition({
+          marketId: position.marketId,
+          positionId: position.positionId,
+          positionNonce: position.positionNonce,
+          payer: selectedAccount.publicKey,
+        })
+      );
+    },
+    [handlePositionTransaction, payoutPosition, selectedAccount]
+  );
+
+  // Burn position handler
+  const handleBurnPosition = useCallback(
+    async (position: PositionWithMarket) => {
+      if (!selectedAccount?.publicKey) return;
+      
+      await handlePositionTransaction(position, 'burn', async () => {
+        const umiTx = await burnPosition(position, selectedAccount, currentChain || "devnet");
+        if (!umiTx) return null;
+        
+        // Convert UMI transaction to Solana transaction
+        const solanaTx = toWeb3JsTransaction(umiTx);
+        return solanaTx;
       });
-      setPositionClaiming(position.positionId, position.positionNonce, false);
-    }
-  }, [selectedAccount, payoutPosition, createAndSendTx, toast, setPositionClaiming, refreshPositions]);
+    },
+    [handlePositionTransaction, burnPosition, selectedAccount, currentChain]
+  );
 
   // Filter out positions with null markets for better UX
   const validPositions = positions.filter(
@@ -179,5 +280,8 @@ export function usePositions() {
     loadingMarkets,
     refreshPositions,
     handleClaimPayout,
+    handleBurnPosition,
+    lastError,
+    retryCount,
   };
-} 
+}

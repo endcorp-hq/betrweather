@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Animated, TextInput, Dimensions, ScrollView, Keyboard } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Animated, TextInput, Dimensions, ScrollView, Keyboard, Pressable } from 'react-native';
 import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
-
+import { useDebounce } from '../../hooks';
+  
 interface Location {
   name: string;
   country: string;
@@ -17,24 +18,10 @@ interface SearchButtonProps {
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Debounce function
-const debounce = <T extends (...args: any[]) => ReturnType<T>>(
-  callback: T,
-  timeout: number
-): ((...args: Parameters<T>) => void) => {
-  let timer: ReturnType<typeof setTimeout>
-
-  return (...args: Parameters<T>) => {
-    clearTimeout(timer)
-    timer = setTimeout(() => {
-      callback(...args)
-    }, timeout)
-  }
-}
-
 export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [suggestions, setSuggestions] = useState<Location[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -47,115 +34,94 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
   // Add ref for TextInput
   const inputRef = useRef<TextInput>(null);
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    debounce(async (query: string) => {
-      if (query.length < 3) {
+
+  useEffect(() => {
+    const loadSuggestions = async () => {
+      if (debouncedSearchQuery.length < 3) {
+        setSuggestions(null);
+        return;
+      }
+      setIsLoading(true);
+      setSuggestions(null);
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/google-weather/place-autocomplete`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            input: debouncedSearchQuery,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if(data.data.suggestions.length === 0 || data.error) {
         setSuggestions([]);
         setIsLoading(false);
         return;
       }
 
-      setIsLoading(true);
-      setSuggestions(null); // Clear previous suggestions immediately
-      
-      try {
-        const response = await fetch(
-          `https://places.googleapis.com/v1/places:autocomplete`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Goog-Api-Key': process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY || '',
-            },
-            body: JSON.stringify({
-              input: query,
-              includedPrimaryTypes: ['(regions)'],
-            }),
-          }
-        );
-        
-        const data = await response.json();
-        
-        if (data.suggestions && data.suggestions.length > 0) {
-          const locations: Location[] = await Promise.all(
-            data.suggestions.slice(0, 20).map(async (prediction: any) => {
-              try {
-                const placeId = prediction.placePrediction.placeId;
-                const placeName = prediction.placePrediction.structuredFormat.mainText.text;
-                const secondaryText = prediction.placePrediction.structuredFormat.secondaryText.text;
-                
-                // Get place details for coordinates
-                const detailsResponse = await fetch(
-                  `https://places.googleapis.com/v1/places/${placeId}?fields=id,displayName,formattedAddress,location`,
-                  {
-                    headers: {
-                      'X-Goog-Api-Key': process.env.EXPO_PUBLIC_GOOGLE_WEATHER_API_KEY || '',
-                    },
-                  }
-                );
-                
-                const detailsData = await detailsResponse.json();
-                
-                if (detailsData.location) {
-                  const { latitude, longitude } = detailsData.location;
-                  
-                  // Parse address components from secondary text
-                  const addressParts = secondaryText.split(', ');
-                  const country = addressParts[addressParts.length - 1];
-                  const state = addressParts.length > 1 ? addressParts[0] : undefined;
-                  
-                  return {
-                    name: placeName,
-                    country,
-                    state,
-                    lat: latitude,
-                    lon: longitude,
-                  };
-                }
-              } catch (error) {
-                console.log('❌ Error fetching details for place:', prediction.placePrediction.placeId, error);
+      if (data.data?.suggestions && data.data.suggestions.length > 0) {
+        const locations: Location[] = await Promise.all(
+          data.data.suggestions.slice(0, 20).map(async (prediction: any) => {
+            const placeId = prediction.placePrediction.placeId;
+            const placeName = prediction.placePrediction.structuredFormat.mainText.text;
+            const secondaryText = prediction.placePrediction.structuredFormat.secondaryText.text;
+
+            // Get place details from your backend
+            const detailsResponse = await fetch(
+              `${process.env.EXPO_PUBLIC_BACKEND_URL}/google-weather/place-details`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  placeId: placeId,
+                }),
               }
-              
-              return null;
-            })
-          );
-          
-          // Filter out null results
-          const validLocations = locations.filter(location => location !== null) as Location[];
-          setSuggestions(validLocations);
-        } else {
-          setSuggestions([]);
-        }
-      } catch (error) {
-        console.error('❌ Error fetching places:', error);
-        setSuggestions([]);
-      } finally {
+            );
+
+            const detailsData = await detailsResponse.json();
+
+            if (detailsData.data?.place?.location) {
+              const { latitude, longitude } = detailsData.data.place.location;
+
+              // Parse address components from secondary text
+              const addressParts = secondaryText.split(', ');
+              const country = addressParts[addressParts.length - 1];
+              const state = addressParts.length > 1 ? addressParts[0] : undefined;
+
+              return {
+                name: placeName,
+                country,
+                state,
+                lat: latitude,
+                lon: longitude,
+              };
+            }
+          })
+        );
         setIsLoading(false);
+        setSuggestions(locations);
       }
-    }, 800), // 800ms debounce
-    []
-  );
+    };
 
-  // Trigger debounced search when query changes
-  useEffect(() => {
-    if (searchQuery.length >= 3) {
-      setSuggestions(null); // Clear immediately when query changes
-      debouncedSearch(searchQuery);
-    } else {
-      setSuggestions(null);
-      setIsLoading(false);
-    }
-  }, [searchQuery, debouncedSearch]);
+    loadSuggestions();
+  }, [debouncedSearchQuery]);
 
+
+  //animation to expand search
   const expandSearch = () => {
     setIsExpanded(true);
     onSearchToggle(true);
     
-    // Animate width expansion to full screen width minus padding
     Animated.parallel([
       Animated.timing(widthAnim, {
-        toValue: screenWidth - 32, // Full width minus padding (16px on each side)
+        toValue: screenWidth - 32, 
         duration: 300,
         useNativeDriver: false,
       }),
@@ -165,9 +131,14 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
         delay: 150,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    });
   };
 
+  //animation to collapse search
   const collapseSearch = () => {
     setIsExpanded(false);
     onSearchToggle(false);
@@ -175,11 +146,9 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
     setSuggestions(null);
     setIsLoading(false);
     
-    // Ensure keyboard is dismissed
     Keyboard.dismiss();
     inputRef.current?.blur();
     
-    // Animate width collapse back to original size
     Animated.parallel([
       Animated.timing(widthAnim, {
         toValue: 48,
@@ -197,23 +166,21 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
         useNativeDriver: false,
       }),
     ]).start(() => {
-      // Ensure we're back to the original state
       setIsExpanded(false);
     });
   };
 
-  const handleLocationSelect = (location: Location) => {
-    // Ensure keyboard is dismissed
-    Keyboard.dismiss();
-    // Blur the input to prevent keyboard from reappearing
-    inputRef.current?.blur();
-    onLocationSelect(location);
-    collapseSearch();
+  const handleLocationSelect = (location: Location) => {    
+    // Use setTimeout to ensure keyboard dismissal completes before proceeding
+    setTimeout(() => {
+      onLocationSelect(location);
+      collapseSearch();
+    }, 50); // Small delay to ensure keyboard is fully dismissed
   };
 
+  //seaerch button press
   const handlePress = () => {
     if (!isExpanded) {
-      // Scale animation on press
       Animated.sequence([
         Animated.timing(scaleAnim, {
           toValue: 0.95,
@@ -231,36 +198,37 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
     }
   };
 
-  const showSuggestions = () => {
+  //effect to toggle visibility of suggestions dropdown
+  useEffect(() => {
     if (suggestions && (suggestions.length > 0 || isLoading)) {
       Animated.timing(suggestionsAnim, {
         toValue: 1,
         duration: 200,
         useNativeDriver: false,
       }).start();
-    }
-  };
-
-  useEffect(() => {
-    if (suggestions && (suggestions.length > 0 || isLoading)) {
-      // Don't dismiss keyboard here - let user continue typing
-      showSuggestions();
-    } else if (searchQuery.length >= 3 && !isLoading) {
-      // Don't dismiss keyboard here either - let user continue typing
+    } else if (debouncedSearchQuery.length >= 3 && !isLoading) {
+      //show when no suggestions and not loading
+      Animated.timing(suggestionsAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    } else if(isLoading) {
+      //show when loading
       Animated.timing(suggestionsAnim, {
         toValue: 1,
         duration: 200,
         useNativeDriver: false,
       }).start();
     } else {
-      // Hide dropdown when query is too short or when loading
+      // Hide dropdown when query is short
       Animated.timing(suggestionsAnim, {
         toValue: 0,
         duration: 150,
         useNativeDriver: false,
       }).start();
     }
-  }, [suggestions, isLoading, searchQuery]);
+  }, [suggestions, isLoading, debouncedSearchQuery]);
 
   // Reset search when externally toggled off
   useEffect(() => {
@@ -388,6 +356,7 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
         <ScrollView 
           style={{ height: '100%' }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
         >
           {isLoading && (
             <View className='p-4 items-center my-4'>
@@ -402,15 +371,20 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
           )}
 
           {suggestions && suggestions.map((location, index) => (
-            <TouchableOpacity
+            <Pressable
               key={`${location.name}-${location.country}-${index}`}
-              onPress={() => handleLocationSelect(location)}
+              onPress={() => {
+                // Prevent keyboard from interfering with the press event
+                inputRef.current?.blur();
+                Keyboard.dismiss();
+                handleLocationSelect(location);
+              }}
               style={{
                 padding: 16,
                 borderBottomWidth: index < suggestions.length - 1 ? 1 : 0,
                 borderBottomColor: 'rgba(255, 255, 255, 0.1)',
               }}
-              activeOpacity={0.7}
+              android_disableSound={true} // Disable Android sound for better UX
             >
               <Text className='text-white text-base font-better-medium'>
                 {location.name}
@@ -418,7 +392,7 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
               <Text className='text-white/60 text-base mt-1'>
                 {location.state ? `${location.state}, ` : ''}{location.country}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </ScrollView>
       </Animated.View>
