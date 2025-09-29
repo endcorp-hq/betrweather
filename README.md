@@ -38,7 +38,7 @@ This project is submitted to the [Solana Mobile Hackathon](https://solanamobile.
 ## 🛠 Tech Stack
 
 - **Frontend**: React Native + Expo
-- **Blockchain**: Solana (web3.js, Mobile Wallet Adapter)
+- **Blockchain**: Solana (web3.js, Mobile Wallet Adapter, metaplex umi)
 - **Weather API**: Integration with weather data providers
 - **Prediction Markets**: [DePredict protocol](https://github.com/endcorp-hq/depredict)
 - **UI**: NativeWind (Tailwind CSS) + Custom components
