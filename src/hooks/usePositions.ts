@@ -14,6 +14,8 @@ import {
 } from "@/utils";
 import { burnPosition } from "src/utils/positionUtils";
 import { toWeb3JsTransaction } from "@metaplex-foundation/umi-web3js-adapters";
+import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
+import { PublicKey as Web3PublicKey } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
 
 import { useChain } from "@/contexts";
@@ -65,6 +67,7 @@ export function usePositions() {
               }
               return {
                 ...position,
+                assetId: umiPublicKey(position.assetId),
                 direction: position.direction as "Yes" | "No",
                 market: market,
               };
@@ -243,9 +246,8 @@ export function usePositions() {
       await handlePositionTransaction(position, 'claim', () =>
         payoutPosition({
           marketId: position.marketId,
-          positionId: position.positionId,
-          positionNonce: position.positionNonce,
           payer: selectedAccount.publicKey,
+          assetId: new Web3PublicKey(position.assetId),
         })
       );
     },

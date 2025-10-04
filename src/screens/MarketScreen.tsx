@@ -7,6 +7,7 @@ import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
 import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
 import { ShortxErrorType } from "../hooks/solana/useContract";
+import { useAPI } from "../hooks/useAPI";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (
@@ -35,7 +36,66 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
 ));
 
 export default function MarketScreen() {
-  const { markets, loadingMarkets, error, isInitialized } = useRealTimeMarkets();
+  const { markets: rtMarkets, loadingMarkets, error, isInitialized } = useRealTimeMarkets();
+
+  // Minimal backend markets fetch (GET /markets)
+  const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+  const {
+    data: dbMarketsRaw,
+    isLoading: loadingDbMarkets,
+    error: dbMarketsError,
+  } = useAPI<any[]>(`${API_BASE}/markets`, { method: 'GET' });
+
+  // Normalize backend markets to the UI shape used here
+  const dbMarkets = useMemo(() => {
+    if (!dbMarketsRaw || !Array.isArray(dbMarketsRaw)) return [] as any[];
+    return dbMarketsRaw.map((m: any) => {
+      // Convert ISO dates to epoch seconds
+      const toSeconds = (iso?: string | null) => typeof iso === 'string' ? Math.floor(new Date(iso).getTime() / 1000) : undefined;
+      const maybeMarketId = m.marketId === null || m.marketId === undefined ? null : Number(m.marketId);
+      return {
+        // Keep db id separately for navigation and ensure-onchain
+        dbId: m.id ?? m.dbId ?? m._id ?? undefined,
+        marketId: maybeMarketId,
+        question: m.question ?? '',
+        marketStart: toSeconds(m.marketStart),
+        marketEnd: toSeconds(m.marketEnd),
+        marketType: m.marketType ?? 'FUTURE',
+        winningDirection: WinningDirection.NONE,
+        yesLiquidity: 0,
+        noLiquidity: 0,
+        volume: 0,
+      };
+    });
+  }, [dbMarketsRaw]);
+
+  const mergedMarkets = useMemo(() => {
+    if (!Array.isArray(dbMarkets) || dbMarkets.length === 0) return [] as any[];
+    if (!Array.isArray(rtMarkets) || rtMarkets.length === 0) return dbMarkets;
+
+    const onchainById = new Map<string, any>();
+    for (const m of rtMarkets) {
+      if (m?.marketId) onchainById.set(String(m.marketId), m);
+    }
+
+    return dbMarkets.map((m: any) => {
+      const idStr = m?.marketId != null ? String(m.marketId) : null;
+      if (!idStr) return m;
+      const oc = onchainById.get(idStr);
+      if (!oc) return m;
+      return {
+        ...m,
+        // Overlay chain-dependent fields when available
+        yesLiquidity: oc.yesLiquidity ?? m.yesLiquidity,
+        noLiquidity: oc.noLiquidity ?? m.noLiquidity,
+        volume: oc.volume ?? m.volume,
+        winningDirection: oc.winningDirection ?? m.winningDirection,
+        marketStart: oc.marketStart ?? m.marketStart,
+        marketEnd: oc.marketEnd ?? m.marketEnd,
+        marketState: oc.marketState ?? m.marketState,
+      };
+    });
+  }, [dbMarkets, rtMarkets]);
 
   //time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([
@@ -55,7 +115,7 @@ export default function MarketScreen() {
 
   // Memoize filtered markets to prevent recalculation on every render
   const filteredMarkets = useMemo(() => {
-    return markets.filter((market) => {
+    return mergedMarkets.filter((market) => {
       const now = Date.now();
       const marketStart = Number(market.marketStart) * 1000;
       const marketEnd = Number(market.marketEnd) * 1000;
@@ -153,11 +213,11 @@ export default function MarketScreen() {
 
       return matchesTime;
     });
-  }, [markets, statusFilter, timeFilter]);
+  }, [mergedMarkets, statusFilter, timeFilter]);
 
   return (
     <View className="flex-1">
-      {loadingMarkets ? (
+      {loadingDbMarkets ? (
         <LoadingSpinner message="Loading markets" />
       ) : (
         <View className="flex-1">
@@ -179,10 +239,10 @@ export default function MarketScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 100 }}
           >
-            {error && error.type === ShortxErrorType.MARKET_FETCH && (
-              <Text style={styles.errorText}>{error.message}</Text>
+            {dbMarketsError && (
+              <Text style={styles.errorText}>Failed to load DB markets</Text>
             )}
-            {!loadingMarkets && !error && filteredMarkets.length === 0 && (
+            {!loadingDbMarkets && filteredMarkets.length === 0 && (
               <View className="flex-1 justify-center items-center py-20">
                 <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
               </View>
@@ -192,7 +252,7 @@ export default function MarketScreen() {
             <View>
               {filteredMarkets.map((market, idx) => (
                 <MemoizedMarketCard
-                  key={`market-${market.marketId}-${market.marketStart}`}
+                  key={`market-${market.dbId ?? market.marketId ?? idx}-${market.marketStart}`}
                   market={market}
                   index={idx}
                 />

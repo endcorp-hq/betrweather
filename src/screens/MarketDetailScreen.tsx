@@ -26,6 +26,7 @@ import {
 } from "@/components";
 import { WinningDirection, MarketType, Market } from "@endcorp/depredict";
 import axios from "axios";
+import { useAPI } from "../hooks/useAPI";
 import { getMint, formatDate, extractErrorMessage } from "@/utils";
 import { PublicKey } from "@solana/web3.js";
 import theme from "../theme";
@@ -60,17 +61,19 @@ const formatBonkAmount = (amount: number): string => {
   return amount.toString();
 };
 
+type SwipeableBetCardProps = {
+  market: any;
+  onSelect: (dir: "yes" | "no") => void;
+  scrollViewRef: React.RefObject<ScrollView>;
+  hasRecentEvent: boolean;
+};
+
 function SwipeableBetCard({
   market,
   onSelect,
   scrollViewRef,
-  marketEvents,
-}: {
-  market: any;
-  onSelect: (dir: "yes" | "no") => void;
-  scrollViewRef: React.RefObject<ScrollView>;
-  marketEvents: any[];
-}) {
+  hasRecentEvent,
+}: SwipeableBetCardProps) {
   const pan = useRef(new Animated.ValueXY()).current;
   const [swiping, setSwiping] = useState(false);
   const [swipeDir, setSwipeDir] = useState<"yes" | "no" | null>(null);
@@ -162,6 +165,7 @@ function SwipeableBetCard({
       onMoveShouldSetPanResponder: (_: any, g: any) => Math.abs(g.dx) > 10,
       onPanResponderGrant: () => setSwiping(true),
       onPanResponderMove: (_: any, gesture: any) => {
+        // avoid per-frame state updates causing re-renders
         pan.setValue({ x: gesture.dx, y: gesture.dy });
       },
       onPanResponderRelease: handleRelease,
@@ -421,7 +425,7 @@ function SwipeableBetCard({
                 </Text>
               </View>
 
-              <View style={styles.detailRow}>
+            <View style={styles.detailRow}>
                 <MaterialCommunityIcons
                   name="chart-line"
                   size={16}
@@ -430,9 +434,7 @@ function SwipeableBetCard({
                 <Text style={styles.detailLabel}>Volume:</Text>
                 <Text style={styles.detailValue}>
                   ${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(1)}
-                  {marketEvents.some(
-                    (event) => event.marketId.toString() === market.marketId
-                  ) && (
+                  {hasRecentEvent && (
                     <Text style={{ color: "#10b981", fontSize: 12 }}> ●</Text>
                   )}
                 </Text>
@@ -589,7 +591,7 @@ function SwipeableBetCard({
       )}
     </View>
   );
-}
+};
 
 export default function SlotMachineScreen() {
   const route = useRoute();
@@ -598,21 +600,20 @@ export default function SlotMachineScreen() {
   const { createAndSendTx } = useCreateAndSendTx();
   const { toast } = useToast();
   // @ts-ignore
-  const { id } = route.params || {};
+  const { marketId, id } = route.params || {};
+  const effectiveMarketId = marketId ?? id;
 
-  const { openPosition, getMarketById, loadingMarket } = useShortx();
+  const { openPosition, getMarketById } = useShortx();
+  const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+  const { data: dbMarketRaw } = useAPI<any>(effectiveMarketId ? `${API_BASE}/markets/${effectiveMarketId}` : '', { method: 'GET' }, { enabled: Boolean(effectiveMarketId) });
 
-  // Get real-time markets data
-  const {
-    markets: realTimeMarkets,
-    marketEvents,
-    loadingMarkets,
-  } = useRealTimeMarkets();
+  // Merge real-time on-chain data for the selected market
+  const { markets: rtMarkets, marketEvents } = useRealTimeMarkets();
   const [betAmount, setBetAmount] = useState("");
   const [selectedDirection, setSelectedDirection] = useState<
     "yes" | "no" | null
   >(null);
-  const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
+  const [selectedMarket, setSelectedMarket] = useState<any | null>(null);
   // Comment out BONK in the token selection
   const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK">("USDC");
   const [showBetModal, setShowBetModal] = useState(false);
@@ -621,67 +622,72 @@ export default function SlotMachineScreen() {
   >("idle");
   const [error, setError] = useState<unknown>(null);
   const [isFetchingMarket, setIsFetchingMarket] = useState(false);
+  const [isOnChain, setIsOnChain] = useState(false);
+  const [isEnsuring, setIsEnsuring] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Memoize real-time market lookup
-  const realTimeMarket = useMemo(
-    () => realTimeMarkets.find((market) => market.marketId === id),
-    [realTimeMarkets, id]
-  );
+  const realTimeMarket = useMemo(() => {
+    if (!selectedMarket?.marketId) return undefined;
+    const id = String(selectedMarket.marketId);
+    return rtMarkets.find((m: any) => String(m.marketId) === id);
+  }, [selectedMarket?.marketId, rtMarkets]);
+  const hasRecentEvent = useMemo(() => (
+    marketEvents.some((event) => event.marketId.toString() === String(effectiveMarketId))
+  ), [marketEvents, effectiveMarketId]);
 
-  // Immediately set the market if it's available from real-time data
+  // Immediately overlay the market with real-time data if available
   useEffect(() => {
-    if (realTimeMarket && !selectedMarket) {
-      setSelectedMarket(realTimeMarket);
+    if (realTimeMarket && selectedMarket) {
+      setSelectedMarket({ ...selectedMarket, ...realTimeMarket });
+      setIsOnChain(true);
     }
-  }, [realTimeMarket, selectedMarket]);
+  }, [realTimeMarket]);
 
   // Optimized loading logic: only show loading if we don't have the market data
   // and we're not in the middle of fetching markets
-  const isLoading = !selectedMarket && (loadingMarkets || isFetchingMarket);
+  const isLoading = !selectedMarket && isFetchingMarket;
 
   useEffect(() => {
     async function fetchMarket() {
-      // First try to get from real-time markets
-      if (realTimeMarket) {
-        setSelectedMarket(realTimeMarket);
-        return;
-      }
-
-      // Check if we have the market in our cached list
-      const cachedMarket = realTimeMarkets.find(market => market.marketId === id);
-      if (cachedMarket) {
-        setSelectedMarket(cachedMarket);
-        return;
-      }
-
       // Only show loading state if we don't have the market anywhere
       setIsFetchingMarket(true);
 
-      // Fallback to fetching from blockchain
+      // Backend only: fetch market by ID (not on-chain)
       try {
-        const market = await getMarketById(id);
-        if (market) {
-          setSelectedMarket(market);
-        } else {
-          setSelectedMarket(null);
+        if (dbMarketRaw) {
+          const toSeconds = (iso?: string | null) => typeof iso === 'string' ? Math.floor(new Date(iso).getTime() / 1000) : undefined;
+          const normalized = {
+            dbId: dbMarketRaw.id ?? dbMarketRaw.dbId ?? dbMarketRaw._id,
+            marketId: dbMarketRaw.marketId ?? null,
+            question: dbMarketRaw.question ?? '',
+            marketStart: toSeconds(dbMarketRaw.marketStart),
+            marketEnd: toSeconds(dbMarketRaw.marketEnd),
+            marketType: dbMarketRaw.marketType ?? 'FUTURE',
+            winningDirection: WinningDirection.NONE,
+            yesLiquidity: 0,
+            noLiquidity: 0,
+            volume: 0,
+          } as unknown as any;
+          setSelectedMarket(normalized);
+          setIsOnChain(false);
         }
       } catch (error) {
         console.error(
-          `MarketDetailScreen: Error fetching market ${id}:`,
+          `MarketDetailScreen: Error fetching market ${marketId}:`,
           error
         );
         setError(error as unknown);
         setSelectedMarket(null);
+        setIsOnChain(false);
       } finally {
         setIsFetchingMarket(false);
       }
     }
 
-    if (id) {
+    if (effectiveMarketId) {
       fetchMarket();
     }
-  }, [id, realTimeMarket, getMarketById, realTimeMarkets]);
+  }, [effectiveMarketId, dbMarketRaw]);
 
   useEffect(() => {
     const token = getMarketToken(selectedMarket?.mint || "");
@@ -697,6 +703,61 @@ export default function SlotMachineScreen() {
     }
 
     setBetStatus("loading");
+
+    // If market not on-chain yet, ensure it before proceeding
+    let finalMarketId: number | null = selectedMarket?.marketId ?? null;
+    let ensureToastId: string | null = null;
+    try {
+      if (!finalMarketId) {
+        setIsEnsuring(true);
+        ensureToastId = toast.loading(
+          "Preparing your market…",
+          "Setting things up on-chain, just a moment",
+          { position: "top" }
+        );
+        const dbId = selectedMarket?.dbId || selectedMarket?.id;
+        const ensureRes = await axios.post(
+          `${API_BASE}/scheduler/market/ensure-onchain/${dbId}`
+        );
+        const { success, marketId: ensuredId } = ensureRes.data || {};
+        if (!success || !ensuredId) {
+          toast.update(ensureToastId!, {
+            type: "error",
+            title: "Unable to prepare market",
+            message: "Please try again in a moment.",
+            duration: 4000,
+          });
+          setIsEnsuring(false);
+          setBetStatus("idle");
+          return;
+        }
+        finalMarketId = Number(ensuredId);
+        setSelectedMarket((prev: any) => ({ ...(prev || {}), marketId: finalMarketId }));
+        setIsOnChain(true);
+        toast.update(ensureToastId!, {
+          type: "success",
+          title: "Ready",
+          message: "Market prepared",
+          duration: 1200,
+        });
+        ensureToastId = null;
+        setIsEnsuring(false);
+      }
+    } catch (e) {
+      if (ensureToastId) {
+        toast.update(ensureToastId, {
+          type: "error",
+          title: "Unable to prepare market",
+          message: extractErrorMessage(e),
+          duration: 5000,
+        });
+      } else {
+        toast.error("Unable to prepare market", extractErrorMessage(e), { position: "top" });
+      }
+      setIsEnsuring(false);
+      setBetStatus("idle");
+      return;
+    }
 
     // Show loading toast and get the ID
     const loadingToastId = toast.loading(
@@ -759,8 +820,18 @@ export default function SlotMachineScreen() {
         return; // Don't navigate, just return
       }
 
+      // Debug log bet params prior to building instructions
+      console.log("[Bet Params]", {
+        marketId: Number(finalMarketId),
+        direction: bet === "yes" ? "yes" : "no",
+        amount: parsedAmount,
+        token: getMint(selectedToken, "devnet").toBase58(),
+        payer: selectedAccount.publicKey.toBase58(),
+        metadataUri,
+      });
+
       const buyIxs = await openPosition({
-        marketId: parseInt(selectedMarket.marketId),
+        marketId: Number(finalMarketId),
         direction: bet === "yes" ? { yes: {} } : { no: {} },
         amount: parsedAmount,
         token: getMint(selectedToken, "devnet").toBase58(),
@@ -770,6 +841,7 @@ export default function SlotMachineScreen() {
             "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"
         ),
         metadataUri: metadataUri,
+        pageIndex: 0,
       });
 
       if (typeof buyIxs === "string" || !buyIxs) {
@@ -782,6 +854,25 @@ export default function SlotMachineScreen() {
         });
         setBetStatus("error");
         return; // Don't navigate, just return
+      }
+
+      // Log instructions prior to sending
+      try {
+        console.log(
+          "[Bet Ixs]",
+          buyIxs.ixs.map((ix, idx) => ({
+            index: idx,
+            programId: ix.programId?.toBase58?.() ?? String(ix.programId),
+            keys: ix.keys?.map((k) => ({
+              pubkey: k.pubkey?.toBase58?.() ?? String(k.pubkey),
+              isSigner: k.isSigner,
+              isWritable: k.isWritable,
+            })),
+            dataLen: ix.data?.length ?? 0,
+          }))
+        );
+      } catch (e) {
+        console.warn("[Bet Ixs] Failed to log instructions:", e);
       }
 
       const signature = await createAndSendTx(buyIxs.ixs, true, undefined, undefined, {
@@ -858,7 +949,7 @@ export default function SlotMachineScreen() {
             </View>
           )}
 
-          {Boolean(error) && !loadingMarket && (
+          {Boolean(error) && (
             <MaterialCard variant="filled" style={styles.errorCard}>
               <Text style={styles.errorTitle}>Error</Text>
               <Text style={styles.errorMessage}>
@@ -884,14 +975,14 @@ export default function SlotMachineScreen() {
                   minHeight: 600,
                 }}
               >
-                <SwipeableBetCard
+                <MemoSwipeableBetCard
                   market={selectedMarket}
                   onSelect={(dir) => {
                     setSelectedDirection(dir);
                     setShowBetModal(true);
                   }}
                   scrollViewRef={scrollViewRef}
-                  marketEvents={marketEvents}
+                  hasRecentEvent={hasRecentEvent}
                 />
               </View>
               {/* Slot Machine, Aggregated outcome, etc. can go here if desired */}
@@ -1897,3 +1988,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
+
+const MemoSwipeableBetCard = React.memo(SwipeableBetCard);

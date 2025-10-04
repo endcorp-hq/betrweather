@@ -1,5 +1,5 @@
 import { WinningDirection } from "@endcorp/depredict";
-import { keypairIdentity, publicKey } from "@metaplex-foundation/umi";
+import { keypairIdentity, PublicKey, publicKey } from "@metaplex-foundation/umi";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
   burn,
@@ -12,7 +12,7 @@ import {
 
 
 export interface PositionWithMarket {
-  assetId: string;
+  assetId: PublicKey;
   positionId: number;
   positionNonce: number;
   marketId: number;

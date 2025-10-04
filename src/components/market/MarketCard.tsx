@@ -46,7 +46,7 @@ function isLiveMarket(market: Market) {
 }
 
 export function MarketCard({ market, index = 0, animatedValue }: { 
-  market: Market; 
+  market: any; 
   index?: number;
   animatedValue?: Animated.Value;
 }) {
@@ -170,14 +170,15 @@ export function MarketCard({ market, index = 0, animatedValue }: {
     // Use requestAnimationFrame to prevent frame drops during navigation
     requestAnimationFrame(() => {
       setIsNavigating(true);
-      navigation.navigate("MarketDetail", { id: market.marketId });
+      const navId = market?.marketId ?? market?.dbId;
+      navigation.navigate("MarketDetail", { id: String(navId) });
       
       // Reset navigation state after a short delay
       setTimeout(() => {
         setIsNavigating(false);
       }, 1000);
     });
-  }, [navigation, market.marketId, isNavigating]);
+  }, [navigation, market?.marketId, market?.dbId, isNavigating]);
 
   return (
     <Animated.View
@@ -300,6 +301,12 @@ export function MarketCard({ market, index = 0, animatedValue }: {
                   : getBettingTimeLeft(market.marketStart)}
               </Text>
             </View>
+            {!market?.marketId && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <MaterialCommunityIcons name="clock-outline" size={14} color="#f59e0b" />
+                <Text style={[styles.dateText, { color: "#f59e0b" }]}>pre-market</Text>
+              </View>
+            )}
             {(() => {
               const startDate = new Date(Number(market.marketStart) * 1000);
               const endDate = new Date(Number(market.marketEnd) * 1000);
