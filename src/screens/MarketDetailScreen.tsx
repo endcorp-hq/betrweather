@@ -74,37 +74,8 @@ function SwipeableBetCard({
   scrollViewRef,
   hasRecentEvent,
 }: SwipeableBetCardProps) {
-  const pan = useRef(new Animated.ValueXY()).current;
-  const [swiping, setSwiping] = useState(false);
-  const [swipeDir, setSwipeDir] = useState<"yes" | "no" | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { bottom: 24 };
-
-  // Memoize expensive calculations
-  const isSwipeable = useMemo(() => {
-    const now = Date.now();
-    const marketStart = Number(market.marketStart) * 1000;
-    const marketEnd = Number(market.marketEnd) * 1000;
-
-    if (market.winningDirection !== WinningDirection.NONE) {
-      return false; // Resolved markets
-    }
-
-    if (now > marketEnd) {
-      return false; // Market ended but not resolved
-    }
-
-    if (market.marketType === MarketType.FUTURE && now > marketStart) {
-      return false; // Future market where betting time is over
-    }
-
-    return true; // All other cases (betting, active live markets)
-  }, [
-    market.winningDirection,
-    market.marketStart,
-    market.marketEnd,
-    market.marketType,
-  ]);
 
   const marketStatus = useMemo(() => {
     const now = Date.now();
@@ -121,57 +92,6 @@ function SwipeableBetCard({
       return { text: "OBSERVING", color: "#3b82f6", icon: "play-circle" };
     }
   }, [market.winningDirection, market.marketStart, market.marketEnd]);
-
-  const handleRelease = useCallback(
-    (_: any, gesture: any) => {
-      if (gesture.dx > 80) {
-        setSwipeDir("yes");
-        Animated.timing(pan, {
-          toValue: { x: 500, y: 0 },
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          onSelect("yes");
-          pan.setValue({ x: 0, y: 0 });
-          setSwipeDir(null);
-        });
-      } else if (gesture.dx < -80) {
-        setSwipeDir("no");
-        Animated.timing(pan, {
-          toValue: { x: -500, y: 0 },
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          onSelect("no");
-          pan.setValue({ x: 0, y: 0 });
-          setSwipeDir(null);
-        });
-      } else {
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: true,
-        }).start();
-        setSwipeDir(null);
-      }
-    },
-    [pan, onSelect]
-  );
-
-  // Memoize PanResponder to prevent recreation on every render
-  const panResponder = useMemo(() => {
-    if (!isSwipeable) return {};
-
-    return require("react-native").PanResponder.create({
-      onMoveShouldSetPanResponder: (_: any, g: any) => Math.abs(g.dx) > 10,
-      onPanResponderGrant: () => setSwiping(true),
-      onPanResponderMove: (_: any, gesture: any) => {
-        // avoid per-frame state updates causing re-renders
-        pan.setValue({ x: gesture.dx, y: gesture.dy });
-      },
-      onPanResponderRelease: handleRelease,
-      onPanResponderTerminate: () => setSwiping(false),
-    }).panHandlers;
-  }, [isSwipeable, handleRelease, pan]);
 
   const handleExpand = useCallback(() => {
     setIsExpanded(!isExpanded);
@@ -194,43 +114,7 @@ function SwipeableBetCard({
         paddingBottom: insets.bottom + 16,
       }}
     >
-      {/* Swipe Direction Indicators - Only show for swipeable markets */}
-      {isSwipeable && (
-        <View className="flex flex-row justify-between items-center w-full mb-4 px-4">
-          <View className="flex flex-row items-center gap-2">
-            <MaterialCommunityIcons
-              name="chevron-left"
-              size={24}
-              color="rgba(255, 255, 255, 0.8)"
-            />
-            <Text
-              className="text-base font-better-semi-bold"
-              style={{
-                color: "white",
-              }}
-            >
-              No
-            </Text>
-          </View>
-          <View className="flex flex-row items-center gap-2">
-            <Text
-              className="text-base font-better-semi-bold"
-              style={{
-                color: "white",
-              }}
-            >
-              Yes
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={24}
-              color="rgba(255, 255, 255, 0.8)"
-            />
-          </View>
-        </View>
-      )}
-
-      <Animated.View
+      <View
         style={{
           width: "100%",
           minHeight: 420,
@@ -238,45 +122,8 @@ function SwipeableBetCard({
           borderRadius: 20,
           overflow: "hidden",
           backgroundColor: "transparent",
-          transform: isSwipeable
-            ? [
-                { translateX: pan.x },
-                { translateY: pan.y },
-                {
-                  rotate: pan.x.interpolate({
-                    inputRange: [-200, 0, 200],
-                    outputRange: ["-15deg", "0deg", "15deg"],
-                    extrapolate: "clamp",
-                  }),
-                },
-              ]
-            : [], // No transforms for non-swipeable markets
         }}
-        {...panResponder}
       >
-        {/* Combined overlay for better performance */}
-        {isSwipeable && (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              ...StyleSheet.absoluteFillObject,
-              borderRadius: 20,
-              zIndex: 2,
-              backgroundColor: pan.x.interpolate({
-                inputRange: [-200, -80, 0, 80, 200],
-                outputRange: [
-                  "rgba(239, 68, 68, 0.3)", // Red for left
-                  "rgba(239, 68, 68, 0.15)", // Light red
-                  "transparent", // No color
-                  "rgba(16, 185, 129, 0.15)", // Light green
-                  "rgba(16, 185, 129, 0.3)", // Green for right
-                ],
-                extrapolate: "clamp",
-              }),
-            }}
-          />
-        )}
-
         <DarkCard style={{ flex: 1, minHeight: 420 }} borderRadius={20}>
           <View style={styles.swipeCardInner}>
             {/* Status Badge */}
@@ -311,53 +158,28 @@ function SwipeableBetCard({
               </Text>
             )}
 
-            {/* Combined YES/NO overlay for better performance */}
-            {isSwipeable && (
-              <Animated.View
-                style={[
-                  styles.swipeOverlay,
-                  {
-                    opacity: pan.x.interpolate({
-                      inputRange: [-200, -80, 0, 80, 200],
-                      outputRange: [1, 0.5, 0, 0.5, 1],
-                      extrapolate: "clamp",
-                    }),
-                  },
-                ]}
-              >
-                <Animated.Text
-                  style={[
-                    styles.swipeNoText,
-                    {
-                      opacity: pan.x.interpolate({
-                        inputRange: [-200, -80, 0],
-                        outputRange: [1, 0.5, 0],
-                        extrapolate: "clamp",
-                      }),
-                    },
-                  ]}
-                >
-                  NO
-                </Animated.Text>
-                <Animated.Text
-                  style={[
-                    styles.swipeYesText,
-                    {
-                      opacity: pan.x.interpolate({
-                        inputRange: [0, 80, 200],
-                        outputRange: [0, 0.5, 1],
-                        extrapolate: "clamp",
-                      }),
-                    },
-                  ]}
-                >
-                  YES
-                </Animated.Text>
-              </Animated.View>
-            )}
-
             {/* Market Question */}
             <Text style={styles.swipeCardQuestion}>{market.question}</Text>
+
+            {/* Yes / No Buttons */}
+            {market.winningDirection === WinningDirection.NONE && (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={[styles.betButton, styles.noButton]}
+                  onPress={() => onSelect("no")}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.betButtonText}>NO</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.betButton, styles.yesButton]}
+                  onPress={() => onSelect("yes")}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.betButtonText}>YES</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Market Details */}
             <View style={styles.marketDetails}>
@@ -442,7 +264,7 @@ function SwipeableBetCard({
             </View>
           </View>
         </DarkCard>
-      </Animated.View>
+      </View>
 
       {/* Expand/Collapse Arrow - Outside animated container */}
       <View style={styles.expandButtonContainer}>
