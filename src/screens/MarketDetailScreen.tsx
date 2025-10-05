@@ -599,13 +599,18 @@ export default function SlotMachineScreen() {
   const { selectedAccount } = useAuthorization();
   const { createAndSendTx } = useCreateAndSendTx();
   const { toast } = useToast();
+  // Accept both dbId and marketId from navigation
   // @ts-ignore
-  const { marketId, id } = route.params || {};
-  const effectiveMarketId = marketId ?? id;
+  const { marketId: routeMarketId, dbId: routeDbId, id } = route.params || {};
+  const effectiveId = routeDbId ?? id ?? routeMarketId;
 
   const { openPosition, getMarketById } = useShortx();
   const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
-  const { data: dbMarketRaw } = useAPI<any>(effectiveMarketId ? `${API_BASE}/markets/${effectiveMarketId}` : '', { method: 'GET' }, { enabled: Boolean(effectiveMarketId) });
+  const dbByDbIdUrl = routeDbId ? `${API_BASE}/markets/db/${routeDbId}` : '';
+  const dbByMarketIdUrl = routeMarketId ? `${API_BASE}/markets/${routeMarketId}` : '';
+  const { data: dbMarketByDbId, isLoading: loadingByDbId } = useAPI<any>(dbByDbIdUrl, { method: 'GET' }, { enabled: Boolean(routeDbId) });
+  const { data: dbMarketByMarketId, isLoading: loadingByMarketId } = useAPI<any>(dbByMarketIdUrl, { method: 'GET' }, { enabled: Boolean(routeMarketId) });
+  const { data: dbMarketsList, isLoading: loadingList } = useAPI<any[]>(`${API_BASE}/markets`, { method: 'GET' });
 
   // Merge real-time on-chain data for the selected market
   const { markets: rtMarkets, marketEvents } = useRealTimeMarkets();
@@ -632,8 +637,8 @@ export default function SlotMachineScreen() {
     return rtMarkets.find((m: any) => String(m.marketId) === id);
   }, [selectedMarket?.marketId, rtMarkets]);
   const hasRecentEvent = useMemo(() => (
-    marketEvents.some((event) => event.marketId.toString() === String(effectiveMarketId))
-  ), [marketEvents, effectiveMarketId]);
+    selectedMarket?.marketId ? marketEvents.some((event) => event.marketId.toString() === String(selectedMarket.marketId)) : false
+  ), [marketEvents, selectedMarket?.marketId]);
 
   // Immediately overlay the market with real-time data if available
   useEffect(() => {
@@ -645,7 +650,7 @@ export default function SlotMachineScreen() {
 
   // Optimized loading logic: only show loading if we don't have the market data
   // and we're not in the middle of fetching markets
-  const isLoading = !selectedMarket && isFetchingMarket;
+  const isLoading = !selectedMarket && (isFetchingMarket || loadingByDbId || loadingByMarketId || loadingList);
 
   useEffect(() => {
     async function fetchMarket() {
@@ -654,6 +659,13 @@ export default function SlotMachineScreen() {
 
       // Backend only: fetch market by ID (not on-chain)
       try {
+        let dbMarketRaw = dbMarketByDbId || dbMarketByMarketId;
+        if (!dbMarketRaw && Array.isArray(dbMarketsList) && (routeDbId || routeMarketId)) {
+          dbMarketRaw = dbMarketsList.find((m: any) => (
+            (routeDbId && (m.id === routeDbId || m.dbId === routeDbId || String(m.id) === String(routeDbId))) ||
+            (routeMarketId && (m.marketId === Number(routeMarketId) || String(m.marketId) === String(routeMarketId)))
+          ));
+        }
         if (dbMarketRaw) {
           const toSeconds = (iso?: string | null) => typeof iso === 'string' ? Math.floor(new Date(iso).getTime() / 1000) : undefined;
           const normalized = {
@@ -672,10 +684,7 @@ export default function SlotMachineScreen() {
           setIsOnChain(false);
         }
       } catch (error) {
-        console.error(
-          `MarketDetailScreen: Error fetching market ${marketId}:`,
-          error
-        );
+        console.error(`MarketDetailScreen: Error fetching market:`, error);
         setError(error as unknown);
         setSelectedMarket(null);
         setIsOnChain(false);
@@ -684,10 +693,10 @@ export default function SlotMachineScreen() {
       }
     }
 
-    if (effectiveMarketId) {
+    if (routeDbId || routeMarketId) {
       fetchMarket();
     }
-  }, [effectiveMarketId, dbMarketRaw]);
+  }, [routeDbId, routeMarketId, dbMarketByDbId, dbMarketByMarketId]);
 
   useEffect(() => {
     const token = getMarketToken(selectedMarket?.mint || "");
@@ -716,11 +725,38 @@ export default function SlotMachineScreen() {
           { position: "top" }
         );
         const dbId = selectedMarket?.dbId || selectedMarket?.id;
+        console.log("[Ensure] Starting ensure-onchain", { dbId });
         const ensureRes = await axios.post(
-          `${API_BASE}/scheduler/market/ensure-onchain/${dbId}`
+          `${API_BASE}/scheduler/market/ensure-onchain/${dbId}`,
+          {},
+          { headers: { "Content-Type": "application/json" } }
         );
-        const { success, marketId: ensuredId } = ensureRes.data || {};
+        console.log("[Ensure] Response", { status: ensureRes.status, data: ensureRes.data });
+        let { success, marketId: ensuredId } = ensureRes.data || {};
+
+        // If backend didn't immediately return a marketId, poll DB for a short window
+        if (!ensuredId) {
+          const maxTries = 8;
+          const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+          for (let i = 0; i < maxTries && !ensuredId; i++) {
+            try {
+              console.log(`[Ensure] Poll attempt ${i + 1}/${maxTries}`);
+              const check = await axios.get(`${API_BASE}/markets/db/${dbId}`);
+              console.log("[Ensure] Poll response", { status: check.status, data: check.data });
+              if (check?.data?.marketId) {
+                ensuredId = check.data.marketId;
+                success = true;
+                break;
+              }
+            } catch (pollErr) {
+              console.warn("[Ensure] Poll error", pollErr);
+            }
+            await delay(1000);
+          }
+        }
+
         if (!success || !ensuredId) {
+          console.error("[Ensure] Unable to prepare market after ensure/poll", { success, ensuredId });
           toast.update(ensureToastId!, {
             type: "error",
             title: "Unable to prepare market",
@@ -731,9 +767,11 @@ export default function SlotMachineScreen() {
           setBetStatus("idle");
           return;
         }
+
         finalMarketId = Number(ensuredId);
         setSelectedMarket((prev: any) => ({ ...(prev || {}), marketId: finalMarketId }));
         setIsOnChain(true);
+        console.log("[Ensure] Success, marketId assigned", { marketId: finalMarketId });
         toast.update(ensureToastId!, {
           type: "success",
           title: "Ready",
@@ -744,6 +782,14 @@ export default function SlotMachineScreen() {
         setIsEnsuring(false);
       }
     } catch (e) {
+      // Surface axios error details when available
+      // @ts-ignore
+      const resp = e?.response;
+      if (resp) {
+        console.error("[Ensure] Exception with response", { status: resp.status, data: resp.data });
+      } else {
+        console.error("[Ensure] Exception", e);
+      }
       if (ensureToastId) {
         toast.update(ensureToastId, {
           type: "error",
@@ -958,13 +1004,7 @@ export default function SlotMachineScreen() {
             </MaterialCard>
           )}
 
-          {!isLoading && !error && !selectedMarket && (
-            <MaterialCard variant="filled" style={styles.errorCard}>
-              <Text style={styles.errorMessage}>No market found.</Text>
-            </MaterialCard>
-          )}
-
-          {!isLoading && !error && selectedMarket && (
+          {!isLoading && selectedMarket && (
             <>
               {/* Single Swipeable Card with all info */}
               <View

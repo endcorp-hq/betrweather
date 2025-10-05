@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { ScrollView, Text, StyleSheet, View } from "react-native";
+import { ScrollView, Text, StyleSheet, View, RefreshControl } from "react-native";
 import { MarketCard, StatusFilterBar, LogoLoader as LoadingSpinner } from "@/components";
 import { useFilters } from "@/components";
 import theme from '../theme';
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
 import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
+import { useShortx } from "../hooks/solana";
 import { ShortxErrorType } from "../hooks/solana/useContract";
 import { useAPI } from "../hooks/useAPI";
 
@@ -37,6 +38,8 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
 
 export default function MarketScreen() {
   const { markets: rtMarkets, loadingMarkets, error, isInitialized } = useRealTimeMarkets();
+  const { refresh: refreshOnchain } = useShortx();
+  const [refreshing, setRefreshing] = useState(false);
 
   // Minimal backend markets fetch (GET /markets)
   const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
@@ -44,6 +47,7 @@ export default function MarketScreen() {
     data: dbMarketsRaw,
     isLoading: loadingDbMarkets,
     error: dbMarketsError,
+    refetch: refetchDbMarkets,
   } = useAPI<any[]>(`${API_BASE}/markets`, { method: 'GET' });
 
   // Normalize backend markets to the UI shape used here
@@ -61,6 +65,7 @@ export default function MarketScreen() {
         marketStart: toSeconds(m.marketStart),
         marketEnd: toSeconds(m.marketEnd),
         marketType: m.marketType ?? 'FUTURE',
+        isActive: Boolean(m.isActive),
         winningDirection: WinningDirection.NONE,
         yesLiquidity: 0,
         noLiquidity: 0,
@@ -85,6 +90,8 @@ export default function MarketScreen() {
       if (!oc) return m;
       return {
         ...m,
+        // Preserve backend activation status
+        isActive: m.isActive,
         // Overlay chain-dependent fields when available
         yesLiquidity: oc.yesLiquidity ?? m.yesLiquidity,
         noLiquidity: oc.noLiquidity ?? m.noLiquidity,
@@ -96,6 +103,18 @@ export default function MarketScreen() {
       };
     });
   }, [dbMarkets, rtMarkets]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.allSettled([
+        refetchDbMarkets?.(),
+        Promise.resolve(refreshOnchain?.()),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchDbMarkets, refreshOnchain]);
 
   //time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([
@@ -116,6 +135,8 @@ export default function MarketScreen() {
   // Memoize filtered markets to prevent recalculation on every render
   const filteredMarkets = useMemo(() => {
     return mergedMarkets.filter((market) => {
+      // Align strictly with backend: only show active markets
+      if (market?.isActive === false) return false;
       const now = Date.now();
       const marketStart = Number(market.marketStart) * 1000;
       const marketEnd = Number(market.marketEnd) * 1000;
@@ -238,10 +259,14 @@ export default function MarketScreen() {
             className="flex-1 px-4"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing || Boolean(loadingDbMarkets)}
+                onRefresh={onRefresh}
+                tintColor="#ffffff"
+              />
+            }
           >
-            {dbMarketsError && (
-              <Text style={styles.errorText}>Failed to load DB markets</Text>
-            )}
             {!loadingDbMarkets && filteredMarkets.length === 0 && (
               <View className="flex-1 justify-center items-center py-20">
                 <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
