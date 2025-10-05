@@ -542,8 +542,8 @@ export default function SlotMachineScreen() {
       if (!finalMarketId) {
         setIsEnsuring(true);
         ensureToastId = toast.loading(
-          "Preparing your market…",
-          "Setting things up on-chain, just a moment",
+          "Connecting…",
+          "Spinning up a connection, just a moment",
           { position: "top" }
         );
         const dbId = selectedMarket?.dbId || selectedMarket?.id;
@@ -581,7 +581,7 @@ export default function SlotMachineScreen() {
           console.error("[Ensure] Unable to prepare market after ensure/poll", { success, ensuredId });
           toast.update(ensureToastId!, {
             type: "error",
-            title: "Unable to prepare market",
+            title: "Connection issue",
             message: "Please try again in a moment.",
             duration: 4000,
           });
@@ -596,8 +596,8 @@ export default function SlotMachineScreen() {
         console.log("[Ensure] Success, marketId assigned", { marketId: finalMarketId });
         toast.update(ensureToastId!, {
           type: "success",
-          title: "Ready",
-          message: "Market prepared",
+          title: "Connected",
+          message: "Connection ready",
           duration: 1200,
         });
         ensureToastId = null;
@@ -615,12 +615,12 @@ export default function SlotMachineScreen() {
       if (ensureToastId) {
         toast.update(ensureToastId, {
           type: "error",
-          title: "Unable to prepare market",
+          title: "Connection issue",
           message: extractErrorMessage(e),
           duration: 5000,
         });
       } else {
-        toast.error("Unable to prepare market", extractErrorMessage(e), { position: "top" });
+        toast.error("Connection issue", extractErrorMessage(e), { position: "top" });
       }
       setIsEnsuring(false);
       setBetStatus("idle");
