@@ -4,6 +4,7 @@ export { useWeatherData } from './useWeatherData';
 export { useLocation } from './useLocation';
 export { useNearbyStations } from './useNearbyStations';
 export { useDebounce } from './useDebounce';
+export { useBackendRelay } from './useBackendRelay';
 
 // Solana and Wallet Hooks
 export { useMobileWallet } from './useMobileWallet';

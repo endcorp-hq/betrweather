@@ -8,6 +8,9 @@ import {
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useShortx, useAuthorization, useCreateAndSendTx } from "../hooks/solana";
+import { useBackendRelay, useMobileWallet } from "../hooks";
+import { Buffer } from 'buffer';
+import { PublicKey } from '@solana/web3.js';
 import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
 import React, {
   useEffect,
@@ -28,7 +31,7 @@ import { WinningDirection, MarketType, Market } from "@endcorp/depredict";
 import axios from "axios";
 import { useAPI } from "../hooks/useAPI";
 import { getMint, formatDate, extractErrorMessage } from "@/utils";
-import { PublicKey } from "@solana/web3.js";
+// import { PublicKey } from "@solana/web3.js";
 import theme from "../theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -419,14 +422,16 @@ export default function SlotMachineScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
-  const { createAndSendTx } = useCreateAndSendTx();
   const { toast } = useToast();
   // Accept both dbId and marketId from navigation
   // @ts-ignore
   const { marketId: routeMarketId, dbId: routeDbId, id } = route.params || {};
   const effectiveId = routeDbId ?? id ?? routeMarketId;
 
-  const { openPosition, getMarketById } = useShortx();
+  const { getMarketById, openPosition } = useShortx();
+  const { forwardTx } = useBackendRelay();
+  const { buildVersionedTx } = useCreateAndSendTx();
+  const { signTransaction } = useMobileWallet();
   const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
   const dbByDbIdUrl = routeDbId ? `${API_BASE}/markets/db/${routeDbId}` : '';
   const dbByMarketIdUrl = routeMarketId ? `${API_BASE}/markets/${routeMarketId}` : '';
@@ -535,8 +540,19 @@ export default function SlotMachineScreen() {
 
     setBetStatus("loading");
 
-    // If market not on-chain yet, ensure it before proceeding
-    let finalMarketId: number | null = selectedMarket?.marketId ?? null;
+    // Resolve on-chain marketId from DB id if needed, then ensure if missing
+    let finalMarketId: number | null = null;
+    const dbId = selectedMarket?.dbId || selectedMarket?.id || routeDbId || null;
+    try {
+      if (dbId) {
+        const latest = await axios.get(`${API_BASE}/markets/db/${dbId}`);
+        if (latest?.data?.marketId) {
+          finalMarketId = Number(latest.data.marketId);
+        }
+      }
+    } catch (e) {
+      // non-fatal; we'll try ensure flow below
+    }
     let ensureToastId: string | null = null;
     try {
       if (!finalMarketId) {
@@ -546,10 +562,10 @@ export default function SlotMachineScreen() {
           "Spinning up a connection, just a moment",
           { position: "top" }
         );
-        const dbId = selectedMarket?.dbId || selectedMarket?.id;
-        console.log("[Ensure] Starting ensure-onchain", { dbId });
+        const ensureDbId = dbId || selectedMarket?.dbId || selectedMarket?.id;
+        console.log("[Ensure] Starting ensure-onchain", { dbId: ensureDbId });
         const ensureRes = await axios.post(
-          `${API_BASE}/scheduler/market/ensure-onchain/${dbId}`,
+          `${API_BASE}/scheduler/market/ensure-onchain/${ensureDbId}`,
           {},
           { headers: { "Content-Type": "application/json" } }
         );
@@ -563,7 +579,7 @@ export default function SlotMachineScreen() {
           for (let i = 0; i < maxTries && !ensuredId; i++) {
             try {
               console.log(`[Ensure] Poll attempt ${i + 1}/${maxTries}`);
-              const check = await axios.get(`${API_BASE}/markets/db/${dbId}`);
+              const check = await axios.get(`${API_BASE}/markets/db/${ensureDbId}`);
               console.log("[Ensure] Poll response", { status: check.status, data: check.data });
               if (check?.data?.marketId) {
                 ensuredId = check.data.marketId;
@@ -688,64 +704,56 @@ export default function SlotMachineScreen() {
         return; // Don't navigate, just return
       }
 
+      // Resolve the USDC mint for devnet (backend expects mint address, not symbol)
+      const usdcMint = getMint("USDC", "devnet").toBase58();
+
+      // Client-build uses UI units; Anchor enum direction
+      const amountUi = parsedAmount;
+      const anchorDirection = bet === "yes" ? { yes: {} } : { no: {} };
+
       // Debug log bet params prior to building instructions
       console.log("[Bet Params]", {
         marketId: Number(finalMarketId),
-        direction: bet === "yes" ? "yes" : "no",
-        amount: parsedAmount,
-        token: getMint(selectedToken, "devnet").toBase58(),
+        direction: anchorDirection,
+        amount: amountUi,
+        token: usdcMint,
         payer: selectedAccount.publicKey.toBase58(),
         metadataUri,
       });
 
+      // Build instructions locally via SDK (single tx including ATA init if needed)
       const buyIxs = await openPosition({
         marketId: Number(finalMarketId),
-        direction: bet === "yes" ? { yes: {} } : { no: {} },
-        amount: parsedAmount,
-        token: getMint(selectedToken, "devnet").toBase58(),
+        direction: anchorDirection,
+        amount: amountUi,
+        token: usdcMint,
         payer: selectedAccount.publicKey,
         feeVaultAccount: new PublicKey(
           process.env.EXPO_PUBLIC_FEE_VAULT ||
             "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"
         ),
-        metadataUri: metadataUri,
+        metadataUri,
         pageIndex: 0,
       });
 
-      if (typeof buyIxs === "string" || !buyIxs) {
-        // Update loading toast to error
-        toast.update(loadingToastId, {
-          type: "error",
-          title: "Bet Failed",
-          message: "Failed to create bet transaction. Please try again.",
-          duration: 4000,
-        });
-        setBetStatus("error");
-        return; // Don't navigate, just return
+      if (!buyIxs || typeof buyIxs === 'string') {
+        throw new Error('Failed to build local instructions');
       }
 
-      // Log instructions prior to sending
-      try {
-        console.log(
-          "[Bet Ixs]",
-          buyIxs.ixs.map((ix, idx) => ({
-            index: idx,
-            programId: ix.programId?.toBase58?.() ?? String(ix.programId),
-            keys: ix.keys?.map((k) => ({
-              pubkey: k.pubkey?.toBase58?.() ?? String(k.pubkey),
-              isSigner: k.isSigner,
-              isWritable: k.isWritable,
-            })),
-            dataLen: ix.data?.length ?? 0,
-          }))
-        );
-      } catch (e) {
-        console.warn("[Bet Ixs] Failed to log instructions:", e);
-      }
-
-      const signature = await createAndSendTx(buyIxs.ixs, true, undefined, undefined, {
+      // Compile v0, sign once, forward
+      const tx = await buildVersionedTx(buyIxs.ixs, {
         addressLookupTableAccounts: buyIxs.addressLookupTableAccounts,
       });
+      const signedTx = await signTransaction(tx);
+      if (!signedTx) throw new Error('Wallet did not return a signed transaction');
+      const signedTxB64 = Buffer.from((signedTx as any).serialize()).toString('base64');
+      const forwardBody = {
+        signedTx: signedTxB64,
+        options: { skipPreflight: true, maxRetries: 3 },
+      };
+      console.log("[Forward Payload]", forwardBody);
+      const forwarded = await forwardTx(forwardBody);
+      const signature = forwarded.signature;
 
       // Success! Update loading toast to success
       const displayAmount =

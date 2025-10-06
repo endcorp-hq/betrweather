@@ -304,7 +304,7 @@ export default function ProfileScreen() {
           ) : (
             positions.map((position, idx) => (
               <MotiView
-                key={`${idx}`}
+                key={`${position.assetId?.toString?.() ?? position.assetId}-${position.positionId}-${position.positionNonce}`}
                 from={{
                   opacity: 0,
                   translateY: 10,

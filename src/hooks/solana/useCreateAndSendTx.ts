@@ -267,8 +267,55 @@ export function useCreateAndSendTx() {
     [selectedAccount?.publicKey, signTransaction]
   );
 
+  const buildVersionedTx = useCallback(
+    async (
+      instructions: TransactionInstruction[],
+      {
+        microLamports,
+        addressLookupTableAccounts,
+      }: {
+        microLamports?: number;
+        addressLookupTableAccounts?: AddressLookupTableAccount[];
+      } = {}
+    ): Promise<VersionedTransaction> => {
+      if (!selectedAccount?.publicKey) {
+        throw new Error("Wallet not connected");
+      }
+      if (!connection) {
+        throw new Error("RPC URL not found");
+      }
+
+      // Add priority fee or limit
+      if (microLamports) {
+        instructions.unshift(
+          ComputeBudgetProgram.setComputeUnitLimit({ units: microLamports })
+        );
+      } else {
+        const priorityFee = await getPriorityFee();
+        instructions.unshift(
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFee })
+        );
+      }
+
+      // Latest blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+
+      const tx = new VersionedTransaction(
+        new TransactionMessage({
+          instructions,
+          recentBlockhash: blockhash,
+          payerKey: selectedAccount.publicKey,
+        }).compileToV0Message(addressLookupTableAccounts)
+      );
+
+      return tx;
+    },
+    [selectedAccount?.publicKey]
+  );
+
   return {
     createAndSendTx,
+    buildVersionedTx,
     isLoading,
   };
 }

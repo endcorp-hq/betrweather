@@ -1,10 +1,8 @@
 import { useState, useCallback, useRef } from "react";
-import {
-  useAuthorization,
-  useNftMetadata,
-  useShortx,
-  useCreateAndSendTx,
-} from "./solana";
+import { useAuthorization, useNftMetadata, useShortx } from "./solana";
+import { useBackendRelay } from "./useBackendRelay";
+import { Buffer } from "buffer";
+import { useMobileWallet } from "./useMobileWallet";
 
 import { useToast } from "../contexts/CustomToast/ToastProvider";
 import {
@@ -23,10 +21,11 @@ import { useChain } from "@/contexts";
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
   const { fetchNftMetadata, loading, retryCount, lastError, clearError } = useNftMetadata();
-  const { getMarketById, payoutPosition } = useShortx();
+  const { getMarketById } = useShortx();
   const { toast } = useToast();
-  const { createAndSendTx } = useCreateAndSendTx();
   const { currentChain } = useChain();
+  const { buildPayout, signBuiltTransaction, forwardTx } = useBackendRelay();
+  const { signTransaction } = useMobileWallet();
 
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
@@ -56,11 +55,12 @@ export function usePositions() {
     try {
       const metadata = await fetchNftMetadata();
       if (metadata) {
-        // Fetch market details for each position
+        // Prefer market from backend if included; fallback to client fetch
         const positionsWithMarkets = await Promise.all(
           metadata.map(async (position) => {
             try {
-              const market = await getMarketById(position.marketId);
+              const marketFromBackend = position.market ?? null;
+              const market = marketFromBackend || (await getMarketById(position.marketId));
               if (!market) {
                 // Return null instead of position with null market
                 return null;
@@ -69,11 +69,11 @@ export function usePositions() {
                 ...position,
                 assetId: umiPublicKey(position.assetId),
                 direction: position.direction as "Yes" | "No",
-                market: market,
+                market,
               };
             } catch (error) {
               console.error(
-                `Error fetching market ${position.marketId}:`,
+                `Error preparing position for market ${position.marketId}:`,
                 error
               );
               // Return null instead of position with null market
@@ -167,8 +167,20 @@ export function usePositions() {
           try {
             let signature;
 
-            // Send the transaction using createAndSendTx (handles both claim and burn)
-            signature = await createAndSendTx([], true, tx);
+            // If the transaction was already submitted via relay, treat as success
+            if ((tx as any)?.relaySubmitted) {
+              signature = (tx as any).signature;
+            } else {
+              // Sign locally and forward to backend instead of local send
+              const signed = await signTransaction(tx);
+              if (!signed) throw new Error('Wallet did not return a signed transaction');
+              const signedTxB64 = Buffer.from((signed as any).serialize()).toString('base64');
+              const forwarded = await forwardTx({
+                signedTx: signedTxB64,
+                options: { skipPreflight: false, maxRetries: 3 },
+              });
+              signature = forwarded.signature;
+            }
 
             if (signature) {
               // Remove position from UI immediately for better UX
@@ -231,7 +243,6 @@ export function usePositions() {
     },
     [
       selectedAccount,
-      createAndSendTx,
       toast,
       setPositionClaiming,
       calculatePayout,
@@ -243,15 +254,24 @@ export function usePositions() {
     async (position: PositionWithMarket) => {
       if (!selectedAccount?.publicKey) return;
       
-      await handlePositionTransaction(position, 'claim', () =>
-        payoutPosition({
+      await handlePositionTransaction(position, 'claim', async () => {
+        const build = await buildPayout({
           marketId: position.marketId,
-          payer: selectedAccount.publicKey,
-          assetId: new Web3PublicKey(position.assetId),
-        })
-      );
+          payerPubkey: selectedAccount.publicKey.toBase58(),
+          assetId: new Web3PublicKey(position.assetId).toBase58(),
+        });
+        const { signedTx } = await signBuiltTransaction(build.message);
+        const signedTxB64 = Buffer.from(signedTx.serialize()).toString('base64');
+        const forwarded = await forwardTx({
+          signedTx: signedTxB64,
+          options: { skipPreflight: false, maxRetries: 3 },
+        });
+        return forwarded.signature
+          ? ({ relaySubmitted: true, signature: forwarded.signature } as any)
+          : null;
+      });
     },
-    [handlePositionTransaction, payoutPosition, selectedAccount]
+    [handlePositionTransaction, buildPayout, signBuiltTransaction, forwardTx, selectedAccount]
   );
 
   // Burn position handler

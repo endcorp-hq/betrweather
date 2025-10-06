@@ -186,7 +186,7 @@ export const burnPosition = async (
   currentChain: string
 ) => {
   try {
-    const chainString = `https://${currentChain}.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
+    const chainString = `https://api.${currentChain}.solana.com`;
     const rpcUrl = chainString;
     const umi = createUmi(rpcUrl);
     umi.use(keypairIdentity(signer))
