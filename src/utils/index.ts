@@ -23,6 +23,9 @@ export {
   calculateExpectedPayout
 } from './positionUtils';
 
+// DAS helpers
+export { getAssetInfo } from './das';
+
 // Timezone Utilities
 export { 
   getLocalTimeForTimezone, 
