@@ -164,8 +164,13 @@ function SwipeableBetCard({
             {/* Market Question */}
             <Text style={styles.swipeCardQuestion}>{market.question}</Text>
 
-            {/* Yes / No Buttons */}
-            {market.winningDirection === WinningDirection.NONE && (
+            {/* Yes / No Buttons - show only in predict state (before marketStart) */}
+            {(() => {
+              const now = Date.now();
+              const marketStart = Number(market.marketStart) * 1000;
+              const isPredict = market.winningDirection === WinningDirection.NONE && now < marketStart;
+              return isPredict;
+            })() && (
               <View style={styles.buttonRow}>
                 <TouchableOpacity
                   style={[styles.betButton, styles.noButton]}
@@ -423,9 +428,9 @@ export default function SlotMachineScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
   const { toast } = useToast();
-  // Accept both dbId and marketId from navigation
+  // Accept both dbId and marketId from navigation, and optionally a full market object
   // @ts-ignore
-  const { marketId: routeMarketId, dbId: routeDbId, id } = route.params || {};
+  const { marketId: routeMarketId, dbId: routeDbId, id, market: routeMarket } = route.params || {};
   const effectiveId = routeDbId ?? id ?? routeMarketId;
 
   const { getMarketById, openPosition } = useShortx();
@@ -445,7 +450,7 @@ export default function SlotMachineScreen() {
   const [selectedDirection, setSelectedDirection] = useState<
     "yes" | "no" | null
   >(null);
-  const [selectedMarket, setSelectedMarket] = useState<any | null>(null);
+  const [selectedMarket, setSelectedMarket] = useState<any | null>(routeMarket || null);
   // Comment out BONK in the token selection
   const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK">("USDC");
   const [showBetModal, setShowBetModal] = useState(false);
@@ -520,10 +525,22 @@ export default function SlotMachineScreen() {
       }
     }
 
-    if (routeDbId || routeMarketId) {
+    // If a full market was provided via navigation, use it immediately and skip fetching
+    if (routeMarket && !selectedMarket) {
+      try {
+        const toSeconds = (iso?: string | null) => typeof iso === 'string' ? Math.floor(new Date(iso).getTime() / 1000) : iso;
+        const normalized = {
+          ...routeMarket,
+          marketStart: toSeconds(routeMarket.marketStart),
+          marketEnd: toSeconds(routeMarket.marketEnd),
+        } as any;
+        setSelectedMarket(normalized);
+        setIsOnChain(Boolean(normalized?.marketId));
+      } catch {}
+    } else if (routeDbId || routeMarketId) {
       fetchMarket();
     }
-  }, [routeDbId, routeMarketId, dbMarketByDbId, dbMarketByMarketId]);
+  }, [routeDbId, routeMarketId, dbMarketByDbId, dbMarketByMarketId, routeMarket]);
 
   useEffect(() => {
     const token = getMarketToken(selectedMarket?.mint || "");
@@ -540,11 +557,20 @@ export default function SlotMachineScreen() {
 
     setBetStatus("loading");
 
-    // Resolve on-chain marketId from DB id if needed, then ensure if missing
-    let finalMarketId: number | null = null;
+    // Resolve on-chain marketId from known values first, then DB lookup, then ensure
+    let finalMarketId: number | null =
+      selectedMarket?.marketId != null
+        ? Number(selectedMarket.marketId)
+        : routeMarketId != null
+        ? Number(routeMarketId)
+        : null;
     const dbId = selectedMarket?.dbId || selectedMarket?.id || routeDbId || null;
     try {
-      if (dbId) {
+      if (!finalMarketId && dbId) {
+        console.log('[Bet] GET resolve marketId request', {
+          url: `${API_BASE}/markets/db/${dbId}`,
+          method: 'GET',
+        });
         const latest = await axios.get(`${API_BASE}/markets/db/${dbId}`);
         if (latest?.data?.marketId) {
           finalMarketId = Number(latest.data.marketId);
@@ -563,11 +589,21 @@ export default function SlotMachineScreen() {
           { position: "top" }
         );
         const ensureDbId = dbId || selectedMarket?.dbId || selectedMarket?.id;
-        console.log("[Ensure] Starting ensure-onchain", { dbId: ensureDbId });
+        // Prefer marketId if known; fallback to DB id
+        const ensureId = (selectedMarket?.marketId ?? (routeMarketId ? Number(routeMarketId) : null)) ?? ensureDbId;
+        console.log("[Ensure] Starting ensure-onchain", { ensureId, preferred: selectedMarket?.marketId ? 'marketId' : ensureDbId ? 'dbId' : 'unknown' });
+        const ensureUrl = `${API_BASE}/scheduler/market/ensure-onchain/${ensureId}`;
+        const ensureHeaders = { "Content-Type": "application/json" } as Record<string, string>;
+        console.log('[Ensure] POST ensure-onchain request', {
+          url: ensureUrl,
+          method: 'POST',
+          headers: ensureHeaders,
+          body: {},
+        });
         const ensureRes = await axios.post(
-          `${API_BASE}/scheduler/market/ensure-onchain/${ensureDbId}`,
+          ensureUrl,
           {},
-          { headers: { "Content-Type": "application/json" } }
+          { headers: ensureHeaders }
         );
         console.log("[Ensure] Response", { status: ensureRes.status, data: ensureRes.data });
         let { success, marketId: ensuredId } = ensureRes.data || {};
@@ -681,15 +717,15 @@ export default function SlotMachineScreen() {
         direction: bet === "yes" ? WinningDirection.YES : WinningDirection.NO,
       };
 
-      const response = await axios.post(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/nft/create`,
-        metadata,
-        {
-          headers: {
-            "wallet-address": selectedAccount.publicKey.toBase58(),
-          },
-        }
-      );
+      const metadataUrl = `${process.env.EXPO_PUBLIC_BACKEND_URL}/nft/create`;
+      const metadataHeaders = { "wallet-address": selectedAccount.publicKey.toBase58() } as Record<string, string>;
+      console.log('[Bet] POST metadata request', {
+        url: metadataUrl,
+        method: 'POST',
+        headers: metadataHeaders,
+        body: metadata,
+      });
+      const response = await axios.post(metadataUrl, metadata, { headers: metadataHeaders });
 
       const metadataUri = response.data.metadataUrl;
       if (!metadataUri || !selectedMarket) {

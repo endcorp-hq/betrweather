@@ -7,7 +7,8 @@ import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
 import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
 import { useShortx } from "../hooks/solana";
-import { ShortxErrorType } from "../hooks/solana/useContract";
+import { useAuthorization } from "../hooks/solana";
+import { useBackendRelay } from "../hooks/useBackendRelay";
 import { useAPI } from "../hooks/useAPI";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
@@ -39,7 +40,30 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
 export default function MarketScreen() {
   const { markets: rtMarkets, loadingMarkets, error, isInitialized } = useRealTimeMarkets();
   const { refresh: refreshOnchain } = useShortx();
+  const { selectedAccount } = useAuthorization();
+  const { ensureAuthToken } = useBackendRelay();
   const [refreshing, setRefreshing] = useState(false);
+  const [authHeader, setAuthHeader] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        if (selectedAccount?.publicKey) {
+          const token = await ensureAuthToken();
+          if (mounted) setAuthHeader(`Bearer ${token}`);
+        } else {
+          if (mounted) setAuthHeader(null);
+        }
+      } catch (e) {
+        if (mounted) setAuthHeader(null);
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedAccount, ensureAuthToken]);
 
   // Minimal backend markets fetch (GET /markets)
   const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
@@ -48,7 +72,14 @@ export default function MarketScreen() {
     isLoading: loadingDbMarkets,
     error: dbMarketsError,
     refetch: refetchDbMarkets,
-  } = useAPI<any[]>(`${API_BASE}/markets`, { method: 'GET' });
+  } = useAPI<any[]>(
+    `${API_BASE}/markets`,
+    {
+      method: 'GET',
+      headers: authHeader ? { 'Authorization': authHeader, 'Content-Type': 'application/json' } : undefined,
+    },
+    { enabled: Boolean(authHeader) }
+  );
 
   // Normalize backend markets to the UI shape used here
   const dbMarkets = useMemo(() => {
@@ -57,6 +88,8 @@ export default function MarketScreen() {
       // Convert ISO dates to epoch seconds
       const toSeconds = (iso?: string | null) => typeof iso === 'string' ? Math.floor(new Date(iso).getTime() / 1000) : undefined;
       const maybeMarketId = m.marketId === null || m.marketId === undefined ? null : Number(m.marketId);
+      const mt = String(m.marketType || '').toUpperCase();
+      const normalizedMarketType = mt === 'LIVE' ? MarketType.LIVE : MarketType.FUTURE;
       return {
         // Keep db id separately for navigation and ensure-onchain
         dbId: m.id ?? m.dbId ?? m._id ?? undefined,
@@ -64,7 +97,8 @@ export default function MarketScreen() {
         question: m.question ?? '',
         marketStart: toSeconds(m.marketStart),
         marketEnd: toSeconds(m.marketEnd),
-        marketType: m.marketType ?? 'FUTURE',
+        marketType: normalizedMarketType,
+        currency: m.currency,
         isActive: Boolean(m.isActive),
         winningDirection: WinningDirection.NONE,
         yesLiquidity: 0,
@@ -75,7 +109,8 @@ export default function MarketScreen() {
   }, [dbMarketsRaw]);
 
   const mergedMarkets = useMemo(() => {
-    if (!Array.isArray(dbMarkets) || dbMarkets.length === 0) return [] as any[];
+    // If no DB markets available (no wallet or empty), show on-chain markets directly
+    if (!Array.isArray(dbMarkets) || dbMarkets.length === 0) return Array.isArray(rtMarkets) ? rtMarkets : ([] as any[]);
     if (!Array.isArray(rtMarkets) || rtMarkets.length === 0) return dbMarkets;
 
     const onchainById = new Map<string, any>();
@@ -125,7 +160,7 @@ export default function MarketScreen() {
   ]);
 
   //status filter
-  const [statusFilter, setStatusFilter] = useState("betting");
+  const [statusFilter, setStatusFilter] = useState("active");
 
   // Memoize the status filter handler to prevent unnecessary re-renders
   const handleStatusFilterChange = useCallback((filter: string) => {
@@ -135,8 +170,7 @@ export default function MarketScreen() {
   // Memoize filtered markets to prevent recalculation on every render
   const filteredMarkets = useMemo(() => {
     return mergedMarkets.filter((market) => {
-      // Align strictly with backend: only show active markets
-      if (market?.isActive === false) return false;
+      // Do not strictly filter out inactive; rely on status filter/time windows
       const now = Date.now();
       const marketStart = Number(market.marketStart) * 1000;
       const marketEnd = Number(market.marketEnd) * 1000;

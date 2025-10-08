@@ -29,7 +29,7 @@ type RootStackParamList = {
   LocationPermission: undefined;
   HomeStack: undefined;
   Settings: undefined;
-  MarketDetail: { id: string; dbId?: string | null; marketId?: string | null };
+  MarketDetail: { id: string; dbId?: string | null; marketId?: string | null; market?: any };
   // 🔥 Your screens go here
 };
 

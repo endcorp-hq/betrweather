@@ -22,9 +22,10 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@endcorp/depredict": "^0.6.1",
+    "@endcorp/depredict": "^0.6.2",
     "@expo/vector-icons": "~14.0.4",
     "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
+    "@metaplex-foundation/mpl-bubblegum": "^4.0.0",
     "@metaplex-foundation/mpl-core": "^1.4.1",
     "@metaplex-foundation/mpl-core-das": "^0.1.0",
     "@metaplex-foundation/umi": "^1.2.0",

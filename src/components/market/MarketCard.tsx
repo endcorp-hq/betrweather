@@ -173,6 +173,8 @@ export function MarketCard({ market, index = 0, animatedValue }: {
       const navId = market?.dbId ?? market?.marketId;
       navigation.navigate("MarketDetail", { 
         id: String(navId), 
+        // Pass the selected market so detail screen can render immediately without refetch
+        market,
         ...(market?.dbId !== undefined ? { dbId: String(market.dbId) } : {}),
         ...(market?.marketId !== undefined && market.marketId !== null ? { marketId: String(market.marketId) } : {}),
       });
@@ -336,6 +338,13 @@ export function MarketCard({ market, index = 0, animatedValue }: {
             })()}
           </View>
         </DarkCard>
+        {false}
+        {/* On-chain Market ID indicator (bottom-right) */}
+        <Text style={styles.marketIdText}>
+          {market?.marketId !== undefined && market?.marketId !== null
+            ? String(market.marketId)
+            : 'none'}
+        </Text>
       </Pressable>
     </Animated.View>
   );
@@ -361,6 +370,177 @@ const styles = StyleSheet.create({
     height: 320,
     width: "100%",
     marginVertical: 12,
+  },
+  quickRow: {
+    marginTop: -8,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  quickBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  quickBtnDisabled: { opacity: 0.6 },
+  quickYes: { backgroundColor: 'rgba(16,185,129,0.8)' },
+  quickNo: { backgroundColor: 'rgba(239,68,68,0.8)' },
+  quickText: {
+    color: '#fff',
+    marginLeft: 6,
+    fontFamily: 'Poppins-SemiBold',
+  },
+  quickModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickPopoverCard: {
+    maxWidth: 360,
+    width: '94%',
+  },
+  quickPopoverInnerCard: {
+    padding: 16,
+    minWidth: 280,
+    backgroundColor: '#0f172a',
+  },
+  quickPopoverTitle: {
+    color: '#fff',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  quickModalCard: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  quickModalCardContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  quickModalHeader: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  modalHeaderTitle: {
+    color: '#fff',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  detailPill: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  detailPillText: {
+    color: '#fff',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+  },
+  statusBanner: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  statusBannerText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  statusBannerInfo: { backgroundColor: 'rgba(59,130,246,0.4)' },
+  statusBannerSuccess: { backgroundColor: 'rgba(16,185,129,0.4)' },
+  statusBannerError: { backgroundColor: 'rgba(239,68,68,0.5)' },
+  quickModalTitle: {
+    color: '#fff',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'center',
+    opacity: 0.9,
+  },
+  quickInput: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    color: '#fff',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  quickModalFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  quickModalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  quickModalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center',
+  },
+  quickCancel: { backgroundColor: 'rgba(255,255,255,0.12)' },
+  quickConfirm: { backgroundColor: 'rgba(16,185,129,0.8)' },
+  quickConfirmYes: { backgroundColor: 'rgba(16,185,129,0.9)' },
+  quickConfirmNo: { backgroundColor: 'rgba(239,68,68,0.9)' },
+  quickModalBtnText: {
+    color: '#fff',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  marketIdText: {
+    position: 'absolute',
+    right: 10,
+    bottom: 8,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 10,
+    fontFamily: 'Poppins-Regular',
   },
   headerRow: {
     flexDirection: "row",
