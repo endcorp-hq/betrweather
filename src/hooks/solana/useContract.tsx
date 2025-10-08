@@ -24,6 +24,7 @@ import { Position } from "@endcorp/depredict";
   import { useCallback } from 'react';
   import { useChain } from "@/contexts";
 import { useAuthorization } from "./useAuthorization";
+  import { useBackendRelay } from "../useBackendRelay";
   
   export enum ShortxErrorType {
     MARKET_CREATION = 'MARKET_CREATION',
@@ -98,7 +99,7 @@ import { useAuthorization } from "./useAuthorization";
       marketId: number;
       payer: PublicKey;
       assetId: PublicKey;
-    }) => Promise<VersionedTransaction | null>;
+    }) => Promise<any | null>;
     createConfig: (
       feeAmount: number,
       payer: PublicKey
@@ -149,6 +150,7 @@ import { useAuthorization } from "./useAuthorization";
   export const ShortxProvider = ({ children }: { children: ReactNode }) => {
     const { connection, currentChain } = useChain(); // Get dynamic RPC URL
     const {selectedAccount} = useAuthorization();
+    const { getMarkets: backendGetMarkets } = useBackendRelay();
     const [client, setClient] = useState<ShortXClient | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const [markets, setMarkets] = useState<Market[]>([]);
@@ -187,11 +189,8 @@ import { useAuthorization } from "./useAuthorization";
             throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing chain or RPC URL");
           }
   
-          if (
-            !process.env.EXPO_PUBLIC_ADMIN_KEY
-          ) {
-           
-            throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing environment variables");
+          if (!process.env.EXPO_PUBLIC_ADMIN_KEY) {
+            throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing EXPO_PUBLIC_ADMIN_KEY");
           }
           const shortxClient = new ShortXClient(
             connection,
@@ -207,22 +206,37 @@ import { useAuthorization } from "./useAuthorization";
           setIsInitialized(false);
         }
       };
-      if(currentChain && connection && selectedAccount) 
+      if(currentChain && connection) 
       initializeSDK();
-    }, [connection, currentChain, selectedAccount]); // Re-initialize when chain changes
+    }, [connection, currentChain]); // Re-initialize when chain changes
   
     const fetchAllMarkets = async () => {
       setLoadingMarkets(true);
       setError(null);
       try {
-        const authority = new PublicKey(process.env.EXPO_PUBLIC_ADMIN_KEY!);
-        if(!authority) {
-          throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing environment variables");
+        // Try backend DB markets first if wallet JWT is available
+        let loadedFromBackend = false;
+        if (selectedAccount?.publicKey && backendGetMarkets) {
+          try {
+            const db = await backendGetMarkets();
+            if (Array.isArray(db) && db.length > 0) {
+              setMarkets(db as any);
+              loadedFromBackend = true;
+            }
+          } catch (be) {
+            console.log('backend markets error', be);
+          }
         }
-        if (client) {
-          const m = await client.trade.getMarketsByAuthority(authority);
-          // console.log("markets", m);
-          setMarkets(m || []);
+
+        if (!loadedFromBackend) {
+          // Fallback to on-chain authority markets
+          const authority = process.env.EXPO_PUBLIC_ADMIN_KEY ? new PublicKey(process.env.EXPO_PUBLIC_ADMIN_KEY) : null;
+          if (client && authority) {
+            const m = await client.trade.getMarketsByAuthority(authority);
+            setMarkets(Array.isArray(m) ? m : []);
+          } else {
+            setMarkets([]);
+          }
         }
       } catch (err: unknown) {
         console.log('error', err);
@@ -265,6 +279,7 @@ import { useAuthorization } from "./useAuthorization";
     }, [client, markets]);
   
     useEffect(() => {
+      if (!client) return; // wait for SDK
       fetchAllMarkets();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [client, refreshCount]);
@@ -314,18 +329,9 @@ import { useAuthorization } from "./useAuthorization";
             nextPositionId: latestEvent.nextPositionId.toString(),
           };
           
-          // console.log(`Updated market ${latestEvent.marketId} with real-time data:`, {
-          //   volume: latestEvent.volume,
-          //   yesLiquidity: latestEvent.yesLiquidity,
-          //   noLiquidity: latestEvent.noLiquidity,
-          //   winningDirection: latestEvent.winningDirection,
-          //   originalWinningDirection: existingMarket.winningDirection
-          // });
-          
+
           return updatedMarkets;
         } else {
-          // This is a new market, fetch it from the blockchain
-          // console.log(`New market detected: ${latestEvent.marketId}, fetching details...`);
           
           // Fetch the new market and add it to the list
           const fetchNewMarket = async () => {
@@ -605,24 +611,6 @@ import { useAuthorization } from "./useAuthorization";
         return null;
       }
     };
-  
-    // const getUserPositionsForMarket: ShortxContextType["getUserPositionsForMarket"] =
-    //   async (user, marketId) => {
-    //     if (!client) throw new Error("SDK not initialized");
-    //     const orders = await client.position.getUserPositionsForMarket(
-    //       user,
-    //       marketId
-    //     );
-    //     return orders;
-    //   };
-  
-    // const getUserPositions: ShortxContextType["getUserPositions"] = async (
-    //   user
-    // ) => {
-    //   if (!client) throw new Error("SDK not initialized");
-    //   const positions = await client.position.getPositionsForUser(user);
-    //   return positions;
-    // };
   
     return (
       <ShortxContext.Provider

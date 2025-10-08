@@ -1240,9 +1240,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@endcorp/depredict@npm:^0.6.1":
-  version: 0.6.1
-  resolution: "@endcorp/depredict@npm:0.6.1"
+"@endcorp/depredict@npm:^0.6.2":
+  version: 0.6.2
+  resolution: "@endcorp/depredict@npm:0.6.2"
   dependencies:
     "@metaplex-foundation/digital-asset-standard-api": "npm:^2.0.0"
     "@metaplex-foundation/mpl-account-compression": "npm:^0.0.1"
@@ -1255,7 +1255,7 @@ __metadata:
     "@metaplex-foundation/umi-rpc-web3js": "npm:^1.4.1"
     "@metaplex-foundation/umi-web3js-adapters": "npm:^1.2.0"
     bs58: "npm:^6.0.0"
-  checksum: 10c0/fd54957767c1910d8d44fe9ab34e84cd32d5bc6a230f0e5cb196f325ed057f7c7de69880837a340513b0a129c05852944cf945d97873b8c1ca91bcc546f22753
+  checksum: 10c0/c1caffa253327da0bdfc4088d052a5a0aebc8b595e848e8f8d7f1e3d3d95ee3d5d324071a116aef3b27ad6a141c6b11dde12aec6cfdc0e5dcc96ede6992a2790
   languageName: node
   linkType: hard
 
@@ -1874,6 +1874,21 @@ __metadata:
   peerDependencies:
     "@metaplex-foundation/umi": ">= 0.8.9 <= 1"
   checksum: 10c0/351babbba66f4b0961c633e9705d35bd1c8aa6abd1eb3198088f523036d124bc141be5bea063a96c9f9b8b918d3d19e86016958642a433417ee535724802e14e
+  languageName: node
+  linkType: hard
+
+"@metaplex-foundation/mpl-bubblegum@npm:^4.0.0":
+  version: 4.4.0
+  resolution: "@metaplex-foundation/mpl-bubblegum@npm:4.4.0"
+  dependencies:
+    "@metaplex-foundation/digital-asset-standard-api": "npm:^1.0.5"
+    "@metaplex-foundation/mpl-token-metadata": "npm:3.2.1"
+    "@metaplex-foundation/mpl-toolbox": "npm:^0.10.0"
+    "@noble/hashes": "npm:^1.3.1"
+    merkletreejs: "npm:^0.3.11"
+  peerDependencies:
+    "@metaplex-foundation/umi": ">= 0.8.9 <= 1"
+  checksum: 10c0/263519ca908aabec237ac7fe22da771a2cc776100018da99bd67c808ec49a1dd2506c94427713011d748b0f08ffe8fba68c13545444f68616abd8db0a2161bce
   languageName: node
   linkType: hard
 
@@ -4540,9 +4555,10 @@ __metadata:
   dependencies:
     "@babel/core": "npm:^7.20.0"
     "@coral-xyz/anchor": "npm:^0.31.1"
-    "@endcorp/depredict": "npm:^0.6.1"
+    "@endcorp/depredict": "npm:^0.6.2"
     "@expo/vector-icons": "npm:~14.0.4"
     "@metaplex-foundation/digital-asset-standard-api": "npm:^2.0.0"
+    "@metaplex-foundation/mpl-bubblegum": "npm:^4.0.0"
     "@metaplex-foundation/mpl-core": "npm:^1.4.1"
     "@metaplex-foundation/mpl-core-das": "npm:^0.1.0"
     "@metaplex-foundation/umi": "npm:^1.2.0"

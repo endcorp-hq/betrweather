@@ -176,6 +176,12 @@ export function useBackendRelay() {
       } as Record<string, string>;
 
       const openUrl = `${API_BASE}/tx/build/shortx/open-position`;
+      console.log('[Relay] POST build open-position request', {
+        url: openUrl,
+        method: 'POST',
+        headers: headersBase,
+        body: { ...args, network: args.network || currentChain || "devnet" },
+      });
       let res = await fetch(openUrl, {
         method: "POST",
         headers: headersBase,
@@ -184,6 +190,7 @@ export function useBackendRelay() {
       if (res.status === 401) {
         // Force re-auth and retry once
         const fresh = await ensureAuthToken(true);
+        console.log('[Relay] Retrying build open-position with fresh token');
         res = await fetch(openUrl, {
           method: "POST",
           headers: {
@@ -225,14 +232,22 @@ export function useBackendRelay() {
         "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
       } as Record<string, string>;
 
-      let res = await fetch(`${API_BASE}/tx/build/shortx/payout`, {
+      const payoutUrl = `${API_BASE}/tx/build/shortx/payout`;
+      console.log('[Relay] POST build payout request', {
+        url: payoutUrl,
+        method: 'POST',
+        headers: headersBase,
+        body: { ...args, network: args.network || currentChain || "devnet" },
+      });
+      let res = await fetch(payoutUrl, {
         method: "POST",
         headers: headersBase,
         body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
-        res = await fetch(`${API_BASE}/tx/build/shortx/payout`, {
+        console.log('[Relay] Retrying build payout with fresh token');
+        res = await fetch(payoutUrl, {
           method: "POST",
           headers: {
             ...headersBase,
@@ -242,6 +257,206 @@ export function useBackendRelay() {
         });
       }
       if (!res.ok) throw new Error(`Build payout failed: ${res.status}`);
+      const data = await res.json();
+      if (!data.message && data.messageBase64) {
+        data.message = data.messageBase64;
+      }
+      return data;
+    },
+    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
+  );
+
+  // Build Bubblegum burn (server-side DAS + burnV2), returns base64 v0 message
+  const buildBubblegumBurn = useCallback(
+    async (args: {
+      assetId: string; // base58
+      payerPubkey?: string; // base58 (leafOwner) - legacy
+      leafOwner?: string; // base58 (preferred)
+      coreCollection?: string; // base58
+      network?: string;
+    }): Promise<BuildTxResponse> => {
+      const token = await ensureAuthToken();
+      const headersBase = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+      } as Record<string, string>;
+
+      const burnUrl = `${API_BASE}/tx/build/bubblegum/burn`;
+      console.log('[Relay] POST bubblegum burn build request', {
+        url: burnUrl,
+        method: 'POST',
+        headers: headersBase,
+        body: {
+          assetId: args.assetId,
+          leafOwner: args.leafOwner || args.payerPubkey,
+          payerPubkey: args.payerPubkey || args.leafOwner,
+          coreCollection: args.coreCollection,
+          network: args.network || currentChain || "devnet",
+        },
+      });
+      let res = await fetch(burnUrl, {
+        method: "POST",
+        headers: headersBase,
+        body: JSON.stringify({
+          assetId: args.assetId,
+          // Send both to support either backend contract
+          leafOwner: args.leafOwner || args.payerPubkey,
+          payerPubkey: args.payerPubkey || args.leafOwner,
+          coreCollection: args.coreCollection,
+          network: args.network || currentChain || "devnet",
+        }),
+      });
+      if (res.status === 401) {
+        const fresh = await ensureAuthToken(true);
+        console.log('[Relay] Retrying bubblegum burn build with fresh token');
+        res = await fetch(burnUrl, {
+          method: "POST",
+          headers: {
+            ...headersBase,
+            Authorization: `Bearer ${fresh}`,
+          },
+          body: JSON.stringify({
+            assetId: args.assetId,
+            leafOwner: args.leafOwner || args.payerPubkey,
+            payerPubkey: args.payerPubkey || args.leafOwner,
+            coreCollection: args.coreCollection,
+            network: args.network || currentChain || "devnet",
+          }),
+        });
+      }
+      if (!res.ok) {
+        let errText = '';
+        try { errText = await res.text(); } catch {}
+        throw new Error(errText || `Build bubblegum burn failed: ${res.status}`);
+      }
+      const data = await res.json();
+      if (!data.message && data.messageBase64) {
+        data.message = data.messageBase64;
+      }
+      return data;
+    },
+    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
+  );
+
+  // DAS ownership verification preflight
+  const verifyOwnership = useCallback(
+    async (args: { assetId: string; owner: string; network?: string }): Promise<{ owned: boolean; details?: any }> => {
+      const token = await ensureAuthToken();
+      const headersBase = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+      } as Record<string, string>;
+
+      const verifyUrl = `${API_BASE}/nft/verify-ownership`;
+      console.log('[Relay] POST verify ownership request', {
+        url: verifyUrl,
+        method: 'POST',
+        headers: headersBase,
+        body: { ...args, network: args.network || currentChain || "devnet" },
+      });
+      let res = await fetch(verifyUrl, {
+        method: "POST",
+        headers: headersBase,
+        body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+      });
+      if (res.status === 401) {
+        const fresh = await ensureAuthToken(true);
+        console.log('[Relay] Retrying verify ownership with fresh token');
+        res = await fetch(verifyUrl, {
+          method: "POST",
+          headers: {
+            ...headersBase,
+            Authorization: `Bearer ${fresh}`,
+          },
+          body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+        });
+      }
+      if (!res.ok) throw new Error(`Ownership verify failed: ${res.status}`);
+      return res.json();
+    },
+    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
+  );
+
+  // Check Bubblegum asset (burned/ownership) before building
+  const checkBubblegumAsset = useCallback(
+    async (args: { assetId: string; network?: string }): Promise<{ burned?: boolean; removeFromList?: boolean } | any> => {
+      const token = await ensureAuthToken();
+      const headersBase = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+      } as Record<string, string>;
+
+      const checkUrl = `${API_BASE}/tx/check/bubblegum/asset`;
+      console.log('[Relay] POST check bubblegum asset request', {
+        url: checkUrl,
+        method: 'POST',
+        headers: headersBase,
+        body: { ...args, network: args.network || currentChain || "devnet" },
+      });
+      let res = await fetch(checkUrl, {
+        method: "POST",
+        headers: headersBase,
+        body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+      });
+      if (res.status === 401) {
+        const fresh = await ensureAuthToken(true);
+        console.log('[Relay] Retrying check bubblegum asset with fresh token');
+        res = await fetch(checkUrl, {
+          method: "POST",
+          headers: {
+            ...headersBase,
+            Authorization: `Bearer ${fresh}`,
+          },
+          body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+        });
+      }
+      if (!res.ok) {
+        let errText = '';
+        try { errText = await res.text(); } catch {}
+        throw new Error(errText || `Check bubblegum asset failed: ${res.status}`);
+      }
+      return res.json();
+    },
+    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
+  );
+
+  // Upsert asset → position mapping after creation/mint
+  const mapPosition = useCallback(
+    async (args: {
+      assetId: string; // base58
+      owner: string; // base58
+      marketId: number;
+      amount?: string | number;
+      direction?: string; // "Yes" | "No"
+      network?: string;
+    }): Promise<{ success: boolean } | any> => {
+      const token = await ensureAuthToken();
+      const headersBase = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+      } as Record<string, string>;
+
+      let res = await fetch(`${API_BASE}/nft/map-position`, {
+        method: "POST",
+        headers: headersBase,
+        body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+      });
+      if (res.status === 401) {
+        const fresh = await ensureAuthToken(true);
+        res = await fetch(`${API_BASE}/nft/map-position`, {
+          method: "POST",
+          headers: {
+            ...headersBase,
+            Authorization: `Bearer ${fresh}`,
+          },
+          body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+        });
+      }
+      if (!res.ok) throw new Error(`map-position failed: ${res.status}`);
       return res.json();
     },
     [API_BASE, ensureAuthToken, currentChain, selectedAccount]
@@ -259,6 +474,12 @@ export function useBackendRelay() {
       } as Record<string, string>;
 
       const forwardUrl = `${API_BASE}/tx/forward`;
+      console.log('[Relay] POST forward tx request', {
+        url: forwardUrl,
+        method: 'POST',
+        headers: headersBase,
+        body: payload,
+      });
       let res = await fetch(forwardUrl, {
         method: "POST",
         headers: headersBase,
@@ -268,6 +489,7 @@ export function useBackendRelay() {
       if (res.status === 401) {
         // refresh JWT and retry once
         const fresh = await ensureAuthToken(true);
+        console.log('[Relay] Retrying forward tx with fresh token');
         res = await fetch(forwardUrl, {
           method: "POST",
           headers: {
@@ -280,9 +502,18 @@ export function useBackendRelay() {
 
       if (!res.ok) {
         let text = "";
-        try {
-          text = await res.text();
-        } catch {}
+        try { text = await res.text(); } catch {}
+        // Surface SIMULATION_FAILED and program logs snippets directly
+        if (text) {
+          try {
+            const maybe = JSON.parse(text);
+            if (maybe?.error?.code === 'SIMULATION_FAILED' || typeof maybe?.error?.message === 'string') {
+              const logs = maybe?.error?.logs || maybe?.logs || maybe?.programLogs;
+              const logSnippet = Array.isArray(logs) ? `\nLogs: ${logs.slice(-10).join('\n')}` : '';
+              throw new Error(`${maybe.error.message || 'SIMULATION_FAILED'}${logSnippet}`);
+            }
+          } catch {}
+        }
         try {
           console.log(
             "[forward tx]",
@@ -295,6 +526,38 @@ export function useBackendRelay() {
     },
     [API_BASE, ensureAuthToken, selectedAccount]
   );
+
+  // Helper to get SSE stream URL for a given signature
+  const getTxStreamUrl = useCallback((signature: string) => {
+    const base = API_BASE.replace(/\/$/, '');
+    return `${base}/tx/stream?signature=${encodeURIComponent(signature)}`;
+  }, [API_BASE]);
+
+  // Fetch markets from backend DB (JWT required)
+  const getMarkets = useCallback(async (): Promise<any[]> => {
+    const token = await ensureAuthToken();
+    const headersBase = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+    } as Record<string, string>;
+
+    const url = `${API_BASE}/markets`;
+    let res = await fetch(url, { method: 'GET', headers: headersBase });
+    if (res.status === 401) {
+      const fresh = await ensureAuthToken(true);
+      res = await fetch(url, {
+        method: 'GET',
+        headers: { ...headersBase, Authorization: `Bearer ${fresh}` },
+      });
+    }
+    if (!res.ok) {
+      let text = '';
+      try { text = await res.text(); } catch {}
+      throw new Error(text || `GET /markets failed: ${res.status}`);
+    }
+    return res.json();
+  }, [API_BASE, ensureAuthToken, selectedAccount]);
 
   const signBuiltTransaction = useCallback(
     async (messageBase64: string): Promise<{
@@ -334,10 +597,16 @@ export function useBackendRelay() {
       ensureAuthToken,
       buildOpenPosition,
       buildPayout,
+      buildBubblegumBurn,
+      verifyOwnership,
+      checkBubblegumAsset,
+      mapPosition,
       forwardTx,
+      getMarkets,
+      getTxStreamUrl,
       signBuiltTransaction,
     }),
-    [ensureAuthToken, buildOpenPosition, buildPayout, forwardTx, signBuiltTransaction]
+    [ensureAuthToken, buildOpenPosition, buildPayout, buildBubblegumBurn, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, getMarkets, getTxStreamUrl, signBuiltTransaction]
   );
 }
 

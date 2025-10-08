@@ -84,6 +84,7 @@ export function useNftMetadata() {
               ownerAddress: selectedAccount.publicKey.toBase58(),
               network: currentChain,
               marketId: marketId ? parseInt(marketId) : undefined,
+              limit: 100,
             }),
           }
         );
