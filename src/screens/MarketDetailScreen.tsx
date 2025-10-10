@@ -56,7 +56,7 @@ const parseBonkAmount = (bonkString: string): number => {
 // Helper function to format BONK amount for display
 const formatBonkAmount = (amount: number): string => {
   if (amount >= 1000000) {
-    return `${(amount / 1000000).toFixed(1)}M`;
+    return `${(amount / 1000000).toFixed(2)}M`;
   }
   if (amount >= 1000) {
     return `${(amount / 1000).toFixed(0)}k`;
@@ -263,7 +263,7 @@ function SwipeableBetCard({
                 />
                 <Text style={styles.detailLabel}>Volume:</Text>
                 <Text style={styles.detailValue}>
-                  ${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(1)}
+                  ${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(2)}
                   {hasRecentEvent && (
                     <Text style={{ color: "#10b981", fontSize: 12 }}> ●</Text>
                   )}
@@ -433,7 +433,7 @@ export default function SlotMachineScreen() {
   const { marketId: routeMarketId, dbId: routeDbId, id, market: routeMarket } = route.params || {};
   const effectiveId = routeDbId ?? id ?? routeMarketId;
 
-  const { getMarketById, openPosition } = useShortx();
+  const { getMarketById, openPosition, refresh } = useShortx();
   const { forwardTx } = useBackendRelay();
   const { buildVersionedTx } = useCreateAndSendTx();
   const { signTransaction } = useMobileWallet();
@@ -804,6 +804,9 @@ export default function SlotMachineScreen() {
       });
 
       setBetStatus("success");
+
+      // Trigger a background refresh to ensure markets list reflects the new bet immediately
+      try { refresh?.(); } catch {}
 
       // Close modal and navigate ONLY on success
       setTimeout(() => {

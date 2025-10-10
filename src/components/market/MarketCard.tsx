@@ -58,6 +58,10 @@ export function MarketCard({ market, index = 0, animatedValue }: {
   const displayYesLiquidity = Number(market.yesLiquidity);
   const displayNoLiquidity = Number(market.noLiquidity);
 
+  // Scale chain/base units to UI units (default 6 decimals like USDC)
+  const decimals = Number((market && market.decimals) ?? 6);
+  const scale = Math.pow(10, decimals);
+
   // Add a subtle animation for real-time updates
   const [isUpdating, setIsUpdating] = React.useState(false);
   
@@ -229,7 +233,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
               </Text>
             </View>
             <Text style={styles.volume}>
-              ${(parseFloat(market.volume || "0")/ 10**6).toFixed(1)}
+              ${(parseFloat(market.volume)/ 10**6).toFixed(2)}
             </Text>
           </View>
 
@@ -292,6 +296,8 @@ export function MarketCard({ market, index = 0, animatedValue }: {
               </View>
             </View>
           </View>
+
+          {false}
 
           {/* Bottom info */}
           <View style={styles.bottomRow}>
@@ -620,6 +626,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Poppins-Regular",
   },
+  
   bottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -177,7 +177,7 @@ export function usePositions() {
         success: operation === 'claim' ? 'Payout Claimed!' : 'Position Burned!',
         successMessage: (amount: number) => 
           operation === 'claim' 
-            ? `Successfully claimed ${amount.toFixed(4)} ${getMarketToken(position.market.mint)}!`
+            ? `Successfully claimed ${amount.toFixed(2)} ${getMarketToken(position.market.mint)}!`
             : 'Position successfully burned!',
         error: operation === 'claim' ? 'Failed to claim payout' : 'Failed to burn position'
       };

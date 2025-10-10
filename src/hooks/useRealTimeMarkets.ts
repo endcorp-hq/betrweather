@@ -25,7 +25,9 @@ export function useRealTimeMarkets() {
 
     // Update markets with real-time data
     return markets.map(market => {
-      const latestEvent = latestEvents.get(market.marketId);
+      // Ensure we look up events using a consistent string key
+      const marketKey = String(market.marketId);
+      const latestEvent = latestEvents.get(marketKey);
       if (latestEvent) {
         // Convert winningDirection from object format to enum
         let winningDirection: WinningDirection;
