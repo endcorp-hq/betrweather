@@ -14,12 +14,14 @@ import { useAuthorization } from "../hooks/solana/useAuthorization";
 import { MotiView } from "moti";
 import theme from "../theme";
 import { usePositions } from "../hooks/usePositions";
+import { useUserBets } from "../hooks";
 import { calculatePayout } from "@/utils";
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
   const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout, handleBurnPosition, lastError, retryCount } = usePositions();
+  const { refresh: refreshBets } = useUserBets();
   const [refreshing, setRefreshing] = useState(false);
   const [hasAttemptedInitialLoad, setHasAttemptedInitialLoad] = useState(false);
   
@@ -50,13 +52,16 @@ export default function ProfileScreen() {
     setRefreshing(true);
     try {
       // Use regular refresh for pull-to-refresh
-      await refreshPositions();
+      await Promise.allSettled([
+        refreshPositions(),
+        refreshBets(),
+      ]);
       // Reset the flag after a successful manual refresh
       setHasAttemptedInitialLoad(false);
     } finally {
       setRefreshing(false);
     }
-  }, [refreshPositions]);
+  }, [refreshPositions, refreshBets]);
 
   // Show loading state only for initial load, not for background refreshes
   if (loading && positions.length === 0 && !hasAttemptedInitialLoad) {

@@ -11,7 +11,6 @@ import { useShortx, useAuthorization, useCreateAndSendTx } from "../hooks/solana
 import { useBackendRelay, useMobileWallet } from "../hooks";
 import { Buffer } from 'buffer';
 import { PublicKey } from '@solana/web3.js';
-import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
 import React, {
   useEffect,
   useRef,
@@ -434,7 +433,7 @@ export default function SlotMachineScreen() {
   const effectiveId = routeDbId ?? id ?? routeMarketId;
 
   const { getMarketById, openPosition, refresh } = useShortx();
-  const { forwardTx } = useBackendRelay();
+  const { forwardTx, ensureAuthToken } = useBackendRelay();
   const { buildVersionedTx } = useCreateAndSendTx();
   const { signTransaction } = useMobileWallet();
   const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
@@ -444,8 +443,8 @@ export default function SlotMachineScreen() {
   const { data: dbMarketByMarketId, isLoading: loadingByMarketId } = useAPI<any>(dbByMarketIdUrl, { method: 'GET' }, { enabled: Boolean(routeMarketId) });
   const { data: dbMarketsList, isLoading: loadingList } = useAPI<any[]>(`${API_BASE}/markets`, { method: 'GET' });
 
-  // Merge real-time on-chain data for the selected market
-  const { markets: rtMarkets, marketEvents } = useRealTimeMarkets();
+  // UseShortx still exposes events; useMarkets integrates list overlay elsewhere
+  const { marketEvents } = useShortx();
   const [betAmount, setBetAmount] = useState("");
   const [selectedDirection, setSelectedDirection] = useState<
     "yes" | "no" | null
@@ -466,10 +465,24 @@ export default function SlotMachineScreen() {
   const realTimeMarket = useMemo(() => {
     if (!selectedMarket?.marketId) return undefined;
     const id = String(selectedMarket.marketId);
-    return rtMarkets.find((m: any) => String(m.marketId) === id);
-  }, [selectedMarket?.marketId, rtMarkets]);
+    const latest = marketEvents
+      .filter((e: any) => String(e.marketId) === id)
+      .sort((a: any, b: any) => Number(b.updateTs || 0) - Number(a.updateTs || 0))[0];
+    if (!latest) return undefined;
+    return {
+      marketId: Number(latest.marketId),
+      yesLiquidity: String(latest.yesLiquidity ?? "0"),
+      noLiquidity: String(latest.noLiquidity ?? "0"),
+      volume: String(latest.volume ?? "0"),
+      marketStart: String(latest.marketStart ?? "0"),
+      marketEnd: String(latest.marketEnd ?? "0"),
+      winningDirection: latest.winningDirection,
+      marketState: latest.state,
+      nextPositionId: String(latest.nextPositionId ?? "0"),
+    } as any;
+  }, [selectedMarket?.marketId, marketEvents]);
   const hasRecentEvent = useMemo(() => (
-    selectedMarket?.marketId ? marketEvents.some((event) => event.marketId.toString() === String(selectedMarket.marketId)) : false
+    selectedMarket?.marketId ? marketEvents.some((event: any) => event.marketId.toString() === String(selectedMarket.marketId)) : false
   ), [marketEvents, selectedMarket?.marketId]);
 
   // Immediately overlay the market with real-time data if available
@@ -591,9 +604,30 @@ export default function SlotMachineScreen() {
         const ensureDbId = dbId || selectedMarket?.dbId || selectedMarket?.id;
         // Prefer marketId if known; fallback to DB id
         const ensureId = (selectedMarket?.marketId ?? (routeMarketId ? Number(routeMarketId) : null)) ?? ensureDbId;
+        if (!ensureId) {
+          console.error("[Ensure] Missing ensureId (no marketId or dbId available)");
+          toast.update(ensureToastId!, {
+            type: "error",
+            title: "Connection issue",
+            message: "Missing market identifier. Please back out and retry.",
+            duration: 4000,
+          });
+          setIsEnsuring(false);
+          setBetStatus("idle");
+          return;
+        }
         console.log("[Ensure] Starting ensure-onchain", { ensureId, preferred: selectedMarket?.marketId ? 'marketId' : ensureDbId ? 'dbId' : 'unknown' });
         const ensureUrl = `${API_BASE}/scheduler/market/ensure-onchain/${ensureId}`;
-        const ensureHeaders = { "Content-Type": "application/json" } as Record<string, string>;
+        // Authenticate ensure call so backend can authorize and prioritize the request
+        let authToken: string | null = null;
+        try {
+          authToken = await ensureAuthToken();
+        } catch {}
+        const ensureHeaders = {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          ...(selectedAccount?.publicKey ? { "wallet-address": selectedAccount.publicKey.toBase58() } : {}),
+        } as Record<string, string>;
         console.log('[Ensure] POST ensure-onchain request', {
           url: ensureUrl,
           method: 'POST',
@@ -615,7 +649,9 @@ export default function SlotMachineScreen() {
           for (let i = 0; i < maxTries && !ensuredId; i++) {
             try {
               console.log(`[Ensure] Poll attempt ${i + 1}/${maxTries}`);
-              const check = await axios.get(`${API_BASE}/markets/db/${ensureDbId}`);
+              const check = await axios.get(`${API_BASE}/markets/db/${ensureDbId}`,
+                { headers: ensureHeaders }
+              );
               console.log("[Ensure] Poll response", { status: check.status, data: check.data });
               if (check?.data?.marketId) {
                 ensuredId = check.data.marketId;

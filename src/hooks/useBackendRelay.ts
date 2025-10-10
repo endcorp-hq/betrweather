@@ -559,6 +559,64 @@ export function useBackendRelay() {
     return res.json();
   }, [API_BASE, ensureAuthToken, selectedAccount]);
 
+  // Fetch user bets summary (fast grouped view)
+  const getUserBetsSummary = useCallback(async (walletAddress?: string): Promise<any> => {
+    const token = await ensureAuthToken();
+    const headersBase = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+    } as Record<string, string>;
+
+    const wallet = walletAddress || selectedAccount?.publicKey?.toBase58?.();
+    if (!wallet) throw new Error('Wallet not connected');
+    const url = `${API_BASE.replace(/\/$/, '')}/bets/user/${encodeURIComponent(wallet)}/summary`;
+    let res = await fetch(url, { method: 'GET', headers: headersBase });
+    if (res.status === 401) {
+      const fresh = await ensureAuthToken(true);
+      res = await fetch(url, {
+        method: 'GET',
+        headers: { ...headersBase, Authorization: `Bearer ${fresh}` },
+      });
+    }
+    if (!res.ok) {
+      let text = '';
+      try { text = await res.text(); } catch {}
+      throw new Error(text || `GET /bets/user/:wallet/summary failed: ${res.status}`);
+    }
+    return res.json();
+  }, [API_BASE, ensureAuthToken, selectedAccount]);
+
+  // Fetch user bets paginated list (fallback/pagination view)
+  const getUserBetsPaginated = useCallback(async (walletAddress: string | undefined, limit = 25, offset = 0): Promise<any[]> => {
+    const token = await ensureAuthToken();
+    const headersBase = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+    } as Record<string, string>;
+
+    const wallet = walletAddress || selectedAccount?.publicKey?.toBase58?.();
+    if (!wallet) throw new Error('Wallet not connected');
+    const base = API_BASE.replace(/\/$/, '');
+    const url = `${base}/bets/user/${encodeURIComponent(wallet)}?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`;
+    let res = await fetch(url, { method: 'GET', headers: headersBase });
+    if (res.status === 401) {
+      const fresh = await ensureAuthToken(true);
+      res = await fetch(url, {
+        method: 'GET',
+        headers: { ...headersBase, Authorization: `Bearer ${fresh}` },
+      });
+    }
+    if (!res.ok) {
+      let text = '';
+      try { text = await res.text(); } catch {}
+      throw new Error(text || `GET /bets/user/:wallet failed: ${res.status}`);
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }, [API_BASE, ensureAuthToken, selectedAccount]);
+
   const signBuiltTransaction = useCallback(
     async (messageBase64: string): Promise<{
       signedTx: VersionedTransaction;
@@ -603,10 +661,12 @@ export function useBackendRelay() {
       mapPosition,
       forwardTx,
       getMarkets,
+      getUserBetsSummary,
+      getUserBetsPaginated,
       getTxStreamUrl,
       signBuiltTransaction,
     }),
-    [ensureAuthToken, buildOpenPosition, buildPayout, buildBubblegumBurn, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, getMarkets, getTxStreamUrl, signBuiltTransaction]
+    [ensureAuthToken, buildOpenPosition, buildPayout, buildBubblegumBurn, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, getMarkets, getUserBetsSummary, getUserBetsPaginated, getTxStreamUrl, signBuiltTransaction]
   );
 }
 

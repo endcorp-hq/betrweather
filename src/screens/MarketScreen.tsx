@@ -5,11 +5,9 @@ import { useFilters } from "@/components";
 import theme from '../theme';
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
-import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
+
 import { useShortx } from "../hooks/solana";
-import { useAuthorization } from "../hooks/solana";
-import { useBackendRelay } from "../hooks/useBackendRelay";
-import { useAPI } from "../hooks/useAPI";
+import { useMarkets } from "../hooks";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (
@@ -38,51 +36,14 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
 ));
 
 export default function MarketScreen() {
-  const { markets: rtMarkets, loadingMarkets, error, isInitialized } = useRealTimeMarkets();
+  // On-chain list is now merged inside useMarkets
   const { refresh: refreshOnchain } = useShortx();
-  const { selectedAccount } = useAuthorization();
-  const { ensureAuthToken } = useBackendRelay();
+  const progressive = useMarkets({ resolvedLastHours: 24 });
   const [refreshing, setRefreshing] = useState(false);
-  const [authHeader, setAuthHeader] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    const run = async () => {
-      try {
-        if (selectedAccount?.publicKey) {
-          const token = await ensureAuthToken();
-          if (mounted) setAuthHeader(`Bearer ${token}`);
-        } else {
-          if (mounted) setAuthHeader(null);
-        }
-      } catch (e) {
-        if (mounted) setAuthHeader(null);
-      }
-    };
-    run();
-    return () => {
-      mounted = false;
-    };
-  }, [selectedAccount, ensureAuthToken]);
-
-  // Minimal backend markets fetch (GET /markets)
-  const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
-  const {
-    data: dbMarketsRaw,
-    isLoading: loadingDbMarkets,
-    error: dbMarketsError,
-    refetch: refetchDbMarkets,
-  } = useAPI<any[]>(
-    `${API_BASE}/markets`,
-    {
-      method: 'GET',
-      headers: authHeader ? { 'Authorization': authHeader, 'Content-Type': 'application/json' } : undefined,
-    },
-    { enabled: Boolean(authHeader) }
-  );
 
   // Normalize backend markets to the UI shape used here
   const dbMarkets = useMemo(() => {
+    const dbMarketsRaw = progressive?.markets || [];
     if (!dbMarketsRaw || !Array.isArray(dbMarketsRaw)) return [] as any[];
     return dbMarketsRaw.map((m: any) => {
       // Convert ISO dates to epoch seconds
@@ -106,50 +67,22 @@ export default function MarketScreen() {
         volume: 0,
       };
     });
-  }, [dbMarketsRaw]);
+  }, [progressive?.markets]);
 
-  const mergedMarkets = useMemo(() => {
-    // If no DB markets available (no wallet or empty), show on-chain markets directly
-    if (!Array.isArray(dbMarkets) || dbMarkets.length === 0) return Array.isArray(rtMarkets) ? rtMarkets : ([] as any[]);
-    if (!Array.isArray(rtMarkets) || rtMarkets.length === 0) return dbMarkets;
-
-    const onchainById = new Map<string, any>();
-    for (const m of rtMarkets) {
-      if (m?.marketId) onchainById.set(String(m.marketId), m);
-    }
-
-    return dbMarkets.map((m: any) => {
-      const idStr = m?.marketId != null ? String(m.marketId) : null;
-      if (!idStr) return m;
-      const oc = onchainById.get(idStr);
-      if (!oc) return m;
-      return {
-        ...m,
-        // Preserve backend activation status
-        isActive: m.isActive,
-        // Overlay chain-dependent fields when available
-        yesLiquidity: oc.yesLiquidity ?? m.yesLiquidity,
-        noLiquidity: oc.noLiquidity ?? m.noLiquidity,
-        volume: oc.volume ?? m.volume,
-        winningDirection: oc.winningDirection ?? m.winningDirection,
-        marketStart: oc.marketStart ?? m.marketStart,
-        marketEnd: oc.marketEnd ?? m.marketEnd,
-        marketState: oc.marketState ?? m.marketState,
-      };
-    });
-  }, [dbMarkets, rtMarkets]);
+  // Progressive hook already overlays on-chain deltas; just use it
+  const mergedMarkets = useMemo(() => dbMarkets, [dbMarkets]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await Promise.allSettled([
-        refetchDbMarkets?.(),
+        Promise.resolve(progressive?.refresh?.()),
         Promise.resolve(refreshOnchain?.()),
       ]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchDbMarkets, refreshOnchain]);
+  }, [progressive, refreshOnchain]);
 
   //time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([
@@ -159,8 +92,8 @@ export default function MarketScreen() {
     "longterm",
   ]);
 
-  //status filter
-  const [statusFilter, setStatusFilter] = useState("active");
+  //status filter (default to Predict tab)
+  const [statusFilter, setStatusFilter] = useState("betting");
 
   // Memoize the status filter handler to prevent unnecessary re-renders
   const handleStatusFilterChange = useCallback((filter: string) => {
@@ -272,54 +205,51 @@ export default function MarketScreen() {
 
   return (
     <View className="flex-1">
-      {loadingDbMarkets ? (
-        <LoadingSpinner message="Loading markets" />
-      ) : (
-        <View className="flex-1">
-          {/* Fixed Header Section */}
-          <View className="px-4 pt-10">
-            <Text className="text-white text-2xl font-better-semi-bold mb-4">
-              Climate Prediction Markets
-            </Text>
-            <TimeFilterBar />
-            <StatusFilterBar 
-              selected={statusFilter} 
-              onSelect={handleStatusFilterChange}
-            />
-          </View>
-
-          {/* Scrollable Market Cards Section */}
-          <ScrollView 
-            className="flex-1 px-4"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing || Boolean(loadingDbMarkets)}
-                onRefresh={onRefresh}
-                tintColor="#ffffff"
-              />
-            }
-          >
-            {!loadingDbMarkets && filteredMarkets.length === 0 && (
-              <View className="flex-1 justify-center items-center py-20">
-                <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
-              </View>
-            )}
-            
-            {/* Add top padding to separate cards from status buttons */}
-            <View>
-              {filteredMarkets.map((market, idx) => (
-                <MemoizedMarketCard
-                  key={`market-${market.dbId ?? market.marketId ?? idx}-${market.marketStart}`}
-                  market={market}
-                  index={idx}
-                />
-              ))}
-            </View>
-          </ScrollView>
+      <View className="flex-1">
+        {/* Fixed Header Section */}
+        <View className="px-4 pt-10">
+          <Text className="text-white text-2xl font-better-semi-bold mb-4">
+            Climate Prediction Markets
+          </Text>
+          <TimeFilterBar />
+          <StatusFilterBar 
+            selected={statusFilter} 
+            onSelect={handleStatusFilterChange}
+          />
         </View>
-      )}
+
+        {/* Scrollable Market Cards Section */}
+        <ScrollView 
+          className="flex-1 px-4"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing || Boolean(progressive?.loading)}
+              onRefresh={onRefresh}
+              tintColor="#ffffff"
+            />
+          }
+        >
+          {/* Do not block on loading; only show empty state when not loading */}
+          {!progressive?.loading && filteredMarkets.length === 0 && (
+            <View className="flex-1 justify-center items-center py-20">
+              <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
+            </View>
+          )}
+          
+          {/* Add top padding to separate cards from status buttons */}
+          <View>
+            {filteredMarkets.map((market, idx) => (
+              <MemoizedMarketCard
+                key={`market-${market.dbId ?? market.marketId ?? idx}-${market.marketStart}`}
+                market={market}
+                index={idx}
+              />
+            ))}
+          </View>
+        </ScrollView>
+      </View>
     </View>
   );
 }
