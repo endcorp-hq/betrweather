@@ -64,23 +64,74 @@ export function useMarkets(
     if (!Array.isArray(items) || items.length === 0) return;
     const map = marketByIdRef.current;
     let changed = false;
+
+    const getDbKey = (m: any): string | null => {
+      const v = m?.id ?? m?.dbId ?? m?._id ?? m?.uuid ?? null;
+      return v != null ? String(v) : null;
+    };
+    const getOnchainKey = (m: any): string | null => {
+      const v = m?.marketId;
+      return v != null ? String(v) : null;
+    };
+
     for (const item of items) {
       if (!item) continue;
-      const key = String(item.marketId ?? item.id ?? item.dbId ?? item._id ?? Math.random());
-      const prev = map.get(key);
+      const dbKey = getDbKey(item);
+      const onchainKey = getOnchainKey(item);
+
+      // If this item has an on-chain key, remove any existing DB-only entries with the same DB key
+      if (onchainKey) {
+        if (dbKey) {
+          for (const [k, v] of map.entries()) {
+            const vDbKey = getDbKey(v);
+            const vOnchainKey = getOnchainKey(v);
+            if (vDbKey && vDbKey === dbKey && (!vOnchainKey || vOnchainKey !== onchainKey)) {
+              map.delete(k);
+              changed = true;
+            }
+          }
+        }
+
+        const prevByOnchain = map.get(onchainKey);
+        if (!prevByOnchain) {
+          map.set(onchainKey, item);
+          changed = true;
+        } else {
+          const merged = { ...prevByOnchain, ...item };
+          if (hasRelevantChange(prevByOnchain, item)) {
+            map.set(onchainKey, merged);
+            changed = true;
+          }
+        }
+        continue;
+      }
+
+      // No on-chain key yet. If a record exists that already represents this DB entry (possibly on-chain), merge into that
+      let existingKeyForDb: string | null = null;
+      if (dbKey) {
+        for (const [k, v] of map.entries()) {
+          const vDbKey = getDbKey(v);
+          if (vDbKey && vDbKey === dbKey) {
+            existingKeyForDb = k;
+            break;
+          }
+        }
+      }
+
+      const targetKey = existingKeyForDb || (dbKey ? dbKey : String(Math.random()));
+      const prev = map.get(targetKey);
       if (!prev) {
-        map.set(key, item);
+        map.set(targetKey, item);
         changed = true;
       } else {
-        // Shallow merge to preserve any fields not present in the update
         const merged = { ...prev, ...item };
-        // Only write if relevant fields changed to reduce re-renders
         if (hasRelevantChange(prev, item)) {
-          map.set(key, merged);
+          map.set(targetKey, merged);
           changed = true;
         }
       }
     }
+
     if (changed) {
       setMarketsList(Array.from(map.values()));
     }

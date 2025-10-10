@@ -12,7 +12,7 @@ import { useMarkets } from "../hooks";
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (
   <MotiView
-    key={`market-${market.marketId}-${market.marketStart}`}
+    key={`market-${market.marketId ?? market.id ?? index}`}
     from={{
       opacity: 0,
       translateY: 10,
@@ -52,8 +52,10 @@ export default function MarketScreen() {
       const mt = String(m.marketType || '').toUpperCase();
       const normalizedMarketType = mt === 'LIVE' ? MarketType.LIVE : MarketType.FUTURE;
       return {
-        // Keep db id separately for navigation and ensure-onchain
-        dbId: m.id ?? m.dbId ?? m._id ?? undefined,
+        // Keep UUID id explicitly for navigation and stable keys
+        id: m.id ?? m.uuid ?? m.dbId ?? m._id ?? undefined,
+        // Retain legacy dbId field if upstream provided, for compatibility
+        dbId: m.dbId ?? m._id ?? undefined,
         marketId: maybeMarketId,
         question: m.question ?? '',
         marketStart: toSeconds(m.marketStart),
@@ -242,7 +244,7 @@ export default function MarketScreen() {
           <View>
             {filteredMarkets.map((market, idx) => (
               <MemoizedMarketCard
-                key={`market-${market.dbId ?? market.marketId ?? idx}-${market.marketStart}`}
+                key={`market-${market.marketId ?? market.id ?? idx}-${market.marketStart}`}
                 market={market}
                 index={idx}
               />
