@@ -1,24 +1,17 @@
 import { WinningDirection } from "@endcorp/depredict";
-import { keypairIdentity, publicKey } from "@metaplex-foundation/umi";
-import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import {
-  burn,
-  fetchAsset,
-  collectionAddress,
-  fetchCollection,
-} from "@metaplex-foundation/mpl-core";
-
-
-
-
+import { PublicKey } from "@metaplex-foundation/umi";
 export interface PositionWithMarket {
-  assetId: string;
-  positionId: number;
-  positionNonce: number;
+  assetId: PublicKey; 
   marketId: number;
   direction: "Yes" | "No";
-  amount: number;
-  market?: any; // Market details from getMarketById
+  amount: number; // UI units
+  isActive?: boolean;
+  isBurned?: boolean;
+  userWallet?: string;
+  // Legacy/optional fields kept for backward compatibility in UI filtering
+  positionId?: number;
+  positionNonce?: number;
+  market?: any; // Market details from getMarketById or backend
   isClaiming?: boolean; // Track claiming state
 }
 
@@ -102,12 +95,12 @@ export const calculatePayout = (position: PositionWithMarket) => {
         : position.market.winningDirection === WinningDirection.NO;
 
     if (userWon) {
-      // Convert position amount from lamports to SOL
-      const userBetAmount = position.amount / 1000000;
-
-      // Get market liquidity
-      const yesLiquidity = Number(position.market.yesLiquidity || 0) / 1000000;
-      const noLiquidity = Number(position.market.noLiquidity || 0) / 1000000;
+      // amount now comes from DB in UI units; liquidity still needs decimals scaling
+      const userBetAmount = Number(position.amount || 0);
+      const decimals = Number(position.market.decimals ?? 6);
+      const scale = Math.pow(10, decimals);
+      const yesLiquidity = Number(position.market.yesLiquidity || 0) / scale;
+      const noLiquidity = Number(position.market.noLiquidity || 0) / scale;
 
       // Determine winning and losing side liquidity
       const winningLiquidity =
@@ -156,9 +149,12 @@ export const isPositionClaimable = (position: PositionWithMarket) => {
 export const calculateExpectedPayout = (position: PositionWithMarket) => {
   if (!position.market) return 0;
 
-  const userBetAmount = position.amount / 1000000;
-  const yesLiquidity = Number(position.market?.yesLiquidity || 0) / 1000000;
-  const noLiquidity = Number(position.market?.noLiquidity || 0) / 1000000;
+  // amount is UI units from DB; liquidity scales by decimals
+  const userBetAmount = Number(position.amount || 0);
+  const decimals = Number(position.market.decimals ?? 6);
+  const scale = Math.pow(10, decimals);
+  const yesLiquidity = Number(position.market?.yesLiquidity || 0) / scale;
+  const noLiquidity = Number(position.market?.noLiquidity || 0) / scale;
 
   // Determine user's side liquidity and opposite side liquidity
   const userSideLiquidity =
@@ -178,42 +174,4 @@ export const calculateExpectedPayout = (position: PositionWithMarket) => {
 
   // Ensure user gets at least their original bet back
   return Math.max(expectedPayout, userBetAmount);
-};
-
-export const burnPosition = async (
-  position: PositionWithMarket, 
-  signer: any, 
-  currentChain: string
-) => {
-  try {
-    const chainString = `https://${currentChain}.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
-    const rpcUrl = chainString;
-    const umi = createUmi(rpcUrl);
-    umi.use(keypairIdentity(signer))
-    
-    const assetId = publicKey(position.assetId);
-    const asset = await fetchAsset(umi, assetId);
-
-    const collectionId = collectionAddress(asset);
-
-    let collection = undefined;
-
-    if (collectionId) {
-      collection = await fetchCollection(umi, collectionId);
-    }
-
-    // Build the burn transaction
-    const tx = await burn(umi, {
-      asset: asset,
-      collection: collection,
-    }).buildWithLatestBlockhash(umi);
-
-    console.log('UMI burn transaction built:', tx);
-
-    // Return the UMI transaction (will be converted and signed by the wallet adapter)
-    return tx;
-  } catch (error) {
-    console.error("Error burning position", error);
-    return null;
-  }
 };

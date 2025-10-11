@@ -1,6 +1,7 @@
 import { TextInput, View, Text, StyleProp, ViewStyle, TouchableOpacity, Image } from "react-native";
 import { USDC_ICON } from "./svg/usdc";
 import { useState, useEffect, useRef } from "react";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import theme from '../../theme';
 
 export const DynamicTextInput = ({
@@ -17,8 +18,8 @@ export const DynamicTextInput = ({
     placeholder: string;
     style?: StyleProp<ViewStyle>;
     disabled?: boolean;
-    selectedToken?: "USDC" | "BONK";
-    onTokenChange?: (token: "USDC" | "BONK") => void;
+    selectedToken?: "USDC" | "BONK" | "SOL";
+    onTokenChange?: (token: "USDC" | "BONK" | "SOL") => void;
   }) => {
     const [fontSize, setFontSize] = useState(40);
     const [inputWidth, setInputWidth] = useState(120);
@@ -63,7 +64,10 @@ export const DynamicTextInput = ({
 
     const handleTokenToggle = () => {
       if (onTokenChange) {
-        onTokenChange(selectedToken === "USDC" ? "BONK" : "USDC");
+        const order: Array<"USDC" | "BONK" | "SOL"> = ["USDC", "BONK", "SOL"];
+        const idx = order.indexOf(selectedToken as any);
+        const next = order[(idx + 1) % order.length];
+        onTokenChange(next);
       }
     };
   
@@ -127,14 +131,16 @@ export const DynamicTextInput = ({
             borderColor: '#e5e5e5',
           }}
         >
-          {selectedToken === "USDC" ? (
-            <USDC_ICON width={20} height={20} />
-          ) : (
+          {selectedToken === "USDC" && <USDC_ICON width={20} height={20} />}
+          {selectedToken === "BONK" && (
             <Image
               source={require("../../../assets/bonk-logo.png")}
               style={{ width: 20, height: 20 }}
               resizeMode="contain"
             />
+          )}
+          {selectedToken === "SOL" && (
+            <MaterialCommunityIcons name="currency-sign" size={20} color={theme.colors.onSurfaceVariant} />
           )}
           <Text style={{ 
             color: theme.colors.onSurfaceVariant, 

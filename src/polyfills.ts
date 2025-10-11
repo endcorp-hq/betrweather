@@ -2,6 +2,7 @@ import { getRandomValues as expoCryptoGetRandomValues } from "expo-crypto";
 import { Buffer } from "buffer";
 import structuredClone from "@ungap/structured-clone";
 import 'react-native-gesture-handler';
+import RNEventSource from 'react-native-sse';
 
 // import moduleAlias from 'module-alias';
 
@@ -39,3 +40,15 @@ if (!("structuredClone" in globalThis)) {
     // @ts-expect-error: polyfill signature mismatch is safe here
   globalThis.structuredClone = structuredClone;
 }
+
+// EventSource polyfill for React Native environments
+(() => {
+  try {
+    // @ts-ignore - runtime presence check
+    const hasEventSource = typeof (global as any).EventSource !== 'undefined';
+    if (!hasEventSource && RNEventSource) {
+      // @ts-ignore - assign to global
+      (global as any).EventSource = RNEventSource as unknown as typeof EventSource;
+    }
+  } catch {}
+})();

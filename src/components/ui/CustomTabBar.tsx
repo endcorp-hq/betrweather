@@ -1,5 +1,5 @@
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View, Keyboard, Platform } from "react-native";
 import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
@@ -25,6 +25,22 @@ export function CustomTabBar({
   descriptors,
   navigation,
 }: BottomTabBarProps) {
+  const [keyboardVisible, setKeyboardVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt as any, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvt as any, () => setKeyboardVisible(false));
+    return () => {
+      // @ts-ignore remove compat
+      showSub?.remove?.();
+      // @ts-ignore remove compat
+      hideSub?.remove?.();
+    };
+  }, []);
+
+  if (keyboardVisible) return null;
   return (
     <View
       className="absolute left-4 right-4 bottom-4 z-50"

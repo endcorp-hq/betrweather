@@ -46,8 +46,8 @@ export function extractErrorMessage(error: unknown, fallbackMessage: string = "A
   if (error instanceof Error) {
     const errorStr = error.message;
     
-    // Handle Solana simulation errors
-    if (errorStr.includes("Simulation failed")) {
+    // Handle Solana/relay simulation errors
+    if (errorStr.includes("Simulation failed") || errorStr.includes("SIMULATION_FAILED")) {
       // Look for the actual error message after "Message:"
       const messageMatch = errorStr.match(/Message:\s*(.+?)(?:\n|$)/);
       if (messageMatch) {
@@ -59,6 +59,11 @@ export function extractErrorMessage(error: unknown, fallbackMessage: string = "A
       if (parts.length > 1) {
         return parts[1].trim();
       }
+    }
+
+    // Position not found UX
+    if (errorStr.includes("POSITION_NOT_FOUND") || /Position\s+not\s+found/i.test(errorStr)) {
+      return "We couldn’t find this position on-chain for this market.";
     }
     
     // Handle other error types

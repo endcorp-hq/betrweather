@@ -8,7 +8,9 @@ import {
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useShortx, useAuthorization, useCreateAndSendTx } from "../hooks/solana";
-import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
+import { useBackendRelay, useMobileWallet } from "../hooks";
+import { Buffer } from 'buffer';
+import { PublicKey, TransactionMessage, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import React, {
   useEffect,
   useRef,
@@ -26,17 +28,21 @@ import {
 } from "@/components";
 import { WinningDirection, MarketType, Market } from "@endcorp/depredict";
 import axios from "axios";
-import { getMint, formatDate, extractErrorMessage } from "@/utils";
-import { PublicKey } from "@solana/web3.js";
+import { useAPI } from "../hooks/useAPI";
+import { formatDate, extractErrorMessage } from "@/utils";
+// import { PublicKey } from "@solana/web3.js";
 import theme from "../theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import SwipeButton from "rn-swipe-button";
 import { useToast } from "@/contexts";
+import { useChain } from "@/contexts";
+import type { ParsedAccountData } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
 
-const SUGGESTED_BETS_USDC = [5, 10, 25, 50];
-const SUGGESTED_BETS_BONK = ["35k", "70k", "100k", "200k"];
+const SUGGESTED_BETS_USDC = [1, 3, 5, 20];
+const SUGGESTED_BETS_BONK = ["30k", "60k", "100k", "200k"];
+const SUGGESTED_BETS_SOL = [0.01, 0.05, 0.1, 0.25];
 
 // Helper function to convert BONK string to number
 const parseBonkAmount = (bonkString: string): number => {
@@ -52,7 +58,7 @@ const parseBonkAmount = (bonkString: string): number => {
 // Helper function to format BONK amount for display
 const formatBonkAmount = (amount: number): string => {
   if (amount >= 1000000) {
-    return `${(amount / 1000000).toFixed(1)}M`;
+    return `${(amount / 1000000).toFixed(2)}M`;
   }
   if (amount >= 1000) {
     return `${(amount / 1000).toFixed(0)}k`;
@@ -60,48 +66,21 @@ const formatBonkAmount = (amount: number): string => {
   return amount.toString();
 };
 
+type SwipeableBetCardProps = {
+  market: any;
+  onSelect: (dir: "yes" | "no") => void;
+  scrollViewRef: React.RefObject<ScrollView>;
+  hasRecentEvent: boolean;
+};
+
 function SwipeableBetCard({
   market,
   onSelect,
   scrollViewRef,
-  marketEvents,
-}: {
-  market: any;
-  onSelect: (dir: "yes" | "no") => void;
-  scrollViewRef: React.RefObject<ScrollView>;
-  marketEvents: any[];
-}) {
-  const pan = useRef(new Animated.ValueXY()).current;
-  const [swiping, setSwiping] = useState(false);
-  const [swipeDir, setSwipeDir] = useState<"yes" | "no" | null>(null);
+  hasRecentEvent,
+}: SwipeableBetCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { bottom: 24 };
-
-  // Memoize expensive calculations
-  const isSwipeable = useMemo(() => {
-    const now = Date.now();
-    const marketStart = Number(market.marketStart) * 1000;
-    const marketEnd = Number(market.marketEnd) * 1000;
-
-    if (market.winningDirection !== WinningDirection.NONE) {
-      return false; // Resolved markets
-    }
-
-    if (now > marketEnd) {
-      return false; // Market ended but not resolved
-    }
-
-    if (market.marketType === MarketType.FUTURE && now > marketStart) {
-      return false; // Future market where betting time is over
-    }
-
-    return true; // All other cases (betting, active live markets)
-  }, [
-    market.winningDirection,
-    market.marketStart,
-    market.marketEnd,
-    market.marketType,
-  ]);
 
   const marketStatus = useMemo(() => {
     const now = Date.now();
@@ -118,56 +97,6 @@ function SwipeableBetCard({
       return { text: "OBSERVING", color: "#3b82f6", icon: "play-circle" };
     }
   }, [market.winningDirection, market.marketStart, market.marketEnd]);
-
-  const handleRelease = useCallback(
-    (_: any, gesture: any) => {
-      if (gesture.dx > 80) {
-        setSwipeDir("yes");
-        Animated.timing(pan, {
-          toValue: { x: 500, y: 0 },
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          onSelect("yes");
-          pan.setValue({ x: 0, y: 0 });
-          setSwipeDir(null);
-        });
-      } else if (gesture.dx < -80) {
-        setSwipeDir("no");
-        Animated.timing(pan, {
-          toValue: { x: -500, y: 0 },
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          onSelect("no");
-          pan.setValue({ x: 0, y: 0 });
-          setSwipeDir(null);
-        });
-      } else {
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: true,
-        }).start();
-        setSwipeDir(null);
-      }
-    },
-    [pan, onSelect]
-  );
-
-  // Memoize PanResponder to prevent recreation on every render
-  const panResponder = useMemo(() => {
-    if (!isSwipeable) return {};
-
-    return require("react-native").PanResponder.create({
-      onMoveShouldSetPanResponder: (_: any, g: any) => Math.abs(g.dx) > 10,
-      onPanResponderGrant: () => setSwiping(true),
-      onPanResponderMove: (_: any, gesture: any) => {
-        pan.setValue({ x: gesture.dx, y: gesture.dy });
-      },
-      onPanResponderRelease: handleRelease,
-      onPanResponderTerminate: () => setSwiping(false),
-    }).panHandlers;
-  }, [isSwipeable, handleRelease, pan]);
 
   const handleExpand = useCallback(() => {
     setIsExpanded(!isExpanded);
@@ -190,43 +119,7 @@ function SwipeableBetCard({
         paddingBottom: insets.bottom + 16,
       }}
     >
-      {/* Swipe Direction Indicators - Only show for swipeable markets */}
-      {isSwipeable && (
-        <View className="flex flex-row justify-between items-center w-full mb-4 px-4">
-          <View className="flex flex-row items-center gap-2">
-            <MaterialCommunityIcons
-              name="chevron-left"
-              size={24}
-              color="rgba(255, 255, 255, 0.8)"
-            />
-            <Text
-              className="text-base font-better-semi-bold"
-              style={{
-                color: "white",
-              }}
-            >
-              No
-            </Text>
-          </View>
-          <View className="flex flex-row items-center gap-2">
-            <Text
-              className="text-base font-better-semi-bold"
-              style={{
-                color: "white",
-              }}
-            >
-              Yes
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={24}
-              color="rgba(255, 255, 255, 0.8)"
-            />
-          </View>
-        </View>
-      )}
-
-      <Animated.View
+      <View
         style={{
           width: "100%",
           minHeight: 420,
@@ -234,45 +127,8 @@ function SwipeableBetCard({
           borderRadius: 20,
           overflow: "hidden",
           backgroundColor: "transparent",
-          transform: isSwipeable
-            ? [
-                { translateX: pan.x },
-                { translateY: pan.y },
-                {
-                  rotate: pan.x.interpolate({
-                    inputRange: [-200, 0, 200],
-                    outputRange: ["-15deg", "0deg", "15deg"],
-                    extrapolate: "clamp",
-                  }),
-                },
-              ]
-            : [], // No transforms for non-swipeable markets
         }}
-        {...panResponder}
       >
-        {/* Combined overlay for better performance */}
-        {isSwipeable && (
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              ...StyleSheet.absoluteFillObject,
-              borderRadius: 20,
-              zIndex: 2,
-              backgroundColor: pan.x.interpolate({
-                inputRange: [-200, -80, 0, 80, 200],
-                outputRange: [
-                  "rgba(239, 68, 68, 0.3)", // Red for left
-                  "rgba(239, 68, 68, 0.15)", // Light red
-                  "transparent", // No color
-                  "rgba(16, 185, 129, 0.15)", // Light green
-                  "rgba(16, 185, 129, 0.3)", // Green for right
-                ],
-                extrapolate: "clamp",
-              }),
-            }}
-          />
-        )}
-
         <DarkCard style={{ flex: 1, minHeight: 420 }} borderRadius={20}>
           <View style={styles.swipeCardInner}>
             {/* Status Badge */}
@@ -307,53 +163,33 @@ function SwipeableBetCard({
               </Text>
             )}
 
-            {/* Combined YES/NO overlay for better performance */}
-            {isSwipeable && (
-              <Animated.View
-                style={[
-                  styles.swipeOverlay,
-                  {
-                    opacity: pan.x.interpolate({
-                      inputRange: [-200, -80, 0, 80, 200],
-                      outputRange: [1, 0.5, 0, 0.5, 1],
-                      extrapolate: "clamp",
-                    }),
-                  },
-                ]}
-              >
-                <Animated.Text
-                  style={[
-                    styles.swipeNoText,
-                    {
-                      opacity: pan.x.interpolate({
-                        inputRange: [-200, -80, 0],
-                        outputRange: [1, 0.5, 0],
-                        extrapolate: "clamp",
-                      }),
-                    },
-                  ]}
-                >
-                  NO
-                </Animated.Text>
-                <Animated.Text
-                  style={[
-                    styles.swipeYesText,
-                    {
-                      opacity: pan.x.interpolate({
-                        inputRange: [0, 80, 200],
-                        outputRange: [0, 0.5, 1],
-                        extrapolate: "clamp",
-                      }),
-                    },
-                  ]}
-                >
-                  YES
-                </Animated.Text>
-              </Animated.View>
-            )}
-
             {/* Market Question */}
             <Text style={styles.swipeCardQuestion}>{market.question}</Text>
+
+            {/* Yes / No Buttons - show only in predict state (before marketStart) */}
+            {(() => {
+              const now = Date.now();
+              const marketStart = Number(market.marketStart) * 1000;
+              const isPredict = market.winningDirection === WinningDirection.NONE && now < marketStart;
+              return isPredict;
+            })() && (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={[styles.betButton, styles.noButton]}
+                  onPress={() => onSelect("no")}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.betButtonText}>NO</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.betButton, styles.yesButton]}
+                  onPress={() => onSelect("yes")}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.betButtonText}>YES</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Market Details */}
             <View style={styles.marketDetails}>
@@ -421,7 +257,7 @@ function SwipeableBetCard({
                 </Text>
               </View>
 
-              <View style={styles.detailRow}>
+            <View style={styles.detailRow}>
                 <MaterialCommunityIcons
                   name="chart-line"
                   size={16}
@@ -429,10 +265,8 @@ function SwipeableBetCard({
                 />
                 <Text style={styles.detailLabel}>Volume:</Text>
                 <Text style={styles.detailValue}>
-                  ${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(1)}
-                  {marketEvents.some(
-                    (event) => event.marketId.toString() === market.marketId
-                  ) && (
+                  ${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(2)}
+                  {hasRecentEvent && (
                     <Text style={{ color: "#10b981", fontSize: 12 }}> ●</Text>
                   )}
                 </Text>
@@ -440,7 +274,7 @@ function SwipeableBetCard({
             </View>
           </View>
         </DarkCard>
-      </Animated.View>
+      </View>
 
       {/* Expand/Collapse Arrow - Outside animated container */}
       <View style={styles.expandButtonContainer}>
@@ -589,99 +423,213 @@ function SwipeableBetCard({
       )}
     </View>
   );
-}
+};
 
 export default function SlotMachineScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
-  const { createAndSendTx } = useCreateAndSendTx();
   const { toast } = useToast();
+  const { connection, currentChain } = useChain();
+  // Accept both dbId and marketId from navigation, and optionally a full market object
   // @ts-ignore
-  const { id } = route.params || {};
+  const { marketId: routeMarketId, dbId: routeDbId, id, market: routeMarket } = route.params || {};
+  const effectiveId = routeDbId ?? id ?? routeMarketId;
 
-  const { openPosition, getMarketById, loadingMarket } = useShortx();
+  const { getMarketById, openPosition, refresh } = useShortx();
+  const { forwardTx, ensureAuthToken } = useBackendRelay();
+  const { buildVersionedTx } = useCreateAndSendTx();
+  const { signTransaction } = useMobileWallet();
+  const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+  const dbByDbIdUrl = routeDbId ? `${API_BASE}/markets/db/${routeDbId}` : '';
+  const dbByMarketIdUrl = routeMarketId ? `${API_BASE}/markets/${routeMarketId}` : '';
+  const { data: dbMarketByDbId, isLoading: loadingByDbId } = useAPI<any>(
+    dbByDbIdUrl,
+    { method: 'GET' },
+    { enabled: Boolean(routeDbId) && !routeMarket, staleTime: 5 * 60 * 1000, refetchInterval: false }
+  );
+  const { data: dbMarketByMarketId, isLoading: loadingByMarketId } = useAPI<any>(
+    dbByMarketIdUrl,
+    { method: 'GET' },
+    { enabled: Boolean(routeMarketId) && !routeMarket, staleTime: 2 * 60 * 1000, refetchInterval: false }
+  );
 
-  // Get real-time markets data
-  const {
-    markets: realTimeMarkets,
-    marketEvents,
-    loadingMarkets,
-  } = useRealTimeMarkets();
+  // UseShortx still exposes events; useMarkets integrates list overlay elsewhere
+  const { marketEvents } = useShortx();
   const [betAmount, setBetAmount] = useState("");
   const [selectedDirection, setSelectedDirection] = useState<
     "yes" | "no" | null
   >(null);
-  const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
+  const [selectedMarket, setSelectedMarket] = useState<any | null>(routeMarket || null);
   // Comment out BONK in the token selection
-  const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK">("USDC");
+  const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK" | "SOL">("USDC");
   const [showBetModal, setShowBetModal] = useState(false);
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [solFeeEstimate, setSolFeeEstimate] = useState<number | null>(null);
+  const [hasSufficientFunds, setHasSufficientFunds] = useState<boolean>(true);
   const [betStatus, setBetStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [error, setError] = useState<unknown>(null);
   const [isFetchingMarket, setIsFetchingMarket] = useState(false);
+  const [isOnChain, setIsOnChain] = useState(false);
+  const [isEnsuring, setIsEnsuring] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Memoize real-time market lookup
-  const realTimeMarket = useMemo(
-    () => realTimeMarkets.find((market) => market.marketId === id),
-    [realTimeMarkets, id]
-  );
+  const realTimeMarket = useMemo(() => {
+    if (!selectedMarket?.marketId) return undefined;
+    const id = String(selectedMarket.marketId);
+    const latest = marketEvents
+      .filter((e: any) => String(e.marketId) === id)
+      .sort((a: any, b: any) => Number(b.updateTs || 0) - Number(a.updateTs || 0))[0];
+    if (!latest) return undefined;
+    return {
+      marketId: Number(latest.marketId),
+      yesLiquidity: String(latest.yesLiquidity ?? "0"),
+      noLiquidity: String(latest.noLiquidity ?? "0"),
+      volume: String(latest.volume ?? "0"),
+      marketStart: String(latest.marketStart ?? "0"),
+      marketEnd: String(latest.marketEnd ?? "0"),
+      winningDirection: latest.winningDirection,
+      marketState: latest.state,
+      nextPositionId: String(latest.nextPositionId ?? "0"),
+    } as any;
+  }, [selectedMarket?.marketId, marketEvents]);
+  const hasRecentEvent = useMemo(() => (
+    selectedMarket?.marketId ? marketEvents.some((event: any) => event.marketId.toString() === String(selectedMarket.marketId)) : false
+  ), [marketEvents, selectedMarket?.marketId]);
 
-  // Immediately set the market if it's available from real-time data
+  // Immediately overlay the market with real-time data if available
   useEffect(() => {
-    if (realTimeMarket && !selectedMarket) {
-      setSelectedMarket(realTimeMarket);
+    if (realTimeMarket && selectedMarket) {
+      setSelectedMarket({ ...selectedMarket, ...realTimeMarket });
+      setIsOnChain(true);
     }
-  }, [realTimeMarket, selectedMarket]);
+  }, [realTimeMarket]);
 
   // Optimized loading logic: only show loading if we don't have the market data
   // and we're not in the middle of fetching markets
-  const isLoading = !selectedMarket && (loadingMarkets || isFetchingMarket);
+  const isLoading = !selectedMarket && (isFetchingMarket || loadingByDbId || loadingByMarketId);
+
+  // Fetch balances (SPL token for market mint and SOL) and estimate a baseline fee
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!connection || !selectedAccount?.publicKey) return;
+        // SOL balance
+        const lamports = await connection.getBalance(selectedAccount.publicKey);
+        if (!cancelled) setSolBalance(lamports / LAMPORTS_PER_SOL);
+
+        // SPL token balance for the market's mint (if provided)
+        try {
+          const mintStr = selectedMarket?.mint as string | undefined;
+          if (mintStr && mintStr !== "So11111111111111111111111111111111111111112") {
+            const resp = await connection.getParsedTokenAccountsByOwner(
+              selectedAccount.publicKey,
+              { mint: new PublicKey(mintStr) }
+            );
+            let ui = 0;
+            for (const { account } of resp.value) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const info = (account.data as any)?.parsed?.info;
+              const amt = Number(info?.tokenAmount?.uiAmount || 0);
+              ui += amt;
+            }
+            if (!cancelled) setTokenBalance(ui);
+          } else {
+            if (!cancelled) setTokenBalance(null);
+          }
+        } catch {
+          if (!cancelled) setTokenBalance(null);
+        }
+
+        // Estimate base network fee (no priority) using empty message
+        try {
+          const { blockhash } = await connection.getLatestBlockhash();
+          const msg = new TransactionMessage({
+            payerKey: selectedAccount.publicKey,
+            recentBlockhash: blockhash,
+            instructions: [],
+          }).compileToV0Message();
+          const feeLamports = await connection.getFeeForMessage(msg);
+          if (!cancelled) setSolFeeEstimate(((typeof feeLamports === 'number' ? feeLamports : (feeLamports?.value ?? 0)) as number) / LAMPORTS_PER_SOL);
+        } catch (e) {
+          // Fallback to a conservative default
+          if (!cancelled) setSolFeeEstimate(0.00002);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connection, selectedAccount?.publicKey, currentChain, selectedMarket?.mint]);
+
+  // Keep CTA disabled when insufficient USDC or SOL for fees
+  useEffect(() => {
+    const parsed = selectedToken === "BONK" ? parseBonkAmount(betAmount) : parseFloat(betAmount || "0");
+    const lacksSpl = selectedToken !== "SOL" && tokenBalance != null && parsed > 0 && parsed > tokenBalance;
+    const requiredSol = selectedToken === "SOL" ? parsed + (solFeeEstimate ?? 0) : (solFeeEstimate ?? 0);
+    const lacksSol = solBalance != null && requiredSol > solBalance;
+    setHasSufficientFunds(!(lacksSpl || lacksSol));
+  }, [betAmount, selectedToken, tokenBalance, solBalance, solFeeEstimate]);
 
   useEffect(() => {
     async function fetchMarket() {
-      // First try to get from real-time markets
-      if (realTimeMarket) {
-        setSelectedMarket(realTimeMarket);
-        return;
-      }
-
-      // Check if we have the market in our cached list
-      const cachedMarket = realTimeMarkets.find(market => market.marketId === id);
-      if (cachedMarket) {
-        setSelectedMarket(cachedMarket);
-        return;
-      }
-
       // Only show loading state if we don't have the market anywhere
       setIsFetchingMarket(true);
 
-      // Fallback to fetching from blockchain
+      // Backend only: fetch market by ID (not on-chain)
       try {
-        const market = await getMarketById(id);
-        if (market) {
-          setSelectedMarket(market);
-        } else {
-          setSelectedMarket(null);
+        const dbMarketRaw = dbMarketByDbId || dbMarketByMarketId;
+        if (dbMarketRaw) {
+          const toSeconds = (iso?: string | null) => typeof iso === 'string' ? Math.floor(new Date(iso).getTime() / 1000) : undefined;
+          const normalized = {
+            dbId: dbMarketRaw.id ?? dbMarketRaw.dbId ?? dbMarketRaw._id,
+            marketId: dbMarketRaw.marketId ?? null,
+            question: dbMarketRaw.question ?? '',
+            marketStart: toSeconds(dbMarketRaw.marketStart),
+            marketEnd: toSeconds(dbMarketRaw.marketEnd),
+            marketType: dbMarketRaw.marketType ?? 'FUTURE',
+            winningDirection: WinningDirection.NONE,
+            yesLiquidity: 0,
+            noLiquidity: 0,
+            volume: 0,
+            currency: dbMarketRaw.currency,
+            mint: dbMarketRaw.mint,
+          } as unknown as any;
+          setSelectedMarket(normalized);
+          setIsOnChain(false);
         }
       } catch (error) {
-        console.error(
-          `MarketDetailScreen: Error fetching market ${id}:`,
-          error
-        );
+        console.error(`MarketDetailScreen: Error fetching market:`, error);
         setError(error as unknown);
         setSelectedMarket(null);
+        setIsOnChain(false);
       } finally {
         setIsFetchingMarket(false);
       }
     }
 
-    if (id) {
+    // If a full market was provided via navigation, use it immediately and skip fetching
+    if (routeMarket && !selectedMarket) {
+      try {
+        const toSeconds = (iso?: string | null) => typeof iso === 'string' ? Math.floor(new Date(iso).getTime() / 1000) : iso;
+        const normalized = {
+          ...routeMarket,
+          marketStart: toSeconds(routeMarket.marketStart),
+          marketEnd: toSeconds(routeMarket.marketEnd),
+        } as any;
+        setSelectedMarket(normalized);
+        setIsOnChain(Boolean(normalized?.marketId));
+      } catch {}
+    } else if (routeDbId || routeMarketId) {
       fetchMarket();
     }
-  }, [id, realTimeMarket, getMarketById, realTimeMarkets]);
+  }, [routeDbId, routeMarketId, dbMarketByDbId, dbMarketByMarketId, routeMarket]);
 
   useEffect(() => {
     const token = getMarketToken(selectedMarket?.mint || "");
@@ -697,6 +645,142 @@ export default function SlotMachineScreen() {
     }
 
     setBetStatus("loading");
+
+    // Resolve on-chain marketId from known values first, then DB lookup, then ensure
+    let finalMarketId: number | null =
+      selectedMarket?.marketId != null
+        ? Number(selectedMarket.marketId)
+        : routeMarketId != null
+        ? Number(routeMarketId)
+        : null;
+    const dbId = selectedMarket?.dbId || selectedMarket?.id || routeDbId || null;
+    try {
+      if (!finalMarketId && dbId) {
+        const latest = await axios.get(`${API_BASE}/markets/db/${dbId}`);
+        if (latest?.data?.marketId) {
+          finalMarketId = Number(latest.data.marketId);
+        }
+      }
+    } catch (e) {
+      // non-fatal; we'll try ensure flow below
+    }
+    let ensureToastId: string | null = null;
+    try {
+      if (!finalMarketId) {
+        setIsEnsuring(true);
+        ensureToastId = toast.loading(
+          "Connecting…",
+          "Spinning up a connection, just a moment",
+          { position: "top" }
+        );
+        const ensureDbId = dbId || selectedMarket?.dbId || selectedMarket?.id;
+        // Prefer marketId if known; fallback to DB id
+        const ensureId = (selectedMarket?.marketId ?? (routeMarketId ? Number(routeMarketId) : null)) ?? ensureDbId;
+        if (!ensureId) {
+          console.error("[Ensure] Missing ensureId (no marketId or dbId available)");
+          toast.update(ensureToastId!, {
+            type: "error",
+            title: "Connection issue",
+            message: "Missing market identifier. Please back out and retry.",
+            duration: 4000,
+          });
+          setIsEnsuring(false);
+          setBetStatus("idle");
+          return;
+        }
+        // Start ensure-onchain
+        const ensureUrl = `${API_BASE}/scheduler/market/ensure-onchain/${ensureId}`;
+        // Authenticate ensure call so backend can authorize and prioritize the request
+        let authToken: string | null = null;
+        try {
+          authToken = await ensureAuthToken();
+        } catch {}
+        const ensureHeaders = {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          ...(selectedAccount?.publicKey ? { "wallet-address": selectedAccount.publicKey.toBase58() } : {}),
+        } as Record<string, string>;
+        // Send ensure-onchain request
+        const ensureRes = await axios.post(
+          ensureUrl,
+          {},
+          { headers: ensureHeaders }
+        );
+        // Handle ensure response
+        let { success, marketId: ensuredId } = ensureRes.data || {};
+
+        // If backend didn't immediately return a marketId, poll DB for a short window
+        if (!ensuredId) {
+          const maxTries = 8;
+          const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+          for (let i = 0; i < maxTries && !ensuredId; i++) {
+            try {
+              // Poll for ensured market id
+              const check = await axios.get(`${API_BASE}/markets/db/${ensureDbId}`,
+                { headers: ensureHeaders }
+              );
+              // Poll response processed
+              if (check?.data?.marketId) {
+                ensuredId = check.data.marketId;
+                success = true;
+                break;
+              }
+            } catch (pollErr) {
+              // Ignore transient poll errors
+            }
+            await delay(1000);
+          }
+        }
+
+        if (!success || !ensuredId) {
+          // Unable to prepare market after ensure/poll
+          toast.update(ensureToastId!, {
+            type: "error",
+            title: "Connection issue",
+            message: "Please try again in a moment.",
+            duration: 4000,
+          });
+          setIsEnsuring(false);
+          setBetStatus("idle");
+          return;
+        }
+
+        finalMarketId = Number(ensuredId);
+        setSelectedMarket((prev: any) => ({ ...(prev || {}), marketId: finalMarketId }));
+        setIsOnChain(true);
+        // Ensure success, marketId assigned
+        toast.update(ensureToastId!, {
+          type: "success",
+          title: "Connected",
+          message: "Connection ready",
+          duration: 1200,
+        });
+        ensureToastId = null;
+        setIsEnsuring(false);
+      }
+    } catch (e) {
+      // Surface axios error details when available
+      // @ts-ignore
+      const resp = e?.response;
+      if (resp) {
+        console.error("[Ensure] Exception with response", { status: resp.status, data: resp.data });
+      } else {
+        console.error("[Ensure] Exception", e);
+      }
+      if (ensureToastId) {
+        toast.update(ensureToastId, {
+          type: "error",
+          title: "Connection issue",
+          message: extractErrorMessage(e),
+          duration: 5000,
+        });
+      } else {
+        toast.error("Connection issue", extractErrorMessage(e), { position: "top" });
+      }
+      setIsEnsuring(false);
+      setBetStatus("idle");
+      return;
+    }
 
     // Show loading toast and get the ID
     const loadingToastId = toast.loading(
@@ -727,6 +811,41 @@ export default function SlotMachineScreen() {
         return;
       }
 
+      // Determine market mint from selected market (backend and on-chain expect mint address)
+      const marketMint = (selectedMarket?.mint || "") as string;
+
+      // Pre-check SPL token balance before building/submitting
+      if (!connection) {
+        throw new Error("No Solana connection available");
+      }
+      if (selectedToken !== "SOL" && marketMint) {
+        try {
+          const resp = await connection.getParsedTokenAccountsByOwner(
+            selectedAccount.publicKey,
+            { mint: new PublicKey(marketMint) }
+          );
+          let uiBalance = 0;
+          for (const { account } of resp.value) {
+            const info = (account.data as ParsedAccountData).parsed?.info;
+            const amount = info?.tokenAmount?.uiAmount || 0;
+            uiBalance += Number(amount || 0);
+          }
+          if (uiBalance < parsedAmount) {
+            toast.update(loadingToastId, {
+              type: "error",
+              title: `Insufficient ${selectedToken}`,
+              message: `You have ${uiBalance.toFixed(2)} ${selectedToken}, need ${parsedAmount.toFixed(2)} ${selectedToken}`,
+              duration: 5000,
+            });
+            setBetStatus("idle");
+            return;
+          }
+        } catch (e) {
+          // If balance check fails, proceed but warn
+          console.warn("Token balance check failed", e);
+        }
+      }
+
       const metadata = {
         question: selectedMarket?.question,
         collection: false,
@@ -736,15 +855,10 @@ export default function SlotMachineScreen() {
         direction: bet === "yes" ? WinningDirection.YES : WinningDirection.NO,
       };
 
-      const response = await axios.post(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/nft/create`,
-        metadata,
-        {
-          headers: {
-            "wallet-address": selectedAccount.publicKey.toBase58(),
-          },
-        }
-      );
+      const metadataUrl = `${process.env.EXPO_PUBLIC_BACKEND_URL}/nft/create`;
+      const metadataHeaders = { "wallet-address": selectedAccount.publicKey.toBase58() } as Record<string, string>;
+      // Create metadata
+      const response = await axios.post(metadataUrl, metadata, { headers: metadataHeaders });
 
       const metadataUri = response.data.metadataUrl;
       if (!metadataUri || !selectedMarket) {
@@ -759,34 +873,46 @@ export default function SlotMachineScreen() {
         return; // Don't navigate, just return
       }
 
+      // Client-build uses UI units; Anchor enum direction
+      const amountUi = parsedAmount;
+      const anchorDirection = bet === "yes" ? { yes: {} } : { no: {} };
+
+      // Debug log bet params prior to building instructions
+      // Build bet params
+
+      // Build instructions locally via SDK (single tx including ATA init if needed)
       const buyIxs = await openPosition({
-        marketId: parseInt(selectedMarket.marketId),
-        direction: bet === "yes" ? { yes: {} } : { no: {} },
-        amount: parsedAmount,
-        token: getMint(selectedToken, "devnet").toBase58(),
+        marketId: Number(finalMarketId),
+        direction: anchorDirection,
+        amount: amountUi,
+        token: marketMint,
         payer: selectedAccount.publicKey,
         feeVaultAccount: new PublicKey(
           process.env.EXPO_PUBLIC_FEE_VAULT ||
             "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"
         ),
-        metadataUri: metadataUri,
+        metadataUri,
+        pageIndex: 0,
       });
 
-      if (typeof buyIxs === "string" || !buyIxs) {
-        // Update loading toast to error
-        toast.update(loadingToastId, {
-          type: "error",
-          title: "Bet Failed",
-          message: "Failed to create bet transaction. Please try again.",
-          duration: 4000,
-        });
-        setBetStatus("error");
-        return; // Don't navigate, just return
+      if (!buyIxs || typeof buyIxs === 'string') {
+        throw new Error('Failed to build local instructions');
       }
 
-      const signature = await createAndSendTx(buyIxs.ixs, true, undefined, undefined, {
+      // Compile v0, sign once, forward
+      const tx = await buildVersionedTx(buyIxs.ixs, {
         addressLookupTableAccounts: buyIxs.addressLookupTableAccounts,
       });
+      const signedTx = await signTransaction(tx);
+      if (!signedTx) throw new Error('Wallet did not return a signed transaction');
+      const signedTxB64 = Buffer.from((signedTx as any).serialize()).toString('base64');
+      const forwardBody = {
+        signedTx: signedTxB64,
+        options: { skipPreflight: false, maxRetries: 3 },
+      };
+      // Forward payload
+      const forwarded = await forwardTx(forwardBody);
+      const signature = forwarded.signature;
 
       // Success! Update loading toast to success
       const displayAmount =
@@ -801,6 +927,9 @@ export default function SlotMachineScreen() {
       });
 
       setBetStatus("success");
+
+      // Trigger a background refresh to ensure markets list reflects the new bet immediately
+      try { refresh?.(); } catch {}
 
       // Close modal and navigate ONLY on success
       setTimeout(() => {
@@ -858,7 +987,7 @@ export default function SlotMachineScreen() {
             </View>
           )}
 
-          {Boolean(error) && !loadingMarket && (
+          {Boolean(error) && (
             <MaterialCard variant="filled" style={styles.errorCard}>
               <Text style={styles.errorTitle}>Error</Text>
               <Text style={styles.errorMessage}>
@@ -867,13 +996,7 @@ export default function SlotMachineScreen() {
             </MaterialCard>
           )}
 
-          {!isLoading && !error && !selectedMarket && (
-            <MaterialCard variant="filled" style={styles.errorCard}>
-              <Text style={styles.errorMessage}>No market found.</Text>
-            </MaterialCard>
-          )}
-
-          {!isLoading && !error && selectedMarket && (
+          {!isLoading && selectedMarket && (
             <>
               {/* Single Swipeable Card with all info */}
               <View
@@ -884,14 +1007,14 @@ export default function SlotMachineScreen() {
                   minHeight: 600,
                 }}
               >
-                <SwipeableBetCard
+                <MemoSwipeableBetCard
                   market={selectedMarket}
                   onSelect={(dir) => {
                     setSelectedDirection(dir);
                     setShowBetModal(true);
                   }}
                   scrollViewRef={scrollViewRef}
-                  marketEvents={marketEvents}
+                  hasRecentEvent={hasRecentEvent}
                 />
               </View>
               {/* Slot Machine, Aggregated outcome, etc. can go here if desired */}
@@ -1071,19 +1194,17 @@ export default function SlotMachineScreen() {
                     placeholder="0"
                     disabled={betStatus === "loading"}
                     selectedToken={selectedToken}
-                    // onTokenChange={(token) => {
-                    //   setSelectedToken(token);
-                    //   // Clear bet amount when switching tokens
-                    //   setBetAmount("");
-                    // }}
                   />
                 </View>
 
                 {/* Update the suggested amounts section to be additive */}
                 <View style={styles.suggestedRowBig}>
-                  {(selectedToken === "BONK"
-                    ? SUGGESTED_BETS_BONK
-                    : SUGGESTED_BETS_USDC
+                  {(
+                    selectedToken === "BONK"
+                      ? SUGGESTED_BETS_BONK
+                      : selectedToken === "SOL"
+                      ? SUGGESTED_BETS_SOL
+                      : SUGGESTED_BETS_USDC
                   ).map((amt) => (
                     <TouchableOpacity
                       key={amt}
@@ -1105,7 +1226,7 @@ export default function SlotMachineScreen() {
                           const newAmount = currentAmount + suggestedAmount;
                           setBetAmount(formatBonkAmount(newAmount));
                         } else {
-                          // USDC - simple number addition
+                          // USDC/SOL - simple number addition
                           currentAmount = parseFloat(betAmount) || 0;
                           const newAmount =
                             currentAmount +
@@ -1122,10 +1243,30 @@ export default function SlotMachineScreen() {
                           betStatus === "loading" && { opacity: 0.5 },
                         ]}
                       >
-                        +{selectedToken === "BONK" ? amt : `$${amt}`}
+                        +{selectedToken === "BONK" ? amt : selectedToken === "USDC" ? `$${amt}` : `${amt}`}
                       </Text>
                     </TouchableOpacity>
                   ))}
+                </View>
+
+                {/* Spend preview */}
+                <View style={{ marginTop: 8, marginBottom: 8 }}>
+                  <Text style={{ color: "#111827", fontFamily: "Poppins-SemiBold", fontSize: 14 }}>
+                    Spend preview
+                  </Text>
+                  <Text style={{ color: "#374151", fontFamily: "Poppins-Regular", fontSize: 13, marginTop: 4 }}>
+                    {selectedToken === "BONK"
+                      ? `${formatBonkAmount(parseBonkAmount(betAmount || "0"))} BONK`
+                      : `${(parseFloat(betAmount || "0") || 0).toFixed(2)} USDC`} + ~{(solFeeEstimate ?? 0.00002).toFixed(6)} SOL fees
+                  </Text>
+                  <Text style={{ color: "#6B7280", fontFamily: "Poppins-Regular", fontSize: 12, marginTop: 2 }}>
+                    Balance: {selectedToken === "SOL" ? `${(solBalance ?? 0).toFixed(5)} SOL` : selectedToken === "BONK" ? "—" : `${(tokenBalance ?? 0).toFixed(2)} ${selectedToken}`} · SOL: {(solBalance ?? 0).toFixed(5)}
+                  </Text>
+                  {!hasSufficientFunds && (
+                    <Text style={{ color: "#dc2626", fontFamily: "Poppins-SemiBold", fontSize: 12, marginTop: 4 }}>
+                      Insufficient balance for this bet.
+                    </Text>
+                  )}
                 </View>
 
                 {/* Manual success/failure toggle */}
@@ -1150,7 +1291,8 @@ export default function SlotMachineScreen() {
                     !betAmount ||
                     (selectedToken === "BONK"
                       ? parseBonkAmount(betAmount) <= 0
-                      : parseFloat(betAmount) <= 0)
+                      : parseFloat(betAmount) <= 0) ||
+                    !hasSufficientFunds
                   }
                   title={
                     betStatus === "loading"
@@ -1171,9 +1313,7 @@ export default function SlotMachineScreen() {
                     // Call the actual handleBet function
                     handleBet(selectedDirection || "yes");
                   }}
-                  onSwipeFail={() => {
-                    console.log("Swipe failed - not swiped far enough");
-                  }}
+                  onSwipeFail={() => {}}
                   railBackgroundColor={
                     betStatus === "loading" ? "#10b981" : "#000000"
                   }
@@ -1897,3 +2037,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
+
+const MemoSwipeableBetCard = React.memo(SwipeableBetCard);

@@ -1,17 +1,19 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { ScrollView, Text, StyleSheet, View } from "react-native";
-import { MarketCard, StatusFilterBar, LogoLoader as LoadingSpinner } from "@/components";
+import { ScrollView, Text, StyleSheet, View, RefreshControl, TouchableOpacity } from "react-native";
+import { MarketCard, StatusFilterBar } from "@/components";
+import { computeDerived } from "@/utils";
 import { useFilters } from "@/components";
 import theme from '../theme';
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
-import { useRealTimeMarkets } from "../hooks/useRealTimeMarkets";
-import { ShortxErrorType } from "../hooks/solana/useContract";
+
+import { useShortx } from "../hooks/solana";
+import { useMarketsContext } from "../contexts/MarketsProvider";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (
   <MotiView
-    key={`market-${market.marketId}-${market.marketStart}`}
+    key={`market-${market.marketId ?? market.id ?? index}`}
     from={{
       opacity: 0,
       translateY: 10,
@@ -35,7 +37,63 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
 ));
 
 export default function MarketScreen() {
-  const { markets, loadingMarkets, error, isInitialized } = useRealTimeMarkets();
+  // On-chain list overlays inside global markets state
+  const { refresh: refreshOnchain } = useShortx();
+  const progressive = useMarketsContext();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Normalize backend markets to the UI shape used here
+  const dbMarkets = useMemo(() => {
+    const dbMarketsRaw = progressive?.markets || [];
+    if (!dbMarketsRaw || !Array.isArray(dbMarketsRaw)) return [] as any[];
+    return dbMarketsRaw.map((m: any) => {
+      // Convert ISO dates to epoch seconds
+      const toSeconds = (iso?: string | null) => typeof iso === 'string' ? Math.floor(new Date(iso).getTime() / 1000) : undefined;
+      const maybeMarketId = m.marketId === null || m.marketId === undefined ? null : Number(m.marketId);
+      const mt = String(m.marketType || '').toUpperCase();
+      const normalizedMarketType = mt === 'LIVE' ? MarketType.LIVE : MarketType.FUTURE;
+      return {
+        // Keep UUID id explicitly for navigation and stable keys
+        id: m.id ?? m.uuid ?? m.dbId ?? m._id ?? undefined,
+        // Retain legacy dbId field if upstream provided, for compatibility
+        dbId: m.dbId ?? m._id ?? undefined,
+        marketId: maybeMarketId,
+        question: m.question ?? '',
+        marketStart: toSeconds(m.marketStart),
+        marketEnd: toSeconds(m.marketEnd),
+        marketType: normalizedMarketType,
+        currency: m.currency,
+        isActive: Boolean(m.isActive),
+        // Preserve live values from stream/backend when present
+        winningDirection: m.winningDirection ?? WinningDirection.NONE,
+        yesLiquidity: m.yesLiquidity ?? "0",
+        noLiquidity: m.noLiquidity ?? "0",
+        volume: m.volume ?? "0",
+      };
+    });
+  }, [progressive?.markets]);
+
+  // Progressive hook already overlays on-chain deltas; just use it
+  const mergedMarkets = useMemo(() => {
+    return dbMarkets.map((m: any) => {
+      const d = computeDerived(m);
+      return { ...m, _derived: d };
+    });
+  }, [dbMarkets]);
+
+  // (focus refresh removed to avoid spamming backend)
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.allSettled([
+        Promise.resolve(progressive?.refresh?.()),
+        Promise.resolve(refreshOnchain?.()),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [progressive, refreshOnchain]);
 
   //time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([
@@ -45,7 +103,7 @@ export default function MarketScreen() {
     "longterm",
   ]);
 
-  //status filter
+  //status filter (default to Predict tab)
   const [statusFilter, setStatusFilter] = useState("betting");
 
   // Memoize the status filter handler to prevent unnecessary re-renders
@@ -55,7 +113,8 @@ export default function MarketScreen() {
 
   // Memoize filtered markets to prevent recalculation on every render
   const filteredMarkets = useMemo(() => {
-    return markets.filter((market) => {
+    return mergedMarkets.filter((market) => {
+      // Do not strictly filter out inactive; rely on status filter/time windows
       const now = Date.now();
       const marketStart = Number(market.marketStart) * 1000;
       const marketEnd = Number(market.marketEnd) * 1000;
@@ -153,54 +212,67 @@ export default function MarketScreen() {
 
       return matchesTime;
     });
-  }, [markets, statusFilter, timeFilter]);
+  }, [mergedMarkets, statusFilter, timeFilter]);
+
+  // Client-side pagination
+  const [visibleCount, setVisibleCount] = useState(10);
+  useEffect(() => { setVisibleCount(10); }, [statusFilter, timeFilter, mergedMarkets.length]);
+  const visibleMarkets = useMemo(() => filteredMarkets.slice(0, visibleCount), [filteredMarkets, visibleCount]);
+  const canLoadMore = filteredMarkets.length > visibleCount;
+  const loadMore = useCallback(() => setVisibleCount((c) => c + 10), []);
 
   return (
     <View className="flex-1">
-      {loadingMarkets ? (
-        <LoadingSpinner message="Loading markets" />
-      ) : (
-        <View className="flex-1">
-          {/* Fixed Header Section */}
-          <View className="px-4 pt-10">
-            <Text className="text-white text-2xl font-better-semi-bold mb-4">
-              Climate Prediction Markets
-            </Text>
-            <TimeFilterBar />
-            <StatusFilterBar 
-              selected={statusFilter} 
-              onSelect={handleStatusFilterChange}
-            />
-          </View>
-
-          {/* Scrollable Market Cards Section */}
-          <ScrollView 
-            className="flex-1 px-4"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }}
-          >
-            {error && error.type === ShortxErrorType.MARKET_FETCH && (
-              <Text style={styles.errorText}>{error.message}</Text>
-            )}
-            {!loadingMarkets && !error && filteredMarkets.length === 0 && (
-              <View className="flex-1 justify-center items-center py-20">
-                <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
-              </View>
-            )}
-            
-            {/* Add top padding to separate cards from status buttons */}
-            <View>
-              {filteredMarkets.map((market, idx) => (
-                <MemoizedMarketCard
-                  key={`market-${market.marketId}-${market.marketStart}`}
-                  market={market}
-                  index={idx}
-                />
-              ))}
-            </View>
-          </ScrollView>
+      <View className="flex-1">
+        {/* Fixed Header Section */}
+        <View className="px-4 pt-10">
+          <Text className="text-white text-2xl font-better-semi-bold mb-4">
+            Climate Prediction Markets
+          </Text>
+          <TimeFilterBar />
+          <StatusFilterBar 
+            selected={statusFilter} 
+            onSelect={handleStatusFilterChange}
+          />
         </View>
-      )}
+
+        {/* Scrollable Market Cards Section */}
+        <ScrollView 
+          className="flex-1 px-4"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing || Boolean(progressive?.loading)}
+              onRefresh={onRefresh}
+              tintColor="#ffffff"
+            />
+          }
+        >
+          {/* Do not block on loading; only show empty state when not loading */}
+          {!progressive?.loading && filteredMarkets.length === 0 && (
+            <View className="flex-1 justify-center items-center py-20">
+              <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
+            </View>
+          )}
+          
+          {/* Add top padding to separate cards from status buttons */}
+          <View>
+            {visibleMarkets.map((market, idx) => (
+              <MemoizedMarketCard
+                key={`market-${market.marketId ?? market.id ?? idx}-${market.marketStart}`}
+                market={market}
+                index={idx}
+              />
+            ))}
+            {canLoadMore && (
+              <TouchableOpacity onPress={loadMore} style={{ alignSelf: 'center', marginTop: 16, marginBottom: 32, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                <Text style={{ color: '#ffffff', fontSize: 14, fontFamily: 'Poppins-SemiBold' }}>Load more</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+      </View>
     </View>
   );
 }

@@ -45,6 +45,11 @@ solana airdrop 2 <PUBLIC_KEY> -u devnet
 
 ## Deployment Process
 
+### 0. cd to publishing
+```
+cd publishing
+```
+
 ### 1. Validate Configuration
 ```bash
 npx dapp-store validate -k ../dapp-store-signing-keys/betr_weather_deployment.json -b ~/Library/Android/sdk/build-tools/36.0.0

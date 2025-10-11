@@ -102,7 +102,7 @@ export function WeatherSourceIndicator({
     if (source?.includes("wxm station") && station && calculatedDistance) {
       return `Local WXM station ${calculatedDistance}km away`;
     } else if (source?.includes("wxm")) {
-      return 'Hyper local data by WeatherXM';
+      return 'Hyper local data';
     } else {
       return 'Google Weather';
     }
@@ -116,10 +116,10 @@ export function WeatherSourceIndicator({
             transform: [{ scale: scaleAnim }],
           }}
         >
-          <View className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full items-center justify-center border border-white/30">
+          <View className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full items-center justify-center border border-white/30 p-2">
             {source?.includes("wxm") ? (
               <Image
-                source={require('../../../assets/wxmlogo.png')}
+                source={require('../../../assets/logo/betrCloud.png')}
                 className='w-full h-full'
               />
             ) : (
