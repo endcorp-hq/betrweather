@@ -29,7 +29,7 @@ import {
 import { WinningDirection, MarketType, Market } from "@endcorp/depredict";
 import axios from "axios";
 import { useAPI } from "../hooks/useAPI";
-import { getMint, formatDate, extractErrorMessage } from "@/utils";
+import { formatDate, extractErrorMessage } from "@/utils";
 // import { PublicKey } from "@solana/web3.js";
 import theme from "../theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,8 +40,9 @@ import { useChain } from "@/contexts";
 import type { ParsedAccountData } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
 
-const SUGGESTED_BETS_USDC = [5, 10, 25, 50];
-const SUGGESTED_BETS_BONK = ["35k", "70k", "100k", "200k"];
+const SUGGESTED_BETS_USDC = [1, 3, 5, 20];
+const SUGGESTED_BETS_BONK = ["30k", "60k", "100k", "200k"];
+const SUGGESTED_BETS_SOL = [0.01, 0.05, 0.1, 0.25];
 
 // Helper function to convert BONK string to number
 const parseBonkAmount = (bonkString: string): number => {
@@ -461,9 +462,9 @@ export default function SlotMachineScreen() {
   >(null);
   const [selectedMarket, setSelectedMarket] = useState<any | null>(routeMarket || null);
   // Comment out BONK in the token selection
-  const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK">("USDC");
+  const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK" | "SOL">("USDC");
   const [showBetModal, setShowBetModal] = useState(false);
-  const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [solFeeEstimate, setSolFeeEstimate] = useState<number | null>(null);
   const [hasSufficientFunds, setHasSufficientFunds] = useState<boolean>(true);
@@ -511,7 +512,7 @@ export default function SlotMachineScreen() {
   // and we're not in the middle of fetching markets
   const isLoading = !selectedMarket && (isFetchingMarket || loadingByDbId || loadingByMarketId);
 
-  // Fetch balances (USDC and SOL) and estimate a baseline fee
+  // Fetch balances (SPL token for market mint and SOL) and estimate a baseline fee
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -521,20 +522,28 @@ export default function SlotMachineScreen() {
         const lamports = await connection.getBalance(selectedAccount.publicKey);
         if (!cancelled) setSolBalance(lamports / LAMPORTS_PER_SOL);
 
-        // USDC balance
-        const usdcMint = getMint("USDC", (currentChain || "devnet") as any);
-        const resp = await connection.getParsedTokenAccountsByOwner(
-          selectedAccount.publicKey,
-          { mint: usdcMint }
-        );
-        let ui = 0;
-        for (const { account } of resp.value) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const info = (account.data as any)?.parsed?.info;
-          const amt = Number(info?.tokenAmount?.uiAmount || 0);
-          ui += amt;
+        // SPL token balance for the market's mint (if provided)
+        try {
+          const mintStr = selectedMarket?.mint as string | undefined;
+          if (mintStr && mintStr !== "So11111111111111111111111111111111111111112") {
+            const resp = await connection.getParsedTokenAccountsByOwner(
+              selectedAccount.publicKey,
+              { mint: new PublicKey(mintStr) }
+            );
+            let ui = 0;
+            for (const { account } of resp.value) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const info = (account.data as any)?.parsed?.info;
+              const amt = Number(info?.tokenAmount?.uiAmount || 0);
+              ui += amt;
+            }
+            if (!cancelled) setTokenBalance(ui);
+          } else {
+            if (!cancelled) setTokenBalance(null);
+          }
+        } catch {
+          if (!cancelled) setTokenBalance(null);
         }
-        if (!cancelled) setUsdcBalance(ui);
 
         // Estimate base network fee (no priority) using empty message
         try {
@@ -557,15 +566,16 @@ export default function SlotMachineScreen() {
     return () => {
       cancelled = true;
     };
-  }, [connection, selectedAccount?.publicKey, currentChain]);
+  }, [connection, selectedAccount?.publicKey, currentChain, selectedMarket?.mint]);
 
   // Keep CTA disabled when insufficient USDC or SOL for fees
   useEffect(() => {
     const parsed = selectedToken === "BONK" ? parseBonkAmount(betAmount) : parseFloat(betAmount || "0");
-    const lacksUsdc = selectedToken !== "BONK" && usdcBalance != null && parsed > 0 && parsed > usdcBalance;
-    const lacksSol = solFeeEstimate != null && solBalance != null && solBalance < solFeeEstimate;
-    setHasSufficientFunds(!(lacksUsdc || lacksSol));
-  }, [betAmount, selectedToken, usdcBalance, solBalance, solFeeEstimate]);
+    const lacksSpl = selectedToken !== "SOL" && tokenBalance != null && parsed > 0 && parsed > tokenBalance;
+    const requiredSol = selectedToken === "SOL" ? parsed + (solFeeEstimate ?? 0) : (solFeeEstimate ?? 0);
+    const lacksSol = solBalance != null && requiredSol > solBalance;
+    setHasSufficientFunds(!(lacksSpl || lacksSol));
+  }, [betAmount, selectedToken, tokenBalance, solBalance, solFeeEstimate]);
 
   useEffect(() => {
     async function fetchMarket() {
@@ -588,6 +598,8 @@ export default function SlotMachineScreen() {
             yesLiquidity: 0,
             noLiquidity: 0,
             volume: 0,
+            currency: dbMarketRaw.currency,
+            mint: dbMarketRaw.mint,
           } as unknown as any;
           setSelectedMarket(normalized);
           setIsOnChain(false);
@@ -799,18 +811,18 @@ export default function SlotMachineScreen() {
         return;
       }
 
-      // Resolve the USDC mint for current chain (backend and on-chain expect mint address)
-      const usdcMint = getMint("USDC", (currentChain || "devnet") as any).toBase58();
+      // Determine market mint from selected market (backend and on-chain expect mint address)
+      const marketMint = (selectedMarket?.mint || "") as string;
 
-      // Pre-check SPL token balance (USDC) before building/submitting
+      // Pre-check SPL token balance before building/submitting
       if (!connection) {
         throw new Error("No Solana connection available");
       }
-      if (selectedToken !== "BONK") {
+      if (selectedToken !== "SOL" && marketMint) {
         try {
           const resp = await connection.getParsedTokenAccountsByOwner(
             selectedAccount.publicKey,
-            { mint: new PublicKey(usdcMint) }
+            { mint: new PublicKey(marketMint) }
           );
           let uiBalance = 0;
           for (const { account } of resp.value) {
@@ -821,8 +833,8 @@ export default function SlotMachineScreen() {
           if (uiBalance < parsedAmount) {
             toast.update(loadingToastId, {
               type: "error",
-              title: "Insufficient USDC",
-              message: `You have ${uiBalance.toFixed(2)} USDC, need ${parsedAmount.toFixed(2)} USDC`,
+              title: `Insufficient ${selectedToken}`,
+              message: `You have ${uiBalance.toFixed(2)} ${selectedToken}, need ${parsedAmount.toFixed(2)} ${selectedToken}`,
               duration: 5000,
             });
             setBetStatus("idle");
@@ -830,7 +842,7 @@ export default function SlotMachineScreen() {
           }
         } catch (e) {
           // If balance check fails, proceed but warn
-          console.warn("USDC balance check failed", e);
+          console.warn("Token balance check failed", e);
         }
       }
 
@@ -873,7 +885,7 @@ export default function SlotMachineScreen() {
         marketId: Number(finalMarketId),
         direction: anchorDirection,
         amount: amountUi,
-        token: usdcMint,
+        token: marketMint,
         payer: selectedAccount.publicKey,
         feeVaultAccount: new PublicKey(
           process.env.EXPO_PUBLIC_FEE_VAULT ||
@@ -1182,19 +1194,17 @@ export default function SlotMachineScreen() {
                     placeholder="0"
                     disabled={betStatus === "loading"}
                     selectedToken={selectedToken}
-                    // onTokenChange={(token) => {
-                    //   setSelectedToken(token);
-                    //   // Clear bet amount when switching tokens
-                    //   setBetAmount("");
-                    // }}
                   />
                 </View>
 
                 {/* Update the suggested amounts section to be additive */}
                 <View style={styles.suggestedRowBig}>
-                  {(selectedToken === "BONK"
-                    ? SUGGESTED_BETS_BONK
-                    : SUGGESTED_BETS_USDC
+                  {(
+                    selectedToken === "BONK"
+                      ? SUGGESTED_BETS_BONK
+                      : selectedToken === "SOL"
+                      ? SUGGESTED_BETS_SOL
+                      : SUGGESTED_BETS_USDC
                   ).map((amt) => (
                     <TouchableOpacity
                       key={amt}
@@ -1216,7 +1226,7 @@ export default function SlotMachineScreen() {
                           const newAmount = currentAmount + suggestedAmount;
                           setBetAmount(formatBonkAmount(newAmount));
                         } else {
-                          // USDC - simple number addition
+                          // USDC/SOL - simple number addition
                           currentAmount = parseFloat(betAmount) || 0;
                           const newAmount =
                             currentAmount +
@@ -1233,7 +1243,7 @@ export default function SlotMachineScreen() {
                           betStatus === "loading" && { opacity: 0.5 },
                         ]}
                       >
-                        +{selectedToken === "BONK" ? amt : `$${amt}`}
+                        +{selectedToken === "BONK" ? amt : selectedToken === "USDC" ? `$${amt}` : `${amt}`}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -1250,7 +1260,7 @@ export default function SlotMachineScreen() {
                       : `${(parseFloat(betAmount || "0") || 0).toFixed(2)} USDC`} + ~{(solFeeEstimate ?? 0.00002).toFixed(6)} SOL fees
                   </Text>
                   <Text style={{ color: "#6B7280", fontFamily: "Poppins-Regular", fontSize: 12, marginTop: 2 }}>
-                    Balance: {selectedToken === "BONK" ? "—" : `${(usdcBalance ?? 0).toFixed(2)} USDC`} · SOL: {(solBalance ?? 0).toFixed(5)}
+                    Balance: {selectedToken === "SOL" ? `${(solBalance ?? 0).toFixed(5)} SOL` : selectedToken === "BONK" ? "—" : `${(tokenBalance ?? 0).toFixed(2)} ${selectedToken}`} · SOL: {(solBalance ?? 0).toFixed(5)}
                   </Text>
                   {!hasSufficientFunds && (
                     <Text style={{ color: "#dc2626", fontFamily: "Poppins-SemiBold", fontSize: 12, marginTop: 4 }}>
