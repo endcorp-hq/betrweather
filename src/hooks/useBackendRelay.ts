@@ -7,6 +7,7 @@ import { MessageV0, VersionedTransaction, Transaction } from "@solana/web3.js";
 import bs58 from "bs58";
 import * as Crypto from "expo-crypto";
 import { useMobileWallet } from "./useMobileWallet";
+import { log, timeStart } from "@/utils";
 
 type BuildTxResponse = {
   txRef: string;
@@ -83,6 +84,7 @@ export function useBackendRelay() {
   const { currentChain } = useChain();
   const { signMessage, signTransaction } = useMobileWallet();
   const tokenRef = useRef<string | null>(null);
+  const inflightTokenPromiseRef = useRef<Promise<string> | null>(null);
 
   const API_BASE = useMemo(() => {
     return process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8001";
@@ -100,13 +102,17 @@ export function useBackendRelay() {
   const ensureAuthToken = useCallback(async (forceRefresh = false): Promise<string> => {
     if (!selectedAccount?.publicKey) throw new Error("Wallet not connected");
 
-    // in-memory first
+    // In-memory first
     if (!forceRefresh && tokenRef.current) return tokenRef.current;
 
-    // try storage
+    // If a token request is already in-flight, await it (coalesce calls)
+    if (!forceRefresh && inflightTokenPromiseRef.current) {
+      return inflightTokenPromiseRef.current;
+    }
+
+    // Try storage
     const cachedRaw = forceRefresh ? null : await AsyncStorage.getItem(storageKey);
     if (cachedRaw && !forceRefresh) {
-      // Back-compat: either plain token or JSON TokenRecord
       let record: TokenRecord | null = null;
       try {
         const parsed = JSON.parse(cachedRaw);
@@ -125,37 +131,51 @@ export function useBackendRelay() {
       }
     }
 
-    // Challenge
-    const challengeRes = await fetch(`${API_BASE}/wallet/challenge`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet: selectedAccount.publicKey.toBase58() }),
-    });
-    if (!challengeRes.ok) throw new Error(`Challenge failed: ${challengeRes.status}`);
-    const { nonce } = await challengeRes.json();
+    // Build a single in-flight promise to avoid thundering herd
+    const promise = (async () => {
+      const t = timeStart('Auth', 'ensureAuthToken');
+      // Challenge
+      const challengeRes = await fetch(`${API_BASE}/wallet/challenge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: selectedAccount.publicKey.toBase58() }),
+      });
+      if (!challengeRes.ok) throw new Error(`Challenge failed: ${challengeRes.status}`);
+      const { nonce } = await challengeRes.json();
 
-    // Sign nonce with wallet
-    if (!signMessage) throw new Error("Wallet does not support signMessage");
-    const sigBytes = await signMessage(new TextEncoder().encode(nonce));
-    const signature = bs58.encode(sigBytes);
+      // Sign nonce with wallet
+      if (!signMessage) throw new Error("Wallet does not support signMessage");
+      const sigBytes = await signMessage(new TextEncoder().encode(nonce));
+      const signature = bs58.encode(sigBytes);
 
-    // Verify
-    const verifyRes = await fetch(`${API_BASE}/wallet/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        wallet: selectedAccount.publicKey.toBase58(),
-        nonce,
-        signature,
-      }),
-    });
-    if (!verifyRes.ok) throw new Error(`Verify failed: ${verifyRes.status}`);
-    const { token } = await verifyRes.json();
+      // Verify
+      const verifyRes = await fetch(`${API_BASE}/wallet/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallet: selectedAccount.publicKey.toBase58(),
+          nonce,
+          signature,
+        }),
+      });
+      if (!verifyRes.ok) throw new Error(`Verify failed: ${verifyRes.status}`);
+      const { token } = await verifyRes.json();
 
-    const record: TokenRecord = { token, exp: extractJwtExpMs(token) };
-    tokenRef.current = record.token;
-    await AsyncStorage.setItem(storageKey, JSON.stringify(record));
-    return record.token;
+      const record: TokenRecord = { token, exp: extractJwtExpMs(token) };
+      tokenRef.current = record.token;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(record));
+      t.end();
+      log('Auth', 'info', 'JWT acquired');
+      return record.token;
+    })();
+
+    inflightTokenPromiseRef.current = promise;
+    try {
+      const t = await promise;
+      return t;
+    } finally {
+      inflightTokenPromiseRef.current = null;
+    }
   }, [API_BASE, selectedAccount, signMessage, storageKey]);
 
   const buildOpenPosition = useCallback(
@@ -176,12 +196,7 @@ export function useBackendRelay() {
       } as Record<string, string>;
 
       const openUrl = `${API_BASE}/tx/build/shortx/open-position`;
-      console.log('[Relay] POST build open-position request', {
-        url: openUrl,
-        method: 'POST',
-        headers: headersBase,
-        body: { ...args, network: args.network || currentChain || "devnet" },
-      });
+      log('Relay', 'debug', 'build open-position', { url: openUrl });
       let res = await fetch(openUrl, {
         method: "POST",
         headers: headersBase,
@@ -190,7 +205,7 @@ export function useBackendRelay() {
       if (res.status === 401) {
         // Force re-auth and retry once
         const fresh = await ensureAuthToken(true);
-        console.log('[Relay] Retrying build open-position with fresh token');
+        log('Relay', 'warn', 'Retry build open-position with fresh token');
         res = await fetch(openUrl, {
           method: "POST",
           headers: {
@@ -205,12 +220,7 @@ export function useBackendRelay() {
         try {
           text = await res.text();
         } catch {}
-        try {
-          console.log(
-            "[build open-position]",
-            JSON.stringify({ url: openUrl, status: res.status, body: text }, null, 2)
-          );
-        } catch {}
+        log('Relay', 'error', 'build open-position failed', { status: res.status, body: text });
         throw new Error(`Build open-position failed: ${res.status}`);
       }
       return res.json();
@@ -233,12 +243,7 @@ export function useBackendRelay() {
       } as Record<string, string>;
 
       const payoutUrl = `${API_BASE}/tx/build/shortx/payout`;
-      console.log('[Relay] POST build payout request', {
-        url: payoutUrl,
-        method: 'POST',
-        headers: headersBase,
-        body: { ...args, network: args.network || currentChain || "devnet" },
-      });
+      log('Relay', 'debug', 'build payout', { url: payoutUrl });
       let res = await fetch(payoutUrl, {
         method: "POST",
         headers: headersBase,
@@ -246,7 +251,7 @@ export function useBackendRelay() {
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
-        console.log('[Relay] Retrying build payout with fresh token');
+        log('Relay', 'warn', 'Retry build payout with fresh token');
         res = await fetch(payoutUrl, {
           method: "POST",
           headers: {
@@ -283,18 +288,7 @@ export function useBackendRelay() {
       } as Record<string, string>;
 
       const burnUrl = `${API_BASE}/tx/build/bubblegum/burn`;
-      console.log('[Relay] POST bubblegum burn build request', {
-        url: burnUrl,
-        method: 'POST',
-        headers: headersBase,
-        body: {
-          assetId: args.assetId,
-          leafOwner: args.leafOwner || args.payerPubkey,
-          payerPubkey: args.payerPubkey || args.leafOwner,
-          coreCollection: args.coreCollection,
-          network: args.network || currentChain || "devnet",
-        },
-      });
+      log('Relay', 'debug', 'build bubblegum burn', { url: burnUrl });
       let res = await fetch(burnUrl, {
         method: "POST",
         headers: headersBase,
@@ -309,7 +303,7 @@ export function useBackendRelay() {
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
-        console.log('[Relay] Retrying bubblegum burn build with fresh token');
+        log('Relay', 'warn', 'Retry bubblegum burn with fresh token');
         res = await fetch(burnUrl, {
           method: "POST",
           headers: {
@@ -350,12 +344,7 @@ export function useBackendRelay() {
       } as Record<string, string>;
 
       const verifyUrl = `${API_BASE}/nft/verify-ownership`;
-      console.log('[Relay] POST verify ownership request', {
-        url: verifyUrl,
-        method: 'POST',
-        headers: headersBase,
-        body: { ...args, network: args.network || currentChain || "devnet" },
-      });
+      log('Relay', 'debug', 'verify ownership', { url: verifyUrl });
       let res = await fetch(verifyUrl, {
         method: "POST",
         headers: headersBase,
@@ -363,7 +352,7 @@ export function useBackendRelay() {
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
-        console.log('[Relay] Retrying verify ownership with fresh token');
+        log('Relay', 'warn', 'Retry verify ownership with fresh token');
         res = await fetch(verifyUrl, {
           method: "POST",
           headers: {
@@ -390,12 +379,7 @@ export function useBackendRelay() {
       } as Record<string, string>;
 
       const checkUrl = `${API_BASE}/tx/check/bubblegum/asset`;
-      console.log('[Relay] POST check bubblegum asset request', {
-        url: checkUrl,
-        method: 'POST',
-        headers: headersBase,
-        body: { ...args, network: args.network || currentChain || "devnet" },
-      });
+      log('Relay', 'debug', 'check bubblegum asset', { url: checkUrl });
       let res = await fetch(checkUrl, {
         method: "POST",
         headers: headersBase,
@@ -403,7 +387,7 @@ export function useBackendRelay() {
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
-        console.log('[Relay] Retrying check bubblegum asset with fresh token');
+        log('Relay', 'warn', 'Retry check bubblegum asset with fresh token');
         res = await fetch(checkUrl, {
           method: "POST",
           headers: {
@@ -474,12 +458,7 @@ export function useBackendRelay() {
       } as Record<string, string>;
 
       const forwardUrl = `${API_BASE}/tx/forward`;
-      console.log('[Relay] POST forward tx request', {
-        url: forwardUrl,
-        method: 'POST',
-        headers: headersBase,
-        body: payload,
-      });
+      log('Relay', 'debug', 'forward tx', { url: forwardUrl });
       let res = await fetch(forwardUrl, {
         method: "POST",
         headers: headersBase,
@@ -489,7 +468,7 @@ export function useBackendRelay() {
       if (res.status === 401) {
         // refresh JWT and retry once
         const fresh = await ensureAuthToken(true);
-        console.log('[Relay] Retrying forward tx with fresh token');
+        log('Relay', 'warn', 'Retry forward tx with fresh token');
         res = await fetch(forwardUrl, {
           method: "POST",
           headers: {
@@ -514,12 +493,7 @@ export function useBackendRelay() {
             }
           } catch {}
         }
-        try {
-          console.log(
-            "[forward tx]",
-            JSON.stringify({ url: forwardUrl, status: res.status, body: text }, null, 2)
-          );
-        } catch {}
+        log('Relay', 'error', 'forward tx failed', { status: res.status, body: text });
         throw new Error(text || `Submit failed: ${res.status}`);
       }
       return res.json();
@@ -556,6 +530,75 @@ export function useBackendRelay() {
       try { text = await res.text(); } catch {}
       throw new Error(text || `GET /markets failed: ${res.status}`);
     }
+    return res.json();
+  }, [API_BASE, ensureAuthToken, selectedAccount]);
+
+  const getMarketsActive = useCallback(async (): Promise<any[]> => {
+    const token = await ensureAuthToken();
+    const headersBase = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+    } as Record<string, string>;
+    const url = `${API_BASE.replace(/\/$/, '')}/markets/active`;
+    let res = await fetch(url, { method: 'GET', headers: headersBase });
+    if (res.status === 401) {
+      const fresh = await ensureAuthToken(true);
+      res = await fetch(url, { method: 'GET', headers: { ...headersBase, Authorization: `Bearer ${fresh}` } });
+    }
+    if (!res.ok) throw new Error(`GET /markets/active failed: ${res.status}`);
+    return res.json();
+  }, [API_BASE, ensureAuthToken, selectedAccount]);
+
+  const getMarketsObserving = useCallback(async (): Promise<any[]> => {
+    const token = await ensureAuthToken();
+    const headersBase = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+    } as Record<string, string>;
+    const url = `${API_BASE.replace(/\/$/, '')}/markets/observing`;
+    let res = await fetch(url, { method: 'GET', headers: headersBase });
+    if (res.status === 401) {
+      const fresh = await ensureAuthToken(true);
+      res = await fetch(url, { method: 'GET', headers: { ...headersBase, Authorization: `Bearer ${fresh}` } });
+    }
+    if (!res.ok) throw new Error(`GET /markets/observing failed: ${res.status}`);
+    return res.json();
+  }, [API_BASE, ensureAuthToken, selectedAccount]);
+
+  const getMarketsResolved = useCallback(async (lastHours = 24): Promise<any[]> => {
+    const token = await ensureAuthToken();
+    const headersBase = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+    } as Record<string, string>;
+    const url = `${API_BASE.replace(/\/$/, '')}/markets/resolved?lastHours=${encodeURIComponent(String(lastHours))}`;
+    let res = await fetch(url, { method: 'GET', headers: headersBase });
+    if (res.status === 401) {
+      const fresh = await ensureAuthToken(true);
+      res = await fetch(url, { method: 'GET', headers: { ...headersBase, Authorization: `Bearer ${fresh}` } });
+    }
+    if (!res.ok) throw new Error(`GET /markets/resolved failed: ${res.status}`);
+    return res.json();
+  }, [API_BASE, ensureAuthToken, selectedAccount]);
+
+  const getMarketById = useCallback(async (idOrMarketId: string | number): Promise<any | null> => {
+    const token = await ensureAuthToken();
+    const headersBase = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+    } as Record<string, string>;
+    const base = API_BASE.replace(/\/$/, '');
+    const url = `${base}/markets/${encodeURIComponent(String(idOrMarketId))}`;
+    let res = await fetch(url, { method: 'GET', headers: headersBase });
+    if (res.status === 401) {
+      const fresh = await ensureAuthToken(true);
+      res = await fetch(url, { method: 'GET', headers: { ...headersBase, Authorization: `Bearer ${fresh}` } });
+    }
+    if (!res.ok) return null;
     return res.json();
   }, [API_BASE, ensureAuthToken, selectedAccount]);
 
@@ -661,6 +704,10 @@ export function useBackendRelay() {
       mapPosition,
       forwardTx,
       getMarkets,
+      getMarketsActive,
+      getMarketsObserving,
+      getMarketsResolved,
+      getMarketById,
       getUserBetsSummary,
       getUserBetsPaginated,
       getTxStreamUrl,

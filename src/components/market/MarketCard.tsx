@@ -57,6 +57,9 @@ export function MarketCard({ market, index = 0, animatedValue }: {
   const displayVolume = Number(market.volume);
   const displayYesLiquidity = Number(market.yesLiquidity);
   const displayNoLiquidity = Number(market.noLiquidity);
+  const totalUi = Number(market?._derived?.ui?.total ?? 0);
+  const yesUi = Number(market?._derived?.ui?.yes ?? 0);
+  const noUi = Number(market?._derived?.ui?.no ?? 0);
 
   // Scale chain/base units to UI units (default 6 decimals like USDC)
   const decimals = Number((market && market.decimals) ?? 6);
@@ -233,7 +236,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
               </Text>
             </View>
             <Text style={styles.volume}>
-              ${(parseFloat(market.volume)/ 10**6).toFixed(2)}
+              ${totalUi.toFixed(2)}
             </Text>
           </View>
 
@@ -276,7 +279,7 @@ export function MarketCard({ market, index = 0, animatedValue }: {
           {/* Voting Bias section */}
           <View style={styles.probabilitySection}>
             <View style={styles.probabilityHeader}>
-              <Text style={styles.probabilityValue}>{100 -probabilityPercent}/{probabilityPercent}</Text>
+              <Text style={styles.probabilityValue}>{(market?._derived?.noPct ? Math.round(market._derived.noPct*100) : 100 - probabilityPercent)}/{(market?._derived?.yesPct ? Math.round(market._derived.yesPct*100) : probabilityPercent)}</Text>
             </View>
             <View style={styles.probabilityBarContainer}>
               <View style={styles.probabilityBarBg}>

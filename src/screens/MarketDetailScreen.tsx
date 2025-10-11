@@ -10,7 +10,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import { useShortx, useAuthorization, useCreateAndSendTx } from "../hooks/solana";
 import { useBackendRelay, useMobileWallet } from "../hooks";
 import { Buffer } from 'buffer';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, TransactionMessage, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import React, {
   useEffect,
   useRef,
@@ -36,6 +36,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import SwipeButton from "rn-swipe-button";
 import { useToast } from "@/contexts";
+import { useChain } from "@/contexts";
+import type { ParsedAccountData } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
 
 const SUGGESTED_BETS_USDC = [5, 10, 25, 50];
@@ -427,6 +429,7 @@ export default function SlotMachineScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
   const { toast } = useToast();
+  const { connection, currentChain } = useChain();
   // Accept both dbId and marketId from navigation, and optionally a full market object
   // @ts-ignore
   const { marketId: routeMarketId, dbId: routeDbId, id, market: routeMarket } = route.params || {};
@@ -439,9 +442,16 @@ export default function SlotMachineScreen() {
   const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
   const dbByDbIdUrl = routeDbId ? `${API_BASE}/markets/db/${routeDbId}` : '';
   const dbByMarketIdUrl = routeMarketId ? `${API_BASE}/markets/${routeMarketId}` : '';
-  const { data: dbMarketByDbId, isLoading: loadingByDbId } = useAPI<any>(dbByDbIdUrl, { method: 'GET' }, { enabled: Boolean(routeDbId) });
-  const { data: dbMarketByMarketId, isLoading: loadingByMarketId } = useAPI<any>(dbByMarketIdUrl, { method: 'GET' }, { enabled: Boolean(routeMarketId) });
-  const { data: dbMarketsList, isLoading: loadingList } = useAPI<any[]>(`${API_BASE}/markets`, { method: 'GET' });
+  const { data: dbMarketByDbId, isLoading: loadingByDbId } = useAPI<any>(
+    dbByDbIdUrl,
+    { method: 'GET' },
+    { enabled: Boolean(routeDbId) && !routeMarket, staleTime: 5 * 60 * 1000, refetchInterval: false }
+  );
+  const { data: dbMarketByMarketId, isLoading: loadingByMarketId } = useAPI<any>(
+    dbByMarketIdUrl,
+    { method: 'GET' },
+    { enabled: Boolean(routeMarketId) && !routeMarket, staleTime: 2 * 60 * 1000, refetchInterval: false }
+  );
 
   // UseShortx still exposes events; useMarkets integrates list overlay elsewhere
   const { marketEvents } = useShortx();
@@ -453,6 +463,10 @@ export default function SlotMachineScreen() {
   // Comment out BONK in the token selection
   const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK">("USDC");
   const [showBetModal, setShowBetModal] = useState(false);
+  const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
+  const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [solFeeEstimate, setSolFeeEstimate] = useState<number | null>(null);
+  const [hasSufficientFunds, setHasSufficientFunds] = useState<boolean>(true);
   const [betStatus, setBetStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
@@ -495,7 +509,63 @@ export default function SlotMachineScreen() {
 
   // Optimized loading logic: only show loading if we don't have the market data
   // and we're not in the middle of fetching markets
-  const isLoading = !selectedMarket && (isFetchingMarket || loadingByDbId || loadingByMarketId || loadingList);
+  const isLoading = !selectedMarket && (isFetchingMarket || loadingByDbId || loadingByMarketId);
+
+  // Fetch balances (USDC and SOL) and estimate a baseline fee
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!connection || !selectedAccount?.publicKey) return;
+        // SOL balance
+        const lamports = await connection.getBalance(selectedAccount.publicKey);
+        if (!cancelled) setSolBalance(lamports / LAMPORTS_PER_SOL);
+
+        // USDC balance
+        const usdcMint = getMint("USDC", (currentChain || "devnet") as any);
+        const resp = await connection.getParsedTokenAccountsByOwner(
+          selectedAccount.publicKey,
+          { mint: usdcMint }
+        );
+        let ui = 0;
+        for (const { account } of resp.value) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const info = (account.data as any)?.parsed?.info;
+          const amt = Number(info?.tokenAmount?.uiAmount || 0);
+          ui += amt;
+        }
+        if (!cancelled) setUsdcBalance(ui);
+
+        // Estimate base network fee (no priority) using empty message
+        try {
+          const { blockhash } = await connection.getLatestBlockhash();
+          const msg = new TransactionMessage({
+            payerKey: selectedAccount.publicKey,
+            recentBlockhash: blockhash,
+            instructions: [],
+          }).compileToV0Message();
+          const feeLamports = await connection.getFeeForMessage(msg);
+          if (!cancelled) setSolFeeEstimate(((typeof feeLamports === 'number' ? feeLamports : (feeLamports?.value ?? 0)) as number) / LAMPORTS_PER_SOL);
+        } catch (e) {
+          // Fallback to a conservative default
+          if (!cancelled) setSolFeeEstimate(0.00002);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connection, selectedAccount?.publicKey, currentChain]);
+
+  // Keep CTA disabled when insufficient USDC or SOL for fees
+  useEffect(() => {
+    const parsed = selectedToken === "BONK" ? parseBonkAmount(betAmount) : parseFloat(betAmount || "0");
+    const lacksUsdc = selectedToken !== "BONK" && usdcBalance != null && parsed > 0 && parsed > usdcBalance;
+    const lacksSol = solFeeEstimate != null && solBalance != null && solBalance < solFeeEstimate;
+    setHasSufficientFunds(!(lacksUsdc || lacksSol));
+  }, [betAmount, selectedToken, usdcBalance, solBalance, solFeeEstimate]);
 
   useEffect(() => {
     async function fetchMarket() {
@@ -504,13 +574,7 @@ export default function SlotMachineScreen() {
 
       // Backend only: fetch market by ID (not on-chain)
       try {
-        let dbMarketRaw = dbMarketByDbId || dbMarketByMarketId;
-        if (!dbMarketRaw && Array.isArray(dbMarketsList) && (routeDbId || routeMarketId)) {
-          dbMarketRaw = dbMarketsList.find((m: any) => (
-            (routeDbId && (m.id === routeDbId || m.dbId === routeDbId || String(m.id) === String(routeDbId))) ||
-            (routeMarketId && (m.marketId === Number(routeMarketId) || String(m.marketId) === String(routeMarketId)))
-          ));
-        }
+        const dbMarketRaw = dbMarketByDbId || dbMarketByMarketId;
         if (dbMarketRaw) {
           const toSeconds = (iso?: string | null) => typeof iso === 'string' ? Math.floor(new Date(iso).getTime() / 1000) : undefined;
           const normalized = {
@@ -580,10 +644,6 @@ export default function SlotMachineScreen() {
     const dbId = selectedMarket?.dbId || selectedMarket?.id || routeDbId || null;
     try {
       if (!finalMarketId && dbId) {
-        console.log('[Bet] GET resolve marketId request', {
-          url: `${API_BASE}/markets/db/${dbId}`,
-          method: 'GET',
-        });
         const latest = await axios.get(`${API_BASE}/markets/db/${dbId}`);
         if (latest?.data?.marketId) {
           finalMarketId = Number(latest.data.marketId);
@@ -616,7 +676,7 @@ export default function SlotMachineScreen() {
           setBetStatus("idle");
           return;
         }
-        console.log("[Ensure] Starting ensure-onchain", { ensureId, preferred: selectedMarket?.marketId ? 'marketId' : ensureDbId ? 'dbId' : 'unknown' });
+        // Start ensure-onchain
         const ensureUrl = `${API_BASE}/scheduler/market/ensure-onchain/${ensureId}`;
         // Authenticate ensure call so backend can authorize and prioritize the request
         let authToken: string | null = null;
@@ -628,18 +688,13 @@ export default function SlotMachineScreen() {
           ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
           ...(selectedAccount?.publicKey ? { "wallet-address": selectedAccount.publicKey.toBase58() } : {}),
         } as Record<string, string>;
-        console.log('[Ensure] POST ensure-onchain request', {
-          url: ensureUrl,
-          method: 'POST',
-          headers: ensureHeaders,
-          body: {},
-        });
+        // Send ensure-onchain request
         const ensureRes = await axios.post(
           ensureUrl,
           {},
           { headers: ensureHeaders }
         );
-        console.log("[Ensure] Response", { status: ensureRes.status, data: ensureRes.data });
+        // Handle ensure response
         let { success, marketId: ensuredId } = ensureRes.data || {};
 
         // If backend didn't immediately return a marketId, poll DB for a short window
@@ -648,25 +703,25 @@ export default function SlotMachineScreen() {
           const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
           for (let i = 0; i < maxTries && !ensuredId; i++) {
             try {
-              console.log(`[Ensure] Poll attempt ${i + 1}/${maxTries}`);
+              // Poll for ensured market id
               const check = await axios.get(`${API_BASE}/markets/db/${ensureDbId}`,
                 { headers: ensureHeaders }
               );
-              console.log("[Ensure] Poll response", { status: check.status, data: check.data });
+              // Poll response processed
               if (check?.data?.marketId) {
                 ensuredId = check.data.marketId;
                 success = true;
                 break;
               }
             } catch (pollErr) {
-              console.warn("[Ensure] Poll error", pollErr);
+              // Ignore transient poll errors
             }
             await delay(1000);
           }
         }
 
         if (!success || !ensuredId) {
-          console.error("[Ensure] Unable to prepare market after ensure/poll", { success, ensuredId });
+          // Unable to prepare market after ensure/poll
           toast.update(ensureToastId!, {
             type: "error",
             title: "Connection issue",
@@ -681,7 +736,7 @@ export default function SlotMachineScreen() {
         finalMarketId = Number(ensuredId);
         setSelectedMarket((prev: any) => ({ ...(prev || {}), marketId: finalMarketId }));
         setIsOnChain(true);
-        console.log("[Ensure] Success, marketId assigned", { marketId: finalMarketId });
+        // Ensure success, marketId assigned
         toast.update(ensureToastId!, {
           type: "success",
           title: "Connected",
@@ -744,6 +799,41 @@ export default function SlotMachineScreen() {
         return;
       }
 
+      // Resolve the USDC mint for current chain (backend and on-chain expect mint address)
+      const usdcMint = getMint("USDC", (currentChain || "devnet") as any).toBase58();
+
+      // Pre-check SPL token balance (USDC) before building/submitting
+      if (!connection) {
+        throw new Error("No Solana connection available");
+      }
+      if (selectedToken !== "BONK") {
+        try {
+          const resp = await connection.getParsedTokenAccountsByOwner(
+            selectedAccount.publicKey,
+            { mint: new PublicKey(usdcMint) }
+          );
+          let uiBalance = 0;
+          for (const { account } of resp.value) {
+            const info = (account.data as ParsedAccountData).parsed?.info;
+            const amount = info?.tokenAmount?.uiAmount || 0;
+            uiBalance += Number(amount || 0);
+          }
+          if (uiBalance < parsedAmount) {
+            toast.update(loadingToastId, {
+              type: "error",
+              title: "Insufficient USDC",
+              message: `You have ${uiBalance.toFixed(2)} USDC, need ${parsedAmount.toFixed(2)} USDC`,
+              duration: 5000,
+            });
+            setBetStatus("idle");
+            return;
+          }
+        } catch (e) {
+          // If balance check fails, proceed but warn
+          console.warn("USDC balance check failed", e);
+        }
+      }
+
       const metadata = {
         question: selectedMarket?.question,
         collection: false,
@@ -755,12 +845,7 @@ export default function SlotMachineScreen() {
 
       const metadataUrl = `${process.env.EXPO_PUBLIC_BACKEND_URL}/nft/create`;
       const metadataHeaders = { "wallet-address": selectedAccount.publicKey.toBase58() } as Record<string, string>;
-      console.log('[Bet] POST metadata request', {
-        url: metadataUrl,
-        method: 'POST',
-        headers: metadataHeaders,
-        body: metadata,
-      });
+      // Create metadata
       const response = await axios.post(metadataUrl, metadata, { headers: metadataHeaders });
 
       const metadataUri = response.data.metadataUrl;
@@ -776,22 +861,12 @@ export default function SlotMachineScreen() {
         return; // Don't navigate, just return
       }
 
-      // Resolve the USDC mint for devnet (backend expects mint address, not symbol)
-      const usdcMint = getMint("USDC", "devnet").toBase58();
-
       // Client-build uses UI units; Anchor enum direction
       const amountUi = parsedAmount;
       const anchorDirection = bet === "yes" ? { yes: {} } : { no: {} };
 
       // Debug log bet params prior to building instructions
-      console.log("[Bet Params]", {
-        marketId: Number(finalMarketId),
-        direction: anchorDirection,
-        amount: amountUi,
-        token: usdcMint,
-        payer: selectedAccount.publicKey.toBase58(),
-        metadataUri,
-      });
+      // Build bet params
 
       // Build instructions locally via SDK (single tx including ATA init if needed)
       const buyIxs = await openPosition({
@@ -821,9 +896,9 @@ export default function SlotMachineScreen() {
       const signedTxB64 = Buffer.from((signedTx as any).serialize()).toString('base64');
       const forwardBody = {
         signedTx: signedTxB64,
-        options: { skipPreflight: true, maxRetries: 3 },
+        options: { skipPreflight: false, maxRetries: 3 },
       };
-      console.log("[Forward Payload]", forwardBody);
+      // Forward payload
       const forwarded = await forwardTx(forwardBody);
       const signature = forwarded.signature;
 
@@ -1164,6 +1239,26 @@ export default function SlotMachineScreen() {
                   ))}
                 </View>
 
+                {/* Spend preview */}
+                <View style={{ marginTop: 8, marginBottom: 8 }}>
+                  <Text style={{ color: "#111827", fontFamily: "Poppins-SemiBold", fontSize: 14 }}>
+                    Spend preview
+                  </Text>
+                  <Text style={{ color: "#374151", fontFamily: "Poppins-Regular", fontSize: 13, marginTop: 4 }}>
+                    {selectedToken === "BONK"
+                      ? `${formatBonkAmount(parseBonkAmount(betAmount || "0"))} BONK`
+                      : `${(parseFloat(betAmount || "0") || 0).toFixed(2)} USDC`} + ~{(solFeeEstimate ?? 0.00002).toFixed(6)} SOL fees
+                  </Text>
+                  <Text style={{ color: "#6B7280", fontFamily: "Poppins-Regular", fontSize: 12, marginTop: 2 }}>
+                    Balance: {selectedToken === "BONK" ? "—" : `${(usdcBalance ?? 0).toFixed(2)} USDC`} · SOL: {(solBalance ?? 0).toFixed(5)}
+                  </Text>
+                  {!hasSufficientFunds && (
+                    <Text style={{ color: "#dc2626", fontFamily: "Poppins-SemiBold", fontSize: 12, marginTop: 4 }}>
+                      Insufficient balance for this bet.
+                    </Text>
+                  )}
+                </View>
+
                 {/* Manual success/failure toggle */}
                 {/* <View style={styles.manualToggleRow}>
                   <Text style={styles.manualToggleLabel}>Bet NO</Text>
@@ -1186,7 +1281,8 @@ export default function SlotMachineScreen() {
                     !betAmount ||
                     (selectedToken === "BONK"
                       ? parseBonkAmount(betAmount) <= 0
-                      : parseFloat(betAmount) <= 0)
+                      : parseFloat(betAmount) <= 0) ||
+                    !hasSufficientFunds
                   }
                   title={
                     betStatus === "loading"
@@ -1207,9 +1303,7 @@ export default function SlotMachineScreen() {
                     // Call the actual handleBet function
                     handleBet(selectedDirection || "yes");
                   }}
-                  onSwipeFail={() => {
-                    console.log("Swipe failed - not swiped far enough");
-                  }}
+                  onSwipeFail={() => {}}
                   railBackgroundColor={
                     betStatus === "loading" ? "#10b981" : "#000000"
                   }

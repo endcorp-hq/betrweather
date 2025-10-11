@@ -46,3 +46,12 @@ export { generateSecureSignInPayload } from './signInUtils';
 
 // Toast Utilities
 export { toast, setToastHandler } from './toastUtils';
+
+// Market utilities
+export { getMarketToken, computeDerived, toUi } from './marketUtils';
+
+// SSE Utilities
+export { startSSE } from './sse';
+
+// Logger
+export { log, timeStart, throttle } from './logger';

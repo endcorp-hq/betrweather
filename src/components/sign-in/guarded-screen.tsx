@@ -5,8 +5,6 @@ import { ConnectButton } from "./sign-in-ui";
 import { useChainToggle } from "../../hooks/useChainToggle";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import React from "react";
-import { usePositions } from "../../hooks/usePositions";
-import { useUserBets } from "../../hooks";
 
 // Chain Toggle Component
 function ChainToggle({
@@ -76,24 +74,13 @@ export default function GuardedScreen({
 }) {
   const { selectedAccount } = useAuthorization();
   const { selectedChain, toggleChain } = useChainToggle();
-  const { refreshPositions } = usePositions();
-  const { refresh: refreshBets } = useUserBets();
-
-  // Background prefetch: once signed in, start loading positions immediately
-  React.useEffect(() => {
-    if (selectedAccount?.publicKey) {
-      // Fire and forget; hook itself does not block UI
-      try { refreshPositions(); } catch {}
-      try { refreshBets(); } catch {}
-    }
-  }, [selectedAccount?.publicKey?.toBase58?.()]);
 
   if (selectedAccount) return <DefaultBg>{children}</DefaultBg>;
 
   return (
     <DefaultBg>
       <View className="flex-1 justify-center items-center">
-        {/* Centered sign-in section */}
+
         <View className="items-center ">
           <Image
             source={require("../../../assets/logo/betrCloud.png")}

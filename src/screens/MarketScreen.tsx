@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { ScrollView, Text, StyleSheet, View, RefreshControl } from "react-native";
-import { MarketCard, StatusFilterBar, LogoLoader as LoadingSpinner } from "@/components";
+import { ScrollView, Text, StyleSheet, View, RefreshControl, TouchableOpacity } from "react-native";
+import { MarketCard, StatusFilterBar } from "@/components";
+import { computeDerived } from "@/utils";
 import { useFilters } from "@/components";
 import theme from '../theme';
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
 
 import { useShortx } from "../hooks/solana";
-import { useMarkets } from "../hooks";
+import { useMarketsContext } from "../contexts/MarketsProvider";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (
@@ -36,9 +37,9 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
 ));
 
 export default function MarketScreen() {
-  // On-chain list is now merged inside useMarkets
+  // On-chain list overlays inside global markets state
   const { refresh: refreshOnchain } = useShortx();
-  const progressive = useMarkets({ resolvedLastHours: 24 });
+  const progressive = useMarketsContext();
   const [refreshing, setRefreshing] = useState(false);
 
   // Normalize backend markets to the UI shape used here
@@ -63,16 +64,24 @@ export default function MarketScreen() {
         marketType: normalizedMarketType,
         currency: m.currency,
         isActive: Boolean(m.isActive),
-        winningDirection: WinningDirection.NONE,
-        yesLiquidity: 0,
-        noLiquidity: 0,
-        volume: 0,
+        // Preserve live values from stream/backend when present
+        winningDirection: m.winningDirection ?? WinningDirection.NONE,
+        yesLiquidity: m.yesLiquidity ?? "0",
+        noLiquidity: m.noLiquidity ?? "0",
+        volume: m.volume ?? "0",
       };
     });
   }, [progressive?.markets]);
 
   // Progressive hook already overlays on-chain deltas; just use it
-  const mergedMarkets = useMemo(() => dbMarkets, [dbMarkets]);
+  const mergedMarkets = useMemo(() => {
+    return dbMarkets.map((m: any) => {
+      const d = computeDerived(m);
+      return { ...m, _derived: d };
+    });
+  }, [dbMarkets]);
+
+  // (focus refresh removed to avoid spamming backend)
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -205,6 +214,13 @@ export default function MarketScreen() {
     });
   }, [mergedMarkets, statusFilter, timeFilter]);
 
+  // Client-side pagination
+  const [visibleCount, setVisibleCount] = useState(10);
+  useEffect(() => { setVisibleCount(10); }, [statusFilter, timeFilter, mergedMarkets.length]);
+  const visibleMarkets = useMemo(() => filteredMarkets.slice(0, visibleCount), [filteredMarkets, visibleCount]);
+  const canLoadMore = filteredMarkets.length > visibleCount;
+  const loadMore = useCallback(() => setVisibleCount((c) => c + 10), []);
+
   return (
     <View className="flex-1">
       <View className="flex-1">
@@ -242,13 +258,18 @@ export default function MarketScreen() {
           
           {/* Add top padding to separate cards from status buttons */}
           <View>
-            {filteredMarkets.map((market, idx) => (
+            {visibleMarkets.map((market, idx) => (
               <MemoizedMarketCard
                 key={`market-${market.marketId ?? market.id ?? idx}-${market.marketStart}`}
                 market={market}
                 index={idx}
               />
             ))}
+            {canLoadMore && (
+              <TouchableOpacity onPress={loadMore} style={{ alignSelf: 'center', marginTop: 16, marginBottom: 32, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                <Text style={{ color: '#ffffff', fontSize: 14, fontFamily: 'Poppins-SemiBold' }}>Load more</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </View>

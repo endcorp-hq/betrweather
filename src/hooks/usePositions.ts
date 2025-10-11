@@ -6,6 +6,7 @@ import { Buffer } from "buffer";
 import { useMobileWallet } from "./useMobileWallet";
 
 import { useToast } from "../contexts/CustomToast/ToastProvider";
+import { log, timeStart } from "@/utils";
 import {
   PositionWithMarket,
   calculatePayout,
@@ -32,6 +33,7 @@ export function usePositions() {
   const [loadingMarkets, setLoadingMarkets] = useState(false);
   const lastRefreshTime = useRef<number>(0);
   const isRefreshing = useRef(false);
+  const inflightPromiseRef = useRef<Promise<void> | null>(null);
   // Track positions removed locally (e.g., after burn) to prevent re-adding on refresh until backend syncs
   const locallyRemovedKeysRef = useRef<Set<string>>(new Set());
 
@@ -58,6 +60,7 @@ export function usePositions() {
 
   // Hydrate market details in the background for any positions missing market data
   const hydrateMarkets = useCallback(async (positionsToHydrate: PositionWithMarket[]) => {
+    const t = timeStart('Positions', 'hydrateMarkets');
     try {
       const missingIds = Array.from(
         new Set(
@@ -68,16 +71,23 @@ export function usePositions() {
       );
       if (missingIds.length === 0) return;
 
-      const results = await Promise.all(
-        missingIds.map(async (id) => {
-          try {
-            const market = await getMarketById(id);
-            return market ? { id, market } : null;
-          } catch {
-            return null;
-          }
-        })
-      );
+      // Limit concurrency to avoid large spikes; process in small batches
+      const concurrency = 4;
+      const results: Array<{ id: number; market: any } | null> = [];
+      for (let i = 0; i < missingIds.length; i += concurrency) {
+        const slice = missingIds.slice(i, i + concurrency);
+        const batch = await Promise.all(
+          slice.map(async (id) => {
+            try {
+              const market = await getMarketById(id);
+              return market ? { id, market } : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+        results.push(...batch);
+      }
 
       const marketById = new Map<number, any>();
       for (const res of results) {
@@ -92,14 +102,22 @@ export function usePositions() {
         prev.map((p) => (p.market || !marketById.has(p.marketId) ? p : { ...p, market: marketById.get(p.marketId) }))
       );
     } catch {}
+    finally { t.end({ missing: 0 }); }
   }, [getMarketById]);
 
   // Manual refresh function
   const refreshPositions = useCallback(async () => {
     if (!selectedAccount) return;
+    const now = Date.now();
+    // Debounce/throttle rapid calls (e.g., from multiple views)
+    if (now - lastRefreshTime.current < 1500 && inflightPromiseRef.current) {
+      return inflightPromiseRef.current;
+    }
+    lastRefreshTime.current = now;
 
+    const t = timeStart('Positions', 'refresh');
     setLoadingMarkets(true);
-    try {
+    const p = (async () => {
       const metadata = await fetchNftMetadata();
       if (metadata) {
         // Prefer market from backend if included; fallback to client fetch
@@ -146,14 +164,22 @@ export function usePositions() {
 
         // Hydrate missing markets in the background without blocking initial render
         InteractionManager.runAfterInteractions(() => {
-          // Defer to the end of current UI interactions to keep gestures/refresh smooth
-          void hydrateMarkets(filteredPositions);
+          // Add slight delay and batch to avoid backend spikes
+          setTimeout(() => { void hydrateMarkets(filteredPositions); }, 300);
         });
       }
+    })();
+
+    inflightPromiseRef.current = p.then(() => undefined).catch(() => undefined);
+
+    try {
+      await p;
     } catch (error) {
       console.error("Error refreshing positions:", error);
     } finally {
       setLoadingMarkets(false);
+      t.end({ positions: undefined });
+      inflightPromiseRef.current = null;
     }
   }, [selectedAccount, fetchNftMetadata, hydrateMarkets, makePositionKey, currentChain]);
 

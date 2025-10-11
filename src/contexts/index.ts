@@ -26,3 +26,8 @@ export {
   ChainProvider,
   useChain
 } from './ChainProvider';
+
+// Background boot helpers
+export { AuthWarmup } from './AuthWarmup';
+export { MarketsProvider } from './MarketsProvider';
+export { PositionsProvider } from './PositionsProvider';

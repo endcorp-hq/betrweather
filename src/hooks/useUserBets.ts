@@ -31,7 +31,14 @@ export function useUserBets(
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  const makeKey = (b: any) => `${b?.signature || b?.txSignature || b?.id || Math.random()}:${b?.marketId}:${b?.direction || ''}`;
+  // Stable key: prefer tx signature; fallback to backend id; as last resort, a composite hash
+  const makeKey = (b: any) => {
+    const sig = b?.signature || b?.txSignature;
+    if (sig) return String(sig);
+    if (b?.id) return `id:${String(b.id)}`;
+    const mk = `${b?.wallet || ''}:${b?.marketId || ''}:${b?.direction || ''}:${b?.createdAt || ''}:${b?.amount || ''}`;
+    return `h:${mk}`;
+  };
 
   const hasRelevantChange = (prev: any, patch: any) => {
     const keys = [
@@ -92,7 +99,15 @@ export function useUserBets(
           if (Array.isArray(v)) all.push(...v as any[]);
         }
       }
-      upsertMany(all);
+      // Replace the map on full refresh to avoid duplicates/memory growth
+      const newMap = new Map<string, UserBet>();
+      for (const item of all) {
+        const key = makeKey(item);
+        const prev = newMap.get(key);
+        newMap.set(key, prev ? { ...prev, ...item } : item);
+      }
+      betsKeyedRef.current = newMap;
+      setBetsList(Array.from(newMap.values()));
       setOffset(0);
       setHasMore(true);
     } catch (e) {
