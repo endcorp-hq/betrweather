@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import { Connection, type ConnectionConfig } from "@solana/web3.js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthorization } from '../hooks/solana/useAuthorization';
+import { resolveRpcUrl } from '../utils/rpc';
 
 type NetworkEnvironment = 'mainnet' | 'devnet';
 
@@ -91,8 +92,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       return null;
     }
     
-    const chainString = `https://api.${currentChain}.solana.com`;
-    const rpcUrl = chainString;
+    const rpcUrl = resolveRpcUrl(currentChain);
     
     // Reuse existing connection if RPC endpoint is the same
     if (connectionRef.current && connectionRef.current.rpcEndpoint === rpcUrl) {

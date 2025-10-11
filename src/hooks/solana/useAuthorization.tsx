@@ -134,49 +134,18 @@ export function useAuthorization() {
         authorization?.selectedAccount
       );
       
-      if (chainIdentifier?.includes("mainnet")) {
-        const authResult = await checkWhitelistNFTs(
-          nextAuthorization.selectedAccount.publicKey.toBase58(),
-          true // isMainnet = true
-        );
-
-        if (!authResult.authorized) {
-          toast.error("You need to be on the whitelist to access mainnet.");
-          return {
-            ...nextAuthorization,
-            userAuth: false, //set as false if user is not authorized
-          };
-        } else {
-          const nextAuthWithSession: WalletAuthorization = {
-            ...nextAuthorization,
-            userAuth: true,
-            userSession: {
-              chain: "mainnet" as const, // Fix: use const assertion
-              tier: authResult.tier as "seeker" | "superteam" | "none" | "public", // Fix: type assertion
-              timestamp: Date.now(),
-            },
-          };
-          setAuthorization(nextAuthWithSession);
-          // await saveWalletAddress(nextAuthorization.selectedAccount.publicKey.toBase58(), "mainnet");
-          toast.success("Login Successful.");
-          return nextAuthWithSession;
-        }
-      }
-
-      const devnetAuthSession: WalletAuthorization = { // Fix: add type annotation
+      // Unified: rely on backend SIWS verification to determine authorization and tier for both networks
+      const unifiedSession: WalletAuthorization = {
         ...nextAuthorization,
         userAuth: true,
         userSession: {
-          chain: "devnet" as const, // Fix: use const assertion
-          tier: "none" as const, // Fix: use const assertion
+          chain: (chainIdentifier?.includes('mainnet') ? 'mainnet' : 'devnet') as 'mainnet' | 'devnet',
+          tier: 'none',
           timestamp: Date.now(),
         },
       };
-      
-      // in case of devnet or mainnet conditions satisfies, set the authorization in async storage
-      await setAuthorization(devnetAuthSession);
-      // await saveWalletAddress(nextAuthorization.selectedAccount.publicKey.toBase58(), "devnet");
-      return devnetAuthSession;
+      await setAuthorization(unifiedSession);
+      return unifiedSession;
     },
     [authorization, setAuthorization]
   );
@@ -207,8 +176,39 @@ export function useAuthorization() {
         chain: chainIdentifier || DEVNET_CHAIN,
         sign_in_payload: signInPayload,
       });
-      return (await handleAuthorizationResult(authorizationResult, chainIdentifier))
-        .selectedAccount;
+      // After wallet SIWS, verify with backend and get whitelist/tier
+      try {
+        const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        const input = signInPayload as any; // the SIWS input
+        const output = authorizationResult.sign_in_result as any; // wallet SIWS output
+        if (!output) {
+          throw new Error('Missing SIWS result from wallet');
+        }
+        const res = await fetch(`${API_BASE}/auth/siws`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ signInInput: input, signInOutput: output }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.message || 'SIWS verification failed');
+        }
+        // Persist backend tier into session
+        const updated = {
+          ...(await fetchAuthorization()),
+          userSession: {
+            chain: (chainIdentifier?.includes('mainnet') ? 'mainnet' : 'devnet') as 'mainnet' | 'devnet',
+            tier: (data?.tier ?? 'none') as 'seeker' | 'superteam' | 'none' | 'public',
+            timestamp: Date.now(),
+          },
+        } as WalletAuthorization;
+        await persistAuthorization(updated);
+      } catch (e) {
+        console.log('Backend SIWS verification error', e);
+      }
+      return (
+        await handleAuthorizationResult(authorizationResult, chainIdentifier)
+      ).selectedAccount;
     },
     [authorization, handleAuthorizationResult]
   );
@@ -225,12 +225,18 @@ export function useAuthorization() {
     [authorization, setAuthorization]
   );
 
+  // Local-only logout: clear cached authorization without opening wallet
+  const clearSession = useCallback(() => {
+    setAuthorization(null);
+  }, [setAuthorization]);
+
   return useMemo(
     () => ({
       accounts: authorization?.accounts ?? null,
       authorizeSession,
       authorizeSessionWithSignIn,
       deauthorizeSession,
+      clearSession,
       selectedAccount: authorization?.selectedAccount ?? null,
       userSession: authorization?.userSession ?? null,
       isLoading,
@@ -240,6 +246,7 @@ export function useAuthorization() {
       authorizeSession,
       authorizeSessionWithSignIn,
       deauthorizeSession,
+      clearSession,
       isLoading, // Fix: add isLoading to dependencies
     ]
   );

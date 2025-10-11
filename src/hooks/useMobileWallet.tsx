@@ -9,7 +9,7 @@ import { useCallback, useMemo } from "react";
 import { Chain, SignInPayload } from "@solana-mobile/mobile-wallet-adapter-protocol";
 
 export function useMobileWallet() {
-  const { authorizeSessionWithSignIn, authorizeSession, deauthorizeSession } =
+  const { authorizeSessionWithSignIn, authorizeSession, clearSession } =
     useAuthorization();
 
   const connect = useCallback(async (chainIdentifier?: Chain): Promise<Account> => {
@@ -28,10 +28,10 @@ export function useMobileWallet() {
   );
 
   const disconnect = useCallback(async (): Promise<void> => {
-    await transact(async (wallet) => {
-      await deauthorizeSession(wallet);
-    });
-  }, [deauthorizeSession]);
+    // Prefer local-only logout for smoother UX
+    clearSession();
+    // Optionally, also deauthorize with wallet in background later if desired
+  }, [clearSession]);
 
   const signAndSendTransaction = useCallback(
     async (
