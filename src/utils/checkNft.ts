@@ -55,7 +55,7 @@ async function checkGenesisSeekerNFT(
     while (true) {
       console.log(`📄 Checking page ${page}...`);
       
-      const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`, {
+      const response = await fetch(`https://api.mainnet-beta.solana.com`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -165,10 +165,7 @@ export async function checkWhitelistNFTs(
 
   console.log(`🔗 Creating mainnet connection...`);
   // Create connection for mainnet
-  const mainnetRpcUrl = `https://mainnet.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
-  console.log(`🔗 RPC URL: ${mainnetRpcUrl.replace(process.env.EXPO_PUBLIC_HELIUS_API_KEY || '', '[API_KEY_HIDDEN]')}`);
-  console.log(`🔑 API Key configured: ${process.env.EXPO_PUBLIC_HELIUS_API_KEY ? 'Yes' : 'No'}`);
-  
+  const mainnetRpcUrl = `https://api.mainnet-beta.solana.com`;
   const connection = new Connection(mainnetRpcUrl);
 
   console.log(`🔍 Checking for Genesis Seeker NFT...`);

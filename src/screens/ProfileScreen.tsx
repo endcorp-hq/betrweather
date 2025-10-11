@@ -13,13 +13,13 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useAuthorization } from "../hooks/solana/useAuthorization";
 import { MotiView } from "moti";
 import theme from "../theme";
-import { usePositions } from "../hooks/usePositions";
+import { usePositionsContext } from "../contexts/PositionsProvider";
 import { calculatePayout } from "@/utils";
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
-  const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout, handleBurnPosition, lastError, retryCount } = usePositions();
+  const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout, handleBurnPosition, lastError, retryCount } = usePositionsContext();
   const [refreshing, setRefreshing] = useState(false);
   const [hasAttemptedInitialLoad, setHasAttemptedInitialLoad] = useState(false);
   
@@ -28,16 +28,11 @@ export default function ProfileScreen() {
     setHasAttemptedInitialLoad(false);
   }, [selectedAccount?.publicKey?.toString()]);
 
-  // Refresh data when screen comes into focus (e.g., after returning from Phantom)
+  // Positions are booted globally; avoid focus-driven refreshes causing duplicates
   useFocusEffect(
     useCallback(() => {
-      if (selectedAccount && positions.length === 0 && !hasAttemptedInitialLoad) {
-        // Only trigger refresh if we don't have positions loaded yet and haven't attempted before
-        setHasAttemptedInitialLoad(true);
-        // Use background refresh to avoid loading UI
-        refreshPositions();
-      }
-    }, [selectedAccount, refreshPositions, positions.length, hasAttemptedInitialLoad])
+      return () => {};
+    }, [])
   );
 
 
@@ -50,7 +45,7 @@ export default function ProfileScreen() {
     setRefreshing(true);
     try {
       // Use regular refresh for pull-to-refresh
-      await refreshPositions();
+      await Promise.allSettled([refreshPositions()]);
       // Reset the flag after a successful manual refresh
       setHasAttemptedInitialLoad(false);
     } finally {
@@ -157,7 +152,7 @@ export default function ProfileScreen() {
               <Text style={styles.statNumber}>
                 $
                 {positions
-                  .reduce((sum, position) => sum + position.amount / 1000000, 0)
+                  .reduce((sum: number, position: any) => sum + position.amount / 1000000, 0)
                   .toFixed(0)}
               </Text>
               <Text style={styles.statLabel}>Total Wagered</Text>
@@ -189,11 +184,11 @@ export default function ProfileScreen() {
               <Text style={styles.statNumber}>
                 $
                 {positions
-                  .filter((position) => {
+                  .filter((position: any) => {
                     const payout = calculatePayout(position);
                     return payout && payout > 0;
                   })
-                  .reduce((sum, position) => {
+                  .reduce((sum: number, position: any) => {
                     const payout = calculatePayout(position);
                     return sum + (payout || 0);
                   }, 0)
@@ -302,9 +297,9 @@ export default function ProfileScreen() {
               </View>
             </MotiView>
           ) : (
-            positions.map((position, idx) => (
+            positions.map((position: any, idx: number) => (
               <MotiView
-                key={`${idx}`}
+                key={`${position.assetId?.toString?.() ?? position.assetId}-${position.positionId}-${position.positionNonce}`}
                 from={{
                   opacity: 0,
                   translateY: 10,

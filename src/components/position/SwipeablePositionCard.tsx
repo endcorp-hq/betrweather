@@ -204,7 +204,7 @@ export function SwipeablePositionCard({
             <View style={styles.amountSection}>
               <Text style={styles.amountLabel}>Position Amount</Text>
               <Text style={styles.amountValue}>
-                ${(position.amount / 1000000).toFixed(2)}
+                {`$${Number(position.amount || 0).toFixed(2)}`}
               </Text>
             </View>
 
@@ -217,10 +217,12 @@ export function SwipeablePositionCard({
                     : "Expected Payout"}
                 </Text>
                 <Text style={styles.payoutValue}>
-                  $
-                  {position.market?.winningDirection !== WinningDirection.NONE
-                    ? (calculatePayout(position) || 0).toFixed(2)
-                    : calculateExpectedPayout(position).toFixed(2)}
+                  {(() => {
+                    const value = position.market?.winningDirection !== WinningDirection.NONE
+                      ? (calculatePayout(position) || 0)
+                      : calculateExpectedPayout(position);
+                    return `$${value.toFixed(2)}`;
+                  })()}
                 </Text>
               </View>
             )}
@@ -288,6 +290,12 @@ export function SwipeablePositionCard({
           </View>
         </View>
       </ImageBackground>
+      {/* On-chain Market ID indicator (bottom-right) */}
+      <Text style={styles.marketIdText}>
+        {position?.marketId !== undefined && position?.marketId !== null
+          ? String(position.marketId)
+          : 'none'}
+      </Text>
     </View>
   );
 }
@@ -302,6 +310,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+  },
+  marketIdText: {
+    position: 'absolute',
+    right: 10,
+    bottom: 8,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 10,
+    fontFamily: 'Poppins-Regular',
   },
   cardBackground: {
     width: "100%",

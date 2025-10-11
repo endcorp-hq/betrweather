@@ -4,6 +4,7 @@ import { DefaultBg } from "../ui";
 import { ConnectButton } from "./sign-in-ui";
 import { useChainToggle } from "../../hooks/useChainToggle";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
+import React from "react";
 
 // Chain Toggle Component
 function ChainToggle({
@@ -79,7 +80,7 @@ export default function GuardedScreen({
   return (
     <DefaultBg>
       <View className="flex-1 justify-center items-center">
-        {/* Centered sign-in section */}
+
         <View className="items-center ">
           <Image
             source={require("../../../assets/logo/betrCloud.png")}

@@ -7,6 +7,8 @@ import {
   ToastProvider,
   TimezoneProvider,
   ChainProvider,
+  MarketsProvider,
+  PositionsProvider,
 } from "@/contexts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppNavigator } from "./src/navigators/AppNavigator";
@@ -29,10 +31,14 @@ export default function App() {
         <ChainProvider>
         <ConnectionProvider config={{ commitment: "processed" }}>
           <ShortxProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
+                <GestureHandlerRootView style={{ flex: 1 }}>
               <SafeAreaProvider>
                   <TimezoneProvider>
-                    <AppNavigator />
+                    <MarketsProvider>
+                      <PositionsProvider>
+                        <AppNavigator />
+                      </PositionsProvider>
+                    </MarketsProvider>
                   </TimezoneProvider>
               </SafeAreaProvider>
             </GestureHandlerRootView>

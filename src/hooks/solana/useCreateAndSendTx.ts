@@ -130,7 +130,25 @@ export function useCreateAndSendTx() {
         const { blockhash, lastValidBlockHeight } =
           await connection.getLatestBlockhash();
 
-        console.log("instructions", instructions);
+        // Log instruction metadata for debugging
+        try {
+          console.log(
+            "[Tx Build] Instructions:",
+            instructions.map((ix, idx) => ({
+              index: idx,
+              programId: ix.programId?.toBase58?.() ?? String(ix.programId),
+              keys: ix.keys?.map(k => ({
+                pubkey: k.pubkey?.toBase58?.() ?? String(k.pubkey),
+                isSigner: k.isSigner,
+                isWritable: k.isWritable,
+              })),
+              dataLen: ix.data?.length ?? 0,
+            }))
+          );
+        } catch (e) {
+          console.warn("[Tx Build] Failed to log instructions:", e);
+        }
+
         // Create versioned transaction
         const tx = new VersionedTransaction(
           new TransactionMessage({
@@ -140,24 +158,69 @@ export function useCreateAndSendTx() {
           }).compileToV0Message(addressLookupTableAccounts)
         );
 
-        console.log("tx created", tx);
+        console.log("[Tx Build] VersionedTransaction created");
 
         if (signatureRequired) {
           // Use signAndSendTransaction from wallet
           const signedTransaction = await signTransaction(tx);
           let signature: string | undefined;
           if (signedTransaction) {
+            // Pre-send simulation for better error diagnostics (only for VersionedTransaction)
+            try {
+              if ((signedTransaction as any).version !== undefined) {
+                const sim = await connection.simulateTransaction(
+                  signedTransaction as VersionedTransaction,
+                  { sigVerify: true }
+                );
+                if (sim?.value?.err) {
+                  console.error("[Tx Simulate] Error:", sim.value.err);
+                  if (sim.value.logs) console.error("[Tx Simulate] Logs:", sim.value.logs);
+                  const err = new Error("Transaction simulation failed");
+                  // @ts-ignore attach logs
+                  err.__simulation = sim.value;
+                  throw err;
+                } else {
+                  console.log("[Tx Simulate] OK");
+                }
+              } else {
+                console.log("[Tx Simulate] Skipped for legacy Transaction type");
+              }
+            } catch (simErr) {
+              console.error("[Tx Simulate] Exception:", simErr);
+              throw simErr;
+            }
+
             signature = await connection.sendRawTransaction(
               signedTransaction.serialize(),
               {
                 skipPreflight,
               }
             );
+            console.log("[Tx Send] signature:", signature);
           }
 
           if (signature) {
             // Wait for confirmation
             await connection.confirmTransaction(signature, "confirmed");
+            // Extra status checks and logging
+            try {
+              const [status, parsed] = await Promise.all([
+                connection.getSignatureStatuses([signature]),
+                connection.getParsedTransaction(signature, {
+                  maxSupportedTransactionVersion: 0,
+                } as any),
+              ]);
+              console.log("[Tx Status]", status?.value?.[0]);
+              if (parsed) console.log("[Tx Parsed]", parsed?.meta);
+              const err = status?.value?.[0]?.err ?? parsed?.meta?.err;
+              if (err) {
+                console.error("[Tx Confirmed With Error]", err);
+                throw new Error("Transaction confirmed with error");
+              }
+            } catch (postErr) {
+              console.error("[Tx Post-Confirm] Error while checking status:", postErr);
+              throw postErr;
+            }
           }
 
           return signature;
@@ -169,9 +232,28 @@ export function useCreateAndSendTx() {
               skipPreflight,
             }
           );
+          console.log("[Tx Send] signature:", signature);
 
           // Wait for confirmation
           await connection.confirmTransaction(signature, "confirmed");
+          try {
+            const [status, parsed] = await Promise.all([
+              connection.getSignatureStatuses([signature]),
+              connection.getParsedTransaction(signature, {
+                maxSupportedTransactionVersion: 0,
+              } as any),
+            ]);
+            console.log("[Tx Status]", status?.value?.[0]);
+            if (parsed) console.log("[Tx Parsed]", parsed?.meta);
+            const err = status?.value?.[0]?.err ?? parsed?.meta?.err;
+            if (err) {
+              console.error("[Tx Confirmed With Error]", err);
+              throw new Error("Transaction confirmed with error");
+            }
+          } catch (postErr) {
+            console.error("[Tx Post-Confirm] Error while checking status:", postErr);
+            throw postErr;
+          }
 
           return signature;
         }
@@ -185,8 +267,55 @@ export function useCreateAndSendTx() {
     [selectedAccount?.publicKey, signTransaction]
   );
 
+  const buildVersionedTx = useCallback(
+    async (
+      instructions: TransactionInstruction[],
+      {
+        microLamports,
+        addressLookupTableAccounts,
+      }: {
+        microLamports?: number;
+        addressLookupTableAccounts?: AddressLookupTableAccount[];
+      } = {}
+    ): Promise<VersionedTransaction> => {
+      if (!selectedAccount?.publicKey) {
+        throw new Error("Wallet not connected");
+      }
+      if (!connection) {
+        throw new Error("RPC URL not found");
+      }
+
+      // Add priority fee or limit
+      if (microLamports) {
+        instructions.unshift(
+          ComputeBudgetProgram.setComputeUnitLimit({ units: microLamports })
+        );
+      } else {
+        const priorityFee = await getPriorityFee();
+        instructions.unshift(
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFee })
+        );
+      }
+
+      // Latest blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+
+      const tx = new VersionedTransaction(
+        new TransactionMessage({
+          instructions,
+          recentBlockhash: blockhash,
+          payerKey: selectedAccount.publicKey,
+        }).compileToV0Message(addressLookupTableAccounts)
+      );
+
+      return tx;
+    },
+    [selectedAccount?.publicKey]
+  );
+
   return {
     createAndSendTx,
+    buildVersionedTx,
     isLoading,
   };
 }

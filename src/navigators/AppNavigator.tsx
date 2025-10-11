@@ -11,6 +11,7 @@ import MarketDetailScreen from "../screens/MarketDetailScreen";
 import { TopBar } from "../components/top-bar/top-bar-feature";
 import GuardedScreen from "../components/sign-in/guarded-screen";
 import { LocationPermissionScreen } from "../screens/LocationPermissionScreen";
+import { AuthWarmup } from "../contexts/AuthWarmup";
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -29,7 +30,7 @@ type RootStackParamList = {
   LocationPermission: undefined;
   HomeStack: undefined;
   Settings: undefined;
-  MarketDetail: { id: string };
+  MarketDetail: { id: string; dbId?: string | null; marketId?: string | null; market?: any };
   // 🔥 Your screens go here
 };
 
@@ -87,6 +88,7 @@ export const AppNavigator = (props: NavigationProps) => {
   return (
     <NavigationContainer theme={MyTheme} {...props}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
+      <AuthWarmup />
       <AppStack />
     </NavigationContainer>
   );

@@ -49,16 +49,25 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
         if (userSession) {
           const parsedSession = JSON.parse(userSession);
           if (parsedSession?.userSession?.chain) {
-            setCurrentChain(parsedSession.userSession.chain);
+            // Normalize chain to 'mainnet' | 'devnet'
+            const raw: string = parsedSession.userSession.chain;
+            const normalized: NetworkEnvironment = raw.includes('mainnet') ? 'mainnet' : 'devnet';
+            setCurrentChain(normalized);
             setIsLoading(false);
             return;
           }
+          // No chain stored; default to devnet to ensure a working connection
+          setCurrentChain('devnet');
           setIsLoading(false);
+          return;
         }
+        // No session found; if wallet is connected still ensure default
+        setCurrentChain('devnet');
       } catch (error) {
         console.error('Error loading chain from storage:', error);
         // remove user session from async storage and relogin
         await AsyncStorage.removeItem('authorization-cache');
+        setCurrentChain('devnet');
         setIsLoading(false);
       } finally {
         setIsLoading(false);
@@ -82,7 +91,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       return null;
     }
     
-    const chainString = `https://${currentChain}.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
+    const chainString = `https://api.${currentChain}.solana.com`;
     const rpcUrl = chainString;
     
     // Reuse existing connection if RPC endpoint is the same

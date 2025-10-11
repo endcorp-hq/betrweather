@@ -67,7 +67,8 @@ export function useMobileWallet() {
           return signatures[0];
         });
       } catch (e) {
-        console.log("this is error", e);
+        console.log("wallet signTransaction error", e);
+        throw e;
       }
     },
     [authorizeSession]
