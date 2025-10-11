@@ -19,13 +19,7 @@ export function useAPI<T>(
   // Use the URL and request body as the query key for uniqueness
   const queryKey = [url, options?.body, options?.headers];
 
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-    isFetching,
-  } = useQuery<T>({
+  const { data, isLoading, error, refetch, isFetching } = useQuery<T>({
     queryKey,
     queryFn: async () => {
       // Merge default headers with any provided
@@ -40,44 +34,18 @@ export function useAPI<T>(
       if (!res.ok) throw new Error(`API error: ${res.status}`);
       return res.json();
     },
-    enabled: enabled, // Default to true if not specified
-    staleTime: staleTime, // Default to true if not specified
-    gcTime: gcTime, // Default to true if not specified
-    refetchInterval: refetchInterval, // Default to true if not specified
-    ...(refreshTrigger !== undefined ? { refetchTrigger: refreshTrigger } : {}),
+    enabled,
+    staleTime,
+    gcTime,
+    refetchInterval,
   });
 
   useEffect(() => {
-    if (!enabled || !url) return;
-
-    const fetchData = async () => {
-      // Merge default headers with any provided
-      const mergedHeaders = {
-        ...(options?.headers || {}),
-      };
-      const fetchOptions: RequestInit = {
-        ...options,
-        headers: mergedHeaders,
-      };
-      const res = await fetch(url, fetchOptions);
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      return res.json();
-    };
-
-    fetchData();
-
-    // Set up interval if refetchInterval is provided
-    let intervalId: NodeJS.Timeout | null = null;
-    if (refetchInterval && refetchInterval > 0) {
-      intervalId = setInterval(fetchData, refetchInterval);
+    if (!enabled) return;
+    if (refreshTrigger !== undefined) {
+      refetch();
     }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [url, enabled, refreshTrigger]); // Add refreshTrigger to dependencies
+  }, [enabled, refreshTrigger, refetch]);
 
   // Invalidate this query
   const invalidate = () => queryClient.invalidateQueries({ queryKey });

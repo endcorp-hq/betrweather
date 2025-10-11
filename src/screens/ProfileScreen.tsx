@@ -1,11 +1,10 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
-  RefreshControl,
   TouchableOpacity,
+  FlatList,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { DefaultBg, LogoLoader, SwipeablePositionCard } from "@/components";
@@ -22,6 +21,49 @@ export default function ProfileScreen() {
   const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout, handleBurnPosition, lastError, retryCount } = usePositionsContext();
   const [refreshing, setRefreshing] = useState(false);
   const [hasAttemptedInitialLoad, setHasAttemptedInitialLoad] = useState(false);
+
+  // Derived stats memoized to avoid recalculations on each render
+  const totalPositions = positions.length;
+  const totalWagered = useMemo(() => (
+    positions.reduce((sum: number, position: any) => sum + position.amount / 1000000, 0)
+  ), [positions]).toFixed(0);
+  const totalUnclaimed = useMemo(() => (
+    positions
+      .filter((position: any) => {
+        const payout = calculatePayout(position);
+        return payout && payout > 0;
+      })
+      .reduce((sum: number, position: any) => {
+        const payout = calculatePayout(position);
+        return sum + (payout || 0);
+      }, 0)
+  ), [positions]).toFixed(0);
+
+  // List virtualization – define navigation handler first
+  const handleCardPress = useCallback((marketId: number) => {
+    navigation.navigate("MarketDetail", { id: marketId.toString() });
+  }, [navigation]);
+
+  const keyExtractor = useCallback((item: any) => (
+    `${item.assetId?.toString?.() ?? item.assetId}-${item.positionId}-${item.positionNonce}`
+  ), []);
+
+  const renderItem = useCallback(({ item }: { item: any }) => (
+    <View style={{ marginBottom: 16 }}>
+      <SwipeablePositionCard
+        position={item}
+        onClaim={async () => { await handleClaimPayout(item); }}
+        onBurn={async () => { await handleBurnPosition(item); }}
+        onPress={() => handleCardPress(item.marketId)}
+        isClaiming={item.isClaiming || false}
+      />
+    </View>
+  ), [handleBurnPosition, handleCardPress, handleClaimPayout]);
+
+  const getItemLayout = useCallback((_: any, index: number) => {
+    const ITEM_HEIGHT = 316; // ~300 card + 16 margin
+    return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index };
+  }, []);
   
   // Reset the flag when account changes
   React.useEffect(() => {
@@ -34,12 +76,6 @@ export default function ProfileScreen() {
       return () => {};
     }, [])
   );
-
-
-
-  const handleCardPress = useCallback((marketId: number) => {
-    navigation.navigate("MarketDetail", { id: marketId.toString() });
-  }, [navigation]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -61,25 +97,6 @@ export default function ProfileScreen() {
           <LogoLoader
             message="Loading your positions"
           />
-        </View>
-      </DefaultBg>
-    );
-  }
-
-  if (positions.length === 0) {
-    return (
-      <DefaultBg>
-        <View style={styles.loadingContainer}>
-          <Text className="text-white text-2xl font-better-semi-bold mb-4">
-            No positions found
-          </Text>
-          <Text style={styles.subtitle} className="px-4 text-center">
-            Start betting on markets to see your positions here
-          </Text>
-          {hasAttemptedInitialLoad && (
-            <Text style={styles.subtitle} className="px-4 text-center mt-2 text-gray-400">
-            </Text>
-          )}
         </View>
       </DefaultBg>
     );
@@ -122,7 +139,7 @@ export default function ProfileScreen() {
                 { borderColor: "rgba(255, 255, 255, 0.6)" },
               ]}
             >
-              <Text style={styles.statNumber}>{positions.length}</Text>
+              <Text style={styles.statNumber}>{totalPositions}</Text>
               <Text style={styles.statLabel}>Total Positions</Text>
             </View>
           </MotiView>
@@ -151,9 +168,7 @@ export default function ProfileScreen() {
             >
               <Text style={styles.statNumber}>
                 $
-                {positions
-                  .reduce((sum: number, position: any) => sum + position.amount / 1000000, 0)
-                  .toFixed(0)}
+                {totalWagered}
               </Text>
               <Text style={styles.statLabel}>Total Wagered</Text>
             </View>
@@ -183,16 +198,7 @@ export default function ProfileScreen() {
             >
               <Text style={styles.statNumber}>
                 $
-                {positions
-                  .filter((position: any) => {
-                    const payout = calculatePayout(position);
-                    return payout && payout > 0;
-                  })
-                  .reduce((sum: number, position: any) => {
-                    const payout = calculatePayout(position);
-                    return sum + (payout || 0);
-                  }, 0)
-                  .toFixed(0)}
+                {totalUnclaimed}
               </Text>
               <Text style={styles.statLabel}>Unclaimed</Text>
             </View>
@@ -252,84 +258,30 @@ export default function ProfileScreen() {
 
 
         
-        {/* Positions Section with Moti animations */}
-        <ScrollView
+        {/* Positions Section - virtualized */}
+        <FlatList
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={theme.colors.primary}
-              colors={[theme.colors.primary, theme.colors.secondary, theme.colors.tertiary]}
-              progressBackgroundColor={theme.colors.surfaceContainer}
-            />
+          data={positions}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          ListEmptyComponent={
+            <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, fontFamily: 'Poppins-Regular' }}>
+                No positions yet. Pull down to refresh your positions.
+              </Text>
+            </View>
           }
-        >
-          {/* Show confirmed positions */}
-          {positions.length === 0 ? (
-            <MotiView
-              from={{
-                opacity: 0,
-                translateY: 10,
-              }}
-              animate={{
-                opacity: 1,
-                translateY: 0,
-              }}
-              transition={{
-                type: "timing",
-                duration: 350,
-                delay: 3 * 50,
-              }}
-            >
-              <View style={styles.emptyContainer}>
-                <MaterialCommunityIcons
-                  name="wallet-outline"
-                  size={48}
-                  color="rgba(255, 255, 255, 0.5)"
-                />
-                <Text style={styles.emptyText}>No positions found</Text>
-                <Text style={styles.emptySubtext}>
-                  Start betting on markets to see your positions here
-                </Text>
-              </View>
-            </MotiView>
-          ) : (
-            positions.map((position: any, idx: number) => (
-              <MotiView
-                key={`${position.assetId?.toString?.() ?? position.assetId}-${position.positionId}-${position.positionNonce}`}
-                from={{
-                  opacity: 0,
-                  translateY: 10,
-                }}
-                animate={{
-                  opacity: 1,
-                  translateY: 0,
-                }}
-                transition={{
-                  type: "timing",
-                  duration: 350,
-                  delay: (3 + idx) * 50, // Start after stats (3) + staggered for each card
-                }}
-                style={{ marginBottom: 16 }}
-              >
-                <SwipeablePositionCard
-                  position={position}
-                  onClaim={async () => {
-                    await handleClaimPayout(position);
-                  }}
-                  onBurn={async () => {
-                    await handleBurnPosition(position);
-                  }}
-                  onPress={() => handleCardPress(position.marketId)}
-                  isClaiming={position.isClaiming || false}
-                />
-              </MotiView>
-            ))
-          )}
-        </ScrollView>
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          updateCellsBatchingPeriod={16}
+          removeClippedSubviews
+          getItemLayout={getItemLayout}
+          showsVerticalScrollIndicator={false}
+        />
       </View>
     </DefaultBg>
   );

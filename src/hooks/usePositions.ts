@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { InteractionManager } from "react-native";
-import { useAuthorization, useNftMetadata, useShortx } from "./solana";
+import { useAuthorization, useNftMetadata } from "./solana";
 import { useBackendRelay } from "./useBackendRelay";
 import { Buffer } from "buffer";
 import { useMobileWallet } from "./useMobileWallet";
@@ -22,11 +22,10 @@ import { useChain } from "@/contexts";
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
-  const { fetchNftMetadata, loading, retryCount, lastError, clearError } = useNftMetadata();
-  const { getMarketById } = useShortx();
+  const { fetchNftMetadata, loading, retryCount, lastError } = useNftMetadata();
   const { toast } = useToast();
   const { currentChain } = useChain();
-  const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildPayout, checkBubblegumAsset } = useBackendRelay();
+  const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildPayout, checkBubblegumAsset, getMarketById: backendGetMarketById } = useBackendRelay();
   const { signTransaction } = useMobileWallet();
 
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
@@ -71,7 +70,7 @@ export function usePositions() {
       );
       if (missingIds.length === 0) return;
 
-      // Limit concurrency to avoid large spikes; process in small batches
+      // Limit concurrency to avoid large spikes; process in small batches (backend only)
       const concurrency = 4;
       const results: Array<{ id: number; market: any } | null> = [];
       for (let i = 0; i < missingIds.length; i += concurrency) {
@@ -79,7 +78,7 @@ export function usePositions() {
         const batch = await Promise.all(
           slice.map(async (id) => {
             try {
-              const market = await getMarketById(id);
+              const market = await backendGetMarketById(id);
               return market ? { id, market } : null;
             } catch {
               return null;
@@ -103,7 +102,7 @@ export function usePositions() {
       );
     } catch {}
     finally { t.end({ missing: 0 }); }
-  }, [getMarketById]);
+  }, [backendGetMarketById]);
 
   // Manual refresh function
   const refreshPositions = useCallback(async () => {

@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { ScrollView, Text, StyleSheet, View, RefreshControl, TouchableOpacity } from "react-native";
+import React, { useState, useMemo, useCallback } from "react";
+import { Text, StyleSheet, View, FlatList } from "react-native";
 import { MarketCard, StatusFilterBar } from "@/components";
 import { computeDerived } from "@/utils";
 import { useFilters } from "@/components";
@@ -214,12 +214,18 @@ export default function MarketScreen() {
     });
   }, [mergedMarkets, statusFilter, timeFilter]);
 
-  // Client-side pagination
-  const [visibleCount, setVisibleCount] = useState(10);
-  useEffect(() => { setVisibleCount(10); }, [statusFilter, timeFilter, mergedMarkets.length]);
-  const visibleMarkets = useMemo(() => filteredMarkets.slice(0, visibleCount), [filteredMarkets, visibleCount]);
-  const canLoadMore = filteredMarkets.length > visibleCount;
-  const loadMore = useCallback(() => setVisibleCount((c) => c + 10), []);
+  // FlatList render item
+  const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
+    <MemoizedMarketCard
+      market={item}
+      index={index}
+    />
+  ), []);
+
+  const keyExtractor = useCallback((item: any, index: number) => {
+    const id = item?.marketId ?? item?.id ?? index;
+    return String(id);
+  }, []);
 
   return (
     <View className="flex-1">
@@ -236,42 +242,29 @@ export default function MarketScreen() {
           />
         </View>
 
-        {/* Scrollable Market Cards Section */}
-        <ScrollView 
+
+        <FlatList
           className="flex-1 px-4"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing || Boolean(progressive?.loading)}
-              onRefresh={onRefresh}
-              tintColor="#ffffff"
-            />
+          data={filteredMarkets}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          ListEmptyComponent={
+            !progressive?.loading ? (
+              <View className="flex-1 justify-center items-center py-20">
+                <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>
+              </View>
+            ) : null
           }
-        >
-          {/* Do not block on loading; only show empty state when not loading */}
-          {!progressive?.loading && filteredMarkets.length === 0 && (
-            <View className="flex-1 justify-center items-center py-20">
-              <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
-            </View>
-          )}
-          
-          {/* Add top padding to separate cards from status buttons */}
-          <View>
-            {visibleMarkets.map((market, idx) => (
-              <MemoizedMarketCard
-                key={`market-${market.marketId ?? market.id ?? idx}-${market.marketStart}`}
-                market={market}
-                index={idx}
-              />
-            ))}
-            {canLoadMore && (
-              <TouchableOpacity onPress={loadMore} style={{ alignSelf: 'center', marginTop: 16, marginBottom: 32, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
-                <Text style={{ color: '#ffffff', fontSize: 14, fontFamily: 'Poppins-SemiBold' }}>Load more</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshing={refreshing || Boolean(progressive?.loading)}
+          onRefresh={onRefresh}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          updateCellsBatchingPeriod={16}
+          removeClippedSubviews
+          showsVerticalScrollIndicator={false}
+        />
       </View>
     </View>
   );

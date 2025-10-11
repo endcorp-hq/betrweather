@@ -65,15 +65,6 @@ export function MarketCard({ market, index = 0, animatedValue }: {
   const decimals = Number((market && market.decimals) ?? 6);
   const scale = Math.pow(10, decimals);
 
-  // Add a subtle animation for real-time updates
-  const [isUpdating, setIsUpdating] = React.useState(false);
-  
-  React.useEffect(() => {
-    // Show a brief update indicator when volume changes
-    setIsUpdating(true);
-    const timer = setTimeout(() => setIsUpdating(false), 500);
-    return () => clearTimeout(timer);
-  }, [displayVolume, displayYesLiquidity, displayNoLiquidity]);
 
   // Determine if this is a live or future market
   const isLive = isLiveMarket(market);
