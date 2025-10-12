@@ -55,13 +55,14 @@ export function CustomTabBar({
           height: '100%',
           borderRadius: 40,
           overflow: 'hidden',
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: 8,
-          },
-          shadowOpacity: 0.3,
-          shadowRadius: 16,
+          ...(Platform.OS === 'web'
+            ? { boxShadow: '0 8px 16px rgba(0,0,0,0.3)' as any }
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.3,
+                shadowRadius: 16,
+              }),
           elevation: 100,
         }}
       >

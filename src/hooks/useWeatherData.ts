@@ -21,7 +21,7 @@ export function useWeatherData(
   const hasValidLocation = latitude && longitude;
   let userH3Index: string | null = null;
   if (hasValidLocation) {
-    userH3Index = getH3Index(latitude, longitude);
+    userH3Index = getH3Index(latitude, longitude) ?? null;
   }
 
   // Dates
@@ -56,12 +56,20 @@ export function useWeatherData(
       headers: { "Content-Type": "application/json" },
     },
     {
-      enabled: !!hasValidLocation && !!userH3Index,
+      enabled: !!hasValidLocation,
       refreshTrigger,
     }
   );
 
   // --- 2. Hourly Forecast ---
+  const hourlyBody: Record<string, unknown> = {
+    from: todayFormatted,
+    to: tomorrowFormatted,
+    latitude,
+    longitude,
+  };
+  if (userH3Index) hourlyBody.cellId = userH3Index;
+
   const {
     data: hourlyForecastResp,
     isLoading: loadingHourlyForecast,
@@ -70,22 +78,24 @@ export function useWeatherData(
     `${process.env.EXPO_PUBLIC_BACKEND_URL}/weather/hourly-forecast`,
     {
       method: "POST",
-      body: JSON.stringify({
-        cellId: userH3Index,
-        from: todayFormatted,
-        to: tomorrowFormatted,
-        latitude,
-        longitude,
-      }),
+      body: JSON.stringify(hourlyBody),
       headers: { "Content-Type": "application/json" },
     },
     {
-      enabled: !!hasValidLocation && !!userH3Index,
+      enabled: !!hasValidLocation,
       refreshTrigger,
     }
   );
 
   // --- 3. Daily Forecast ---
+  const dailyBody: Record<string, unknown> = {
+    from: todayFormatted,
+    to: sixDaysFormatted,
+    latitude,
+    longitude,
+  };
+  if (userH3Index) dailyBody.cellId = userH3Index;
+
   const {
     data: dailyForecastResp,
     isLoading: loadingDailyForecast,
@@ -94,17 +104,11 @@ export function useWeatherData(
     `${process.env.EXPO_PUBLIC_BACKEND_URL}/weather/daily-forecast`,
     {
       method: "POST",
-      body: JSON.stringify({
-        cellId: userH3Index,
-        from: todayFormatted,
-        to: sixDaysFormatted,
-        latitude,
-        longitude,
-      }),
+      body: JSON.stringify(dailyBody),
       headers: { "Content-Type": "application/json" },
     },
     {
-      enabled: !!hasValidLocation && !!userH3Index,
+      enabled: !!hasValidLocation,
       refreshTrigger,
     }
   );
@@ -125,26 +129,28 @@ export function useWeatherData(
 
   // Hourly Forecast
   const hourlyForecastData = hourlyForecastResp?.data?.data ?? null;
-  const hourlyForecastSource = hourlyForecastResp?.data?.source ?? null;
+  const hourlyForecastSource = (hourlyForecastResp?.data?.source as string | null) ?? null;
+  const resolvedHourlySource = hourlyForecastSource || 'google';
 
   let parsedHourlyForecastData = null;
-  if (hourlyForecastData && hourlyForecastSource) {
+  if (hourlyForecastData) {
     parsedHourlyForecastData = parseHourlyForecastData(
       hourlyForecastData,
-      hourlyForecastSource as string,
+      resolvedHourlySource,
       timeZoneId
     );
   }
 
   // Daily Forecast
   const dailyForecastData = dailyForecastResp?.data?.data ?? null;
-  const dailyForecastSource = dailyForecastResp?.data?.source ?? null;
+  const dailyForecastSource = (dailyForecastResp?.data?.source as string | null) ?? null;
+  const resolvedDailySource = dailyForecastSource || 'google';
 
   let parsedDailyForecastData = null;
-  if (dailyForecastData && dailyForecastSource) {
+  if (dailyForecastData) {
     parsedDailyForecastData = parseDailyForecastData(
       dailyForecastData,
-      dailyForecastSource as string
+      resolvedDailySource
     );
   }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { View, StyleSheet, ViewStyle, StyleProp, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Animated from 'react-native-reanimated';
 
@@ -30,11 +30,10 @@ const GlassyCard: React.FC<GlassyCardProps> = ({
       />
       <View style={styles.glassBg} />
       {/* Simulated thickness: static inner shadow/gradient */}
-      <View pointerEvents="none" style={[styles.thickness, { opacity: 0.18 }]} />
+      <View style={[styles.thickness, { opacity: 0.18, pointerEvents: 'none' as any }]} />
       {shimmer && (
         <Animated.View
-          pointerEvents="none"
-          style={[styles.shimmer, shimmerStyle]}
+          style={[styles.shimmer, shimmerStyle, { pointerEvents: 'none' as any }]}
         />
       )}
       <View style={styles.content}>{children}</View>
@@ -60,9 +59,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 20,
     // Simulate thickness with a subtle inner shadow using shadow props
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 6px 16px rgba(0,0,0,0.18)' as any }
+      : { shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16 }),
     // For Android
     elevation: 8,
   },

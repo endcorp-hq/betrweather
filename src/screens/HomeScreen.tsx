@@ -29,6 +29,7 @@ import theme from "../theme";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DailyDetailScreen } from "./DailyDetailScreen";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { Platform } from "react-native";
 import { useToast, useTimeZone } from "@/contexts";
 
 interface SearchedLocation {
@@ -81,20 +82,24 @@ export function HomeScreen() {
 
     // Check location permissions and navigate to permission screen if needed
   useEffect(() => {
-    if (!locationLoading && !hasForegroundPermission) {
-      // Only require foreground permission for basic app usage
-      // Background permission is optional for widgets
-      navigation.navigate('LocationPermission' as never);
+    if (Platform.OS !== 'web') {
+      if (!locationLoading && !hasForegroundPermission) {
+        // Only require foreground permission for basic app usage
+        // Background permission is optional for widgets
+        navigation.navigate('LocationPermission' as never);
+      }
     }
   }, [hasForegroundPermission, locationLoading, navigation]);
 
   // Check location permissions on app launch and navigate to permission screen if needed
   useEffect(() => {
-    // Only check permissions once when the app launches and permissions have been checked
-    if (hasCheckedPermissions && !locationLoading && !hasForegroundPermission) {
-      // Only require foreground permission for basic app usage
-      // Background permission is optional for widgets
-      navigation.navigate('LocationPermission' as never);
+    if (Platform.OS !== 'web') {
+      // Only check permissions once when the app launches and permissions have been checked
+      if (hasCheckedPermissions && !locationLoading && !hasForegroundPermission) {
+        // Only require foreground permission for basic app usage
+        // Background permission is optional for widgets
+        navigation.navigate('LocationPermission' as never);
+      }
     }
   }, [hasCheckedPermissions, hasForegroundPermission, locationLoading, navigation]);
 
@@ -417,13 +422,17 @@ export function HomeScreen() {
             style={{ backgroundColor: "black" }}
             contentContainerStyle={{ paddingBottom: 100 }}
             refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={theme.colors.primary}
-                colors={[theme.colors.primary, theme.colors.secondary, theme.colors.tertiary]}
-                progressBackgroundColor="rgba(255, 255, 255, 0.1)"
-              />
+              Platform.OS !== 'web'
+                ? (
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={theme.colors.primary}
+                    colors={[theme.colors.primary, theme.colors.secondary, theme.colors.tertiary]}
+                    progressBackgroundColor="rgba(255, 255, 255, 0.1)"
+                  />
+                )
+                : undefined
             }
           >
             {/* Content area with refresh message */}
@@ -432,8 +441,24 @@ export function HomeScreen() {
                 Location Access Required
               </Text>
               <Text className="text-gray-300 text-base font-better-regular text-center mb-6 leading-6">
-                Pull down to refresh and check location permissions
+                {Platform.OS === 'web' ? 'Click the button below to request your location' : 'Pull down to refresh and check location permissions'}
               </Text>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  onPress={forceRefreshPermissions}
+                  activeOpacity={0.85}
+                  style={{
+                    backgroundColor: 'rgba(59,130,246,0.8)',
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.2)'
+                  }}
+                >
+                  <Text className="text-white font-better-semi-bold">Use My Location</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </ScrollView>
         </View>
@@ -496,6 +521,23 @@ export function HomeScreen() {
               <Text className="text-gray-300 text-base font-better-regular text-center mt-4 leading-6">
                 Please grant location access in the permission dialog
               </Text>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  onPress={forceRefreshPermissions}
+                  activeOpacity={0.85}
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: 'rgba(59,130,246,0.8)',
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.2)'
+                  }}
+                >
+                  <Text className="text-white font-better-semi-bold">Use My Location</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </ScrollView>
         </View>
@@ -557,13 +599,17 @@ export function HomeScreen() {
           style={{ backgroundColor: "black" }}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.colors.primary}
-              colors={[theme.colors.primary, theme.colors.secondary, theme.colors.tertiary]}
-              progressBackgroundColor="rgba(255, 255, 255, 0.1)"
-            />
+            Platform.OS !== 'web'
+              ? (
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={theme.colors.primary}
+                  colors={[theme.colors.primary, theme.colors.secondary, theme.colors.tertiary]}
+                  progressBackgroundColor="rgba(255, 255, 255, 0.1)"
+                />
+              )
+              : undefined
           }
         >
           {/* Background video section */}

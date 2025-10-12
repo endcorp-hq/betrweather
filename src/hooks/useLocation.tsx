@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
-import * as Location from "expo-location";
 import { Platform, Alert, Linking } from "react-native";
+import type * as ExpoLocationTypes from 'expo-location';
+// Lazy import expo-location only on native to avoid web bundle errors
+let ExpoLocation: typeof import('expo-location') | undefined;
+if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  ExpoLocation = require('expo-location');
+}
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,7 +17,7 @@ export const useLocation = () => {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [detailedLocation, setDetailedLocation] = useState<
-    Location.LocationGeocodedAddress[] | null
+    ExpoLocationTypes.LocationGeocodedAddress[] | null
   >(null);
   const [hasForegroundPermission, setHasForegroundPermission] = useState(false);
   const [hasBackgroundPermission, setHasBackgroundPermission] = useState(false);
@@ -19,7 +25,12 @@ export const useLocation = () => {
 
   const requestForegroundPermission = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (Platform.OS === 'web' || !ExpoLocation) {
+        // Web: assume permission via browser prompt handled elsewhere
+        setHasForegroundPermission(true);
+        return true;
+      }
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
       setHasForegroundPermission(status === "granted");
       return status === "granted";
     } catch (error) {
@@ -30,9 +41,13 @@ export const useLocation = () => {
 
   const requestBackgroundPermission = async () => {
     try {
+      if (Platform.OS === 'web' || !ExpoLocation) {
+        setHasBackgroundPermission(false);
+        return false;
+      }
       console.log("requestBackgroundPermission");
       // Check if we already have background permission
-      const backgroundStatus = await Location.getBackgroundPermissionsAsync();
+      const backgroundStatus = await ExpoLocation.getBackgroundPermissionsAsync();
       console.log("backgroundStatus", backgroundStatus);
       if (backgroundStatus.status === "granted") {
         console.log("backgroundStatus is granted");
@@ -41,7 +56,7 @@ export const useLocation = () => {
       }
 
       // Request background permission
-      const { status } = await Location.requestBackgroundPermissionsAsync();
+      const { status } = await ExpoLocation.requestBackgroundPermissionsAsync();
       setHasBackgroundPermission(status === "granted");
       
       if (status !== "granted") {
@@ -124,8 +139,29 @@ export const useLocation = () => {
 
   const getLocation = async () => {
     try {
-      let coords = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+      if (Platform.OS === 'web' || !ExpoLocation) {
+        // Browser geolocation fallback
+        await new Promise<void>((resolve, reject) => {
+          if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              setLatitude(pos.coords.latitude);
+              setLongitude(pos.coords.longitude);
+              setDetailedLocation(null);
+              setIsLoading(false);
+              resolve();
+            },
+            (err) => {
+              setError('Error getting current location');
+              setIsLoading(false);
+              reject(err);
+            }
+          );
+        });
+        return;
+      }
+      let coords = await ExpoLocation.getCurrentPositionAsync({
+        accuracy: ExpoLocation.Accuracy.Balanced,
         timeInterval: 10000,
         distanceInterval: 100
       });
@@ -134,7 +170,7 @@ export const useLocation = () => {
       setLongitude(coords.coords.longitude);
       
       // Get detailed location
-      let response = await Location.reverseGeocodeAsync({
+      let response = await ExpoLocation.reverseGeocodeAsync({
         latitude: coords.coords.latitude,
         longitude: coords.coords.longitude,
       });
@@ -150,13 +186,21 @@ export const useLocation = () => {
 
   const checkPermissions = async () => {
     try {
+      // Web: skip expo-location permission APIs; directly attempt browser geolocation
+      if (Platform.OS === 'web' || !ExpoLocation) {
+        setHasForegroundPermission(true);
+        setHasBackgroundPermission(false);
+        await getLocation();
+        setHasCheckedPermissions(true);
+        return;
+      }
       // First check cached permissions to avoid unnecessary permission screen
       const cachedPermissions = await loadPermissionState();
       
       if (cachedPermissions && cachedPermissions.foreground) {
         // We have cached foreground permission, check if it's still valid
-        const foregroundStatus = await Location.getForegroundPermissionsAsync();
-        const backgroundStatus = await Location.getBackgroundPermissionsAsync();
+        const foregroundStatus = await ExpoLocation.getForegroundPermissionsAsync();
+        const backgroundStatus = await ExpoLocation.getBackgroundPermissionsAsync();
         
         const hasForeground = foregroundStatus.status === "granted";
         const hasBackground = backgroundStatus.status === "granted";
@@ -176,8 +220,8 @@ export const useLocation = () => {
         }
       } else {
         // No cached permissions, check current state
-        const foregroundStatus = await Location.getForegroundPermissionsAsync();
-        const backgroundStatus = await Location.getBackgroundPermissionsAsync();
+        const foregroundStatus = await ExpoLocation.getForegroundPermissionsAsync();
+        const backgroundStatus = await ExpoLocation.getBackgroundPermissionsAsync();
         
         const hasForeground = foregroundStatus.status === "granted";
         const hasBackground = backgroundStatus.status === "granted";
@@ -227,15 +271,17 @@ export const useLocation = () => {
 
   // Poll permissions every 2 seconds on first launch until permissions are granted
   useEffect(() => {
+    if (Platform.OS === 'web') return; // Skip polling on web
     if (!hasCheckedPermissions || hasForegroundPermission) {
       return; // Don't poll if we haven't checked yet or already have permissions
     }
 
     const pollInterval = setInterval(async () => {
       try {
+        if (!ExpoLocation) return;
         // Check if permissions have been granted
-        const foregroundStatus = await Location.getForegroundPermissionsAsync();
-        const backgroundStatus = await Location.getBackgroundPermissionsAsync();
+        const foregroundStatus = await ExpoLocation.getForegroundPermissionsAsync();
+        const backgroundStatus = await ExpoLocation.getBackgroundPermissionsAsync();
         
         const hasForeground = foregroundStatus.status === "granted";
         const hasBackground = backgroundStatus.status === "granted";

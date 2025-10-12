@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   Text,
+  Platform,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useShortx, useAuthorization, useCreateAndSendTx } from "../hooks/solana";
@@ -1557,10 +1558,9 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     backgroundColor: theme.colors.surfaceContainerHigh,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: -2 },
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 -2px 8px rgba(0,0,0,0.06)' as any }
+      : { shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 } }),
     elevation: 8,
     minHeight: 90,
     justifyContent: "center",
@@ -1623,10 +1623,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.outlineVariant,
     overflow: "hidden",
     elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 4px 8px rgba(0,0,0,0.1)' as any }
+      : { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }),
   },
   swipeCardInner: {
     flex: 1,
@@ -1820,9 +1819,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 1.2,
     fontFamily: "Poppins-Bold",
-    textShadowColor: "rgba(0,0,0,0.22)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    ...(Platform.OS === 'web' ? {} : { textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 }),
   },
   betStatusCard: {
     backgroundColor: theme.colors.surfaceContainerHigh,
@@ -1905,10 +1902,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.3)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 2px 4px rgba(0,0,0,0.25)' as any }
+      : { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 }),
     elevation: 5,
   },
   fullScreenDetails: {
@@ -1983,10 +1979,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.3)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 2px 4px rgba(0,0,0,0.25)' as any }
+      : { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 }),
     elevation: 5,
   },
   swipeIndicators: {

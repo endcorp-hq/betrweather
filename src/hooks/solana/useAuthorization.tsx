@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PublicKey, PublicKeyInitData } from "@solana/web3.js";
+import { Buffer } from "buffer";
 import {
   Account as AuthorizedAccount,
   AuthorizationResult,
@@ -122,6 +123,25 @@ export function useAuthorization() {
     },
   });
 
+  // Web-only helper: establish authorization from a browser wallet public key
+  const setWebAuthorization = useCallback(async (publicKey: PublicKey): Promise<Account> => {
+    const addressB64 = Buffer.from(publicKey.toBytes()).toString('base64') as Base64EncodedAddress;
+    const webAccount: Account = { address: addressB64, publicKey };
+    const next: WalletAuthorization = {
+      accounts: [webAccount],
+      authToken: (authorization?.authToken as AuthToken) ?? ("web" as unknown as AuthToken),
+      selectedAccount: webAccount,
+      userAuth: true,
+      userSession: {
+        chain: 'devnet',
+        tier: 'none',
+        timestamp: Date.now(),
+      },
+    };
+    await setAuthorization(next);
+    return webAccount;
+  }, [authorization, setAuthorization]);
+
   // const { saveWalletAddress, removeWalletAddress } = useWidgetCache();
 
   const handleAuthorizationResult = useCallback(
@@ -237,6 +257,7 @@ export function useAuthorization() {
       authorizeSessionWithSignIn,
       deauthorizeSession,
       clearSession,
+      setWebAuthorization,
       selectedAccount: authorization?.selectedAccount ?? null,
       userSession: authorization?.userSession ?? null,
       isLoading,
@@ -247,6 +268,7 @@ export function useAuthorization() {
       authorizeSessionWithSignIn,
       deauthorizeSession,
       clearSession,
+      setWebAuthorization,
       isLoading, // Fix: add isLoading to dependencies
     ]
   );

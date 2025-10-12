@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Animated, TextInput, Dimensions, ScrollView, Keyboard, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, TextInput, Dimensions, ScrollView, Keyboard, Pressable, Platform } from 'react-native';
 import MaterialCommunityIcon from "@expo/vector-icons/MaterialCommunityIcons";
 import { useDebounce } from '../../hooks';
   
@@ -185,12 +185,12 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
         Animated.timing(scaleAnim, {
           toValue: 0.95,
           duration: 100,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(scaleAnim, {
           toValue: 1,
           duration: 100,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]).start();
       
