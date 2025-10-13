@@ -27,11 +27,29 @@ export function useMarkets(
 ): UseMarketsResult {
   const { resolvedLastHours = 24, autoStart = true } = opts;
   const { ensureAuthToken } = useBackendRelay();
-  const { selectedAccount } = useAuthorization();
+  const { selectedAccount, userSession } = useAuthorization();
   const { marketEvents } = useShortx();
 
   const API_BASE_RAW = process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8001";
   const API_BASE = API_BASE_RAW.replace(/\/$/, "");
+
+  const getReachableBase = useCallback((base: string) => {
+    try {
+      // Map localhost to Android emulator loopback
+      if ((/localhost|127\.0\.0\.1/i).test(base)) {
+        if (Platform.OS === 'android') {
+          const replaced = base.replace(/127\.0\.0\.1|localhost/i, '192.168.1.17');
+          if (__DEV__) {
+            try { console.warn('[Markets] Using 192.168.1.17 for Android emulator Socket/SSE'); } catch {}
+          }
+          return replaced;
+        }
+        // iOS simulator can use localhost
+        return base;
+      }
+      return base;
+    } catch { return base; }
+  }, []);
 
   // Canonical in-memory store keyed by market id (dbId fallback)
   const marketByIdRef = useRef<Map<string, BackendMarket>>(new Map());
@@ -50,6 +68,13 @@ export function useMarkets(
   const observingPageRef = useRef<number>(1);
   const resolvedPageRef = useRef<number>(1);
   const PAGE_LIMIT_DEFAULT = 10;
+
+  const selectedNetwork = useMemo(() => {
+    try {
+      const chain = userSession?.chain || '';
+      return chain.toLowerCase().includes('main') ? 'MAINNET' : 'DEVNET';
+    } catch { return 'DEVNET'; }
+  }, [userSession?.chain]);
 
   // Determine if only relevant keys have a change to reduce re-renders
   const hasRelevantChange = (prev: any, patch: any) => {
@@ -277,10 +302,11 @@ export function useMarkets(
       const base = getReachableBase(API_BASE);
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       // Fetch page 1 for all categories (public endpoints)
+      const network = selectedNetwork;
       const [aj, oj, rj] = await Promise.all([
-        fetch(`${base}/markets/active?page=1&limit=${PAGE_LIMIT_DEFAULT}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
-        fetch(`${base}/markets/observing?page=1&limit=${PAGE_LIMIT_DEFAULT}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
-        fetch(`${base}/markets/resolved?page=1&limit=${PAGE_LIMIT_DEFAULT}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch(`${base}/markets/active?page=1&limit=${PAGE_LIMIT_DEFAULT}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch(`${base}/markets/observing?page=1&limit=${PAGE_LIMIT_DEFAULT}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch(`${base}/markets/resolved?page=1&limit=${PAGE_LIMIT_DEFAULT}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
       ]);
       const toArr = (json: any) => Array.isArray(json)
         ? json
@@ -306,7 +332,7 @@ export function useMarkets(
       if (!cancelledRef.current) setLoading(false);
       t.end({ counts: { active: 0, observing: 0, resolved: 0 } });
     }
-  }, [fetchSegment, resolvedLastHours, upsertMany]);
+  }, [fetchSegment, resolvedLastHours, upsertMany, selectedNetwork, getReachableBase, API_BASE]);
 
   // Public first-paint (no JWT) for quickest initial UI
   const fetchPublicFirstPaint = useCallback(async () => {
@@ -316,10 +342,11 @@ export function useMarkets(
     try {
       const base = API_BASE;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const network = selectedNetwork;
       const [aj, oj, rj] = await Promise.all([
-        fetch(`${base}/markets/active?page=1&limit=${PAGE_LIMIT_DEFAULT}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
-        fetch(`${base}/markets/observing?page=1&limit=${PAGE_LIMIT_DEFAULT}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
-        fetch(`${base}/markets/resolved?page=1&limit=${PAGE_LIMIT_DEFAULT}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch(`${base}/markets/active?page=1&limit=${PAGE_LIMIT_DEFAULT}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch(`${base}/markets/observing?page=1&limit=${PAGE_LIMIT_DEFAULT}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
+        fetch(`${base}/markets/resolved?page=1&limit=${PAGE_LIMIT_DEFAULT}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
       ]);
       const toArr = (json: any) => Array.isArray(json)
         ? json
@@ -341,33 +368,19 @@ export function useMarkets(
       resolvedPageRef.current = 1;
     } catch {}
     finally { t.end(); }
-  }, [API_BASE, upsertMany]);
+  }, [API_BASE, upsertMany, selectedNetwork]);
 
-  const getReachableBase = useCallback((base: string) => {
-    try {
-      // Map localhost to Android emulator loopback
-      if ((/localhost|127\.0\.0\.1/i).test(base)) {
-        if (Platform.OS === 'android') {
-          const replaced = base.replace(/127\.0\.0\.1|localhost/i, '192.168.1.17');
-          if (__DEV__) {
-            try { console.warn('[Markets] Using 192.168.1.17 for Android emulator Socket/SSE'); } catch {}
-          }
-          return replaced;
-        }
-        // iOS simulator can use localhost
-        return base;
-      }
-      return base;
-    } catch { return base; }
-  }, []);
+  
 
   
   // Start unified SSE stream using reusable helper
   const startMarketsSSE = useCallback(async () => {
     // If wallet isn't connected, do not attempt auth-only endpoints
     if (!selectedAccount?.publicKey) return false;
+    const network = selectedNetwork;
     const wallet = selectedAccount.publicKey.toBase58();
-    if (sseStartedForWalletRef.current === wallet && (startingRef.current || esRef.current)) {
+    const key = `${wallet}|${network}`;
+    if (sseStartedForWalletRef.current === key && (startingRef.current || esRef.current)) {
       return true;
     }
     if (startingRef.current || esRef.current) {
@@ -386,9 +399,10 @@ export function useMarkets(
       // Pass token via query param because setting headers is not supported by standard EventSource
       // Backend should accept this for SSE; if not, we will fall back automatically on error
       const base = getReachableBase(API_BASE);
+      const network = selectedNetwork;
       const url = `${base}/markets/stream?lastHours=${encodeURIComponent(
         String(resolvedLastHours)
-      )}&jwt=${encodeURIComponent(token)}&wallet=${encodeURIComponent(
+      )}&network=${encodeURIComponent(network)}&jwt=${encodeURIComponent(token)}&wallet=${encodeURIComponent(
         selectedAccount.publicKey.toBase58()
       )}`;
       const stopHandle = startSSE({
@@ -462,7 +476,7 @@ export function useMarkets(
         }, 20000);
       }
 
-      sseStartedForWalletRef.current = wallet;
+      sseStartedForWalletRef.current = key;
       log('Markets', 'info', 'SSE started');
       startingRef.current = false;
       return true;
@@ -471,7 +485,7 @@ export function useMarkets(
       startingRef.current = false;
       return false;
     }
-  }, [API_BASE, ensureAuthToken, selectedAccount, resolvedLastHours, getReachableBase, startSSE, fetchProgressiveFallback, closeStream, upsertMany, normalizeMarketPatch, isFresher]);
+  }, [API_BASE, ensureAuthToken, selectedAccount, resolvedLastHours, getReachableBase, startSSE, fetchProgressiveFallback, closeStream, upsertMany, normalizeMarketPatch, isFresher, selectedNetwork]);
 
 
   const refresh = useCallback(async () => {
@@ -500,6 +514,28 @@ export function useMarkets(
       closeStream();
     };
   }, [autoStart, fetchPublicFirstPaint, startMarketsSSE, fetchProgressiveFallback, closeStream, selectedAccount?.publicKey?.toBase58?.()]);
+
+  // Restart stream and reset caches on network change
+  useEffect(() => {
+    if (!autoStart) return;
+    // Reset state for new network
+    try { closeStream(); } catch {}
+    marketByIdRef.current.clear();
+    setMarketsList([]);
+    activePageRef.current = 1;
+    observingPageRef.current = 1;
+    resolvedPageRef.current = 1;
+    sseStartedForWalletRef.current = null;
+    didPublicPaintRef.current = false;
+    // Kick off fresh flow
+    void fetchPublicFirstPaint();
+    if (selectedAccount?.publicKey) {
+      (async () => {
+        try { await startMarketsSSE(); } catch {}
+        try { await fetchProgressiveFallback(); } catch {}
+      })();
+    }
+  }, [selectedNetwork]);
 
   // Apply on-chain real-time event deltas into the same map for a single source of truth
   useEffect(() => {

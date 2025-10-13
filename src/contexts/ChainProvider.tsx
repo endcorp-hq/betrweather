@@ -7,7 +7,7 @@ import { resolveRpcUrl } from '../utils/rpc';
 type NetworkEnvironment = 'mainnet' | 'devnet';
 
 interface ChainContextType {
-  currentChain: NetworkEnvironment | null;
+  currentChain: NetworkEnvironment;
   connection: Connection | null;
   isLoading: boolean;
 }
@@ -23,7 +23,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
   children, 
   config = { commitment: "confirmed" } 
 }) => {
-  const [currentChain, setCurrentChain] = useState<NetworkEnvironment | null>(null);
+  const [currentChain, setCurrentChain] = useState<NetworkEnvironment>('devnet');
   const [isLoading, setIsLoading] = useState(false);
   const {selectedAccount} = useAuthorization();
   const connectionRef = useRef<Connection | null>(null);

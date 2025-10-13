@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { InteractionManager } from "react-native";
 import { useAuthorization, useNftMetadata } from "./solana";
 import { useBackendRelay } from "./useBackendRelay";
@@ -391,7 +391,7 @@ export function usePositions() {
           marketId: position.marketId,
           payerPubkey: selectedAccount.publicKey.toBase58(),
           assetId: new Web3PublicKey(position.assetId).toBase58(),
-          network: currentChain || 'devnet',
+          network: currentChain,
         });
         const messageBase64 = (build as any).message || (build as any).messageBase64;
         if (!messageBase64) throw new Error('Builder did not return base64 message');
@@ -513,6 +513,18 @@ export function usePositions() {
     const bId = Number(b.marketId) || Number.MAX_SAFE_INTEGER;
     return aId - bId;
   });
+
+  // Clear positions and caches on network or wallet change to avoid stale cross-network items
+  // Then trigger a fresh background refresh
+  useEffect(() => {
+    locallyRemovedKeysRef.current.clear();
+    setPositions([]);
+    lastRefreshTime.current = 0;
+    inflightPromiseRef.current = null;
+    if (selectedAccount?.publicKey) {
+      InteractionManager.runAfterInteractions(() => { void refreshPositions(); });
+    }
+  }, [currentChain, selectedAccount?.publicKey?.toBase58?.()]);
 
   return {
     positions: sortedPositions,

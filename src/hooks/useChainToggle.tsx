@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Chain } from '@solana-mobile/mobile-wallet-adapter-protocol';
 
 export function useChainToggle() {
-  const [selectedChain, setSelectedChain] = useState<Chain>('solana:devnet');
+  const [selectedChain, setSelectedChain] = useState<Chain>('solana:mainnet-beta');
   
   const toggleChain = useCallback(() => {
     setSelectedChain(prev => prev === 'solana:mainnet-beta' ? 'solana:devnet' : 'solana:mainnet-beta');
