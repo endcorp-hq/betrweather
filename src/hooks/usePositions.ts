@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { InteractionManager } from "react-native";
-import { useAuthorization, useNftMetadata } from "./solana";
+import { useAuthorization } from "./solana/useAuthorization";
+import { useNftMetadata } from "./solana/useNft";
 import { useBackendRelay } from "./useBackendRelay";
 import { Buffer } from "buffer";
 import { useMobileWallet } from "./useMobileWallet";
@@ -18,7 +19,7 @@ import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 import { PublicKey as Web3PublicKey } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
 
-import { useChain } from "@/contexts";
+import { useChain } from "../contexts/ChainProvider";
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();

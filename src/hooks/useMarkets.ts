@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { useBackendRelay } from "./useBackendRelay";
-import { useAuthorization } from "./solana";
-import { useShortx } from "./solana";
+import { useAuthorization } from "./solana/useAuthorization";
+import { useShortx } from "./solana/useContract";
 import { startSSE, log, timeStart, throttle } from "@/utils";
 
 type BackendMarket = any;

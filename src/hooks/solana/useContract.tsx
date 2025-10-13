@@ -22,7 +22,7 @@ import React, {
 import { Position } from "@endcorp/depredict";
   import BN from "bn.js";
   import { useCallback } from 'react';
-  import { useChain } from "@/contexts";
+  import { useChain } from "../../contexts/ChainProvider";
 import { useAuthorization } from "./useAuthorization";
   import { useBackendRelay } from "../useBackendRelay";
   

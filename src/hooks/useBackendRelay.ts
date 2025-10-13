@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useMemo, useRef } from "react";
 import { useAuthorization } from "./solana/useAuthorization";
-import { useChain } from "@/contexts";
+import { useChain } from "../contexts/ChainProvider";
 import { Buffer } from "buffer";
 import { MessageV0, VersionedTransaction, Transaction } from "@solana/web3.js";
 import bs58 from "bs58";

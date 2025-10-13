@@ -11,7 +11,7 @@ import { useCallback, useState } from "react";
 import axios from "axios";
 import { useAuthorization } from "./useAuthorization";
 import { useMobileWallet } from "../useMobileWallet";
-import { useChain } from "@/contexts";
+import { useChain } from "../../contexts/ChainProvider";
 
 const getPriorityFee = async () => {
   let fee = 1000;

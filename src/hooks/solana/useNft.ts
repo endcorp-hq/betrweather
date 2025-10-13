@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuthorization } from "./useAuthorization";
-import { useChain } from "@/contexts";
+import { useChain } from "../../contexts/ChainProvider";
 
 // Simple exponential backoff for rate-limited requests (HTTP 429)
 async function withBackoff<T>(fn: () => Promise<T>, retries = 4) {
