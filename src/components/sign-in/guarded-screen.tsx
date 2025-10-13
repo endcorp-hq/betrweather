@@ -24,12 +24,23 @@ function ChainToggle({
           {/* Sliding background */}
           <View
             className={`absolute top-0 bottom-0 w-1/2 bg-white/20 rounded-full transition-all duration-200 ${
-              selectedChain === "solana:devnet" ? "left-0" : "left-1/2"
+              selectedChain.includes("mainnet") ? "left-0" : "left-1/2"
             }`}
           />
 
           {/* Labels */}
           <View className="flex-row">
+          <View className="flex-1 py-2 px-1">
+              <Text
+                className={`text-center text-base font-better-medium ${
+                  selectedChain.includes("mainnet")
+                    ? "text-white"
+                    : "text-gray-400"
+                }`}
+              >
+                Mainnet
+              </Text>
+            </View>
             <View className="flex-1 py-2 px-1">
               <Text
                 className={`text-center text-base font-better-medium ${
@@ -39,17 +50,6 @@ function ChainToggle({
                 }`}
               >
                 Devnet
-              </Text>
-            </View>
-            <View className="flex-1 py-2 px-1">
-              <Text
-                className={`text-center text-base font-better-medium ${
-                  selectedChain.includes("mainnet")
-                    ? "text-white"
-                    : "text-gray-400"
-                }`}
-              >
-                Mainnet
               </Text>
             </View>
           </View>
