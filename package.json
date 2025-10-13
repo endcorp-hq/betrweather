@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@endcorp/depredict": "^0.6.2",
+    "@endcorp/depredict": "^0.6.6",
     "@expo/vector-icons": "~14.0.4",
     "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
     "@metaplex-foundation/mpl-bubblegum": "^4.0.0",
@@ -81,6 +81,7 @@
     "react-native-svg": "15.8.0",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-webview": "13.12.5",
+    "react-native-worklets": "^0.6.1",
     "rn-swipe-button": "^3.0.1",
     "stream-browserify": "^3.0.0",
     "tailwindcss": "^3.4.17"
