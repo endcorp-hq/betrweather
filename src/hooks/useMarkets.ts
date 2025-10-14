@@ -3,7 +3,23 @@ import { Platform } from "react-native";
 import { useBackendRelay } from "./useBackendRelay";
 import { useAuthorization } from "./solana/useAuthorization";
 import { useShortx } from "./solana/useContract";
-import { startSSE, log, timeStart, throttle } from "@/utils";
+import { startSSE, log, timeStart } from "@/utils";
+
+// Global SSE coordination to prevent duplicate streams across multiple hook instances
+type GlobalMarketsSSE = {
+  stop: { stop: () => void } | null;
+  key: string | null;
+  starting: boolean;
+  lastStartTs: number;
+  subscribers: number;
+};
+const globalMarketsSSE: GlobalMarketsSSE = {
+  stop: null,
+  key: null,
+  starting: false,
+  lastStartTs: 0,
+  subscribers: 0,
+};
 
 type BackendMarket = any;
 
@@ -64,6 +80,7 @@ export function useMarkets(
   const startingRef = useRef<boolean>(false);
   const didPublicPaintRef = useRef<boolean>(false);
   const sseStartedForWalletRef = useRef<string | null>(null);
+  const restartCooldownRef = useRef<number>(0);
   const activePageRef = useRef<number>(1);
   const observingPageRef = useRef<number>(1);
   const resolvedPageRef = useRef<number>(1);
@@ -334,41 +351,150 @@ export function useMarkets(
     }
   }, [fetchSegment, resolvedLastHours, upsertMany, selectedNetwork, getReachableBase, API_BASE]);
 
-  // Public first-paint (no JWT) for quickest initial UI
+  // Public first-paint (no JWT) for quickest initial UI via public SSE, with REST fallback
   const fetchPublicFirstPaint = useCallback(async () => {
     if (didPublicPaintRef.current) return;
     didPublicPaintRef.current = true;
     const t = timeStart('Markets', 'publicFirstPaint');
+    const base = getReachableBase(API_BASE);
+    const network = selectedNetwork;
+    const limit = PAGE_LIMIT_DEFAULT;
+
+    // Wrap in a promise that resolves after initial snapshot events are handled or timeout
+    const runViaSSE = async () => new Promise<void>((resolve) => {
+      let gotActive = false;
+      let gotObserving = false;
+      let gotResolved = false;
+      let finished = false;
+      let localStop: { stop: () => void } | null = null;
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        try { clearTimeout(safety); } catch {}
+        try { localStop?.stop?.(); } catch {}
+        resolve();
+      };
+
+      const maybeFinish = () => {
+        if (gotActive && gotObserving && gotResolved) finish();
+      };
+
+      // Close safety after short window to avoid lingering
+      const safety = setTimeout(() => {
+        finish();
+      }, 3000);
+
+      const url = `${base}/markets/stream?limit=${encodeURIComponent(String(limit))}&network=${encodeURIComponent(network)}&lastHours=${encodeURIComponent(String(resolvedLastHours))}`;
+
+      localStop = startSSE({
+        url,
+        onError: () => {
+          finish();
+        },
+        events: {
+          activePage: (data: any) => {
+            if (cancelledRef.current || finished || gotActive) return;
+            try {
+              const arr = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+              if (arr.length) upsertMany(arr);
+              gotActive = true;
+              maybeFinish();
+            } catch {}
+          },
+          active: (data: any) => {
+            if (cancelledRef.current || finished || gotActive) return;
+            try {
+              const arr = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+              if (arr.length) upsertMany(arr);
+              gotActive = true;
+              maybeFinish();
+            } catch {}
+          },
+          observingPage: (data: any) => {
+            if (cancelledRef.current || finished || gotObserving) return;
+            try {
+              const arr = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+              if (arr.length) upsertMany(arr);
+              gotObserving = true;
+              maybeFinish();
+            } catch {}
+          },
+          observing: (data: any) => {
+            if (cancelledRef.current || finished || gotObserving) return;
+            try {
+              const arr = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+              if (arr.length) upsertMany(arr);
+              gotObserving = true;
+              maybeFinish();
+            } catch {}
+          },
+          resolved: (data: any) => {
+            if (cancelledRef.current || finished || gotResolved) return;
+            try {
+              const arr = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+              if (arr.length) upsertMany(arr);
+              gotResolved = true;
+              maybeFinish();
+            } catch {}
+          },
+          resolvedPage: (data: any) => {
+            if (cancelledRef.current || finished || gotResolved) return;
+            try {
+              const arr = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+              if (arr.length) upsertMany(arr);
+              gotResolved = true;
+              maybeFinish();
+            } catch {}
+          },
+          resolvedEnd: () => {
+            if (cancelledRef.current || finished) return;
+            gotResolved = true;
+            maybeFinish();
+          },
+        },
+      });
+    });
+
     try {
-      const base = API_BASE;
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      const network = selectedNetwork;
-      const [aj, oj, rj] = await Promise.all([
-        fetch(`${base}/markets/active?page=1&limit=${PAGE_LIMIT_DEFAULT}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
-        fetch(`${base}/markets/observing?page=1&limit=${PAGE_LIMIT_DEFAULT}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
-        fetch(`${base}/markets/resolved?page=1&limit=${PAGE_LIMIT_DEFAULT}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
-      ]);
-      const toArr = (json: any) => Array.isArray(json)
-        ? json
-        : Array.isArray(json?.items) ? json.items
-        : Array.isArray(json?.data) ? json.data
-        : Array.isArray(json?.results) ? json.results
-        : Array.isArray(json?.records) ? json.records
-        : Array.isArray(json?.page?.items) ? json.page.items
-        : Array.isArray(json?.page?.records) ? json.page.records
-        : [];
-      const a = toArr(aj);
-      const o = toArr(oj);
-      const r = toArr(rj);
-      if (!cancelledRef.current && a.length) upsertMany(a);
-      if (!cancelledRef.current && o.length) upsertMany(o);
-      if (!cancelledRef.current && r.length) upsertMany(r);
+      const startedAt = Date.now();
+      await runViaSSE();
+      // Reset paging cursors after first paint
       activePageRef.current = 1;
       observingPageRef.current = 1;
       resolvedPageRef.current = 1;
-    } catch {}
-    finally { t.end(); }
-  }, [API_BASE, upsertMany, selectedNetwork]);
+    } catch {
+      // Fallback to public REST if SSE unavailable or failed quickly
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        const [aj, oj, rj] = await Promise.all([
+          fetch(`${base}/markets/active?page=1&limit=${limit}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
+          fetch(`${base}/markets/observing?page=1&limit=${limit}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
+          fetch(`${base}/markets/resolved?page=1&limit=${limit}&network=${encodeURIComponent(network)}`, { method: 'GET', headers }).then(res => res.ok ? res.json() : null).catch(() => null),
+        ]);
+        const toArr = (json: any) => Array.isArray(json)
+          ? json
+          : Array.isArray(json?.items) ? json.items
+          : Array.isArray(json?.data) ? json.data
+          : Array.isArray(json?.results) ? json.results
+          : Array.isArray(json?.records) ? json.records
+          : Array.isArray(json?.page?.items) ? json.page.items
+          : Array.isArray(json?.page?.records) ? json.page.records
+          : [];
+        const a = toArr(aj);
+        const o = toArr(oj);
+        const r = toArr(rj);
+        if (!cancelledRef.current && a.length) upsertMany(a);
+        if (!cancelledRef.current && o.length) upsertMany(o);
+        if (!cancelledRef.current && r.length) upsertMany(r);
+        activePageRef.current = 1;
+        observingPageRef.current = 1;
+        resolvedPageRef.current = 1;
+      } catch {}
+    } finally {
+      t.end();
+    }
+  }, [API_BASE, upsertMany, selectedNetwork, getReachableBase, resolvedLastHours]);
 
   
 
@@ -380,6 +506,12 @@ export function useMarkets(
     const network = selectedNetwork;
     const wallet = selectedAccount.publicKey.toBase58();
     const key = `${wallet}|${network}`;
+    // Prevent rapid restarts within cooldown window
+    const now = Date.now();
+    if (restartCooldownRef.current && now - restartCooldownRef.current < 1500) {
+      return true;
+    }
+
     if (sseStartedForWalletRef.current === key && (startingRef.current || esRef.current)) {
       return true;
     }
@@ -405,6 +537,13 @@ export function useMarkets(
       )}&network=${encodeURIComponent(network)}&jwt=${encodeURIComponent(token)}&wallet=${encodeURIComponent(
         selectedAccount.publicKey.toBase58()
       )}`;
+      // Ensure single global stream across multiple hook instances
+      if (globalMarketsSSE.stop && globalMarketsSSE.key !== key) {
+        try { globalMarketsSSE.stop.stop(); } catch {}
+        globalMarketsSSE.stop = null;
+        globalMarketsSSE.key = null;
+      }
+
       const stopHandle = startSSE({
         url,
         onOpen: async () => {
@@ -465,20 +604,16 @@ export function useMarkets(
 
       if (!stopHandle) { startingRef.current = false; return false; }
       esRef.current = stopHandle;
+      globalMarketsSSE.stop = stopHandle;
+      globalMarketsSSE.key = key;
+      globalMarketsSSE.lastStartTs = Date.now();
 
-      // Start a lightweight background poll if not streaming (safety net)
-      if (!pollIntervalRef.current) {
-        pollIntervalRef.current = setInterval(() => {
-          if (cancelledRef.current) return;
-          if (!isStreaming) {
-            void fetchProgressiveFallback();
-          }
-        }, 20000);
-      }
+      // Remove background poll to avoid periodic duplicates and load
 
       sseStartedForWalletRef.current = key;
       log('Markets', 'info', 'SSE started');
       startingRef.current = false;
+      restartCooldownRef.current = Date.now();
       return true;
     } catch (e) {
       closeStream();
@@ -494,18 +629,18 @@ export function useMarkets(
     await fetchProgressiveFallback();
   }, [fetchProgressiveFallback]);
 
-  // Mount: do public first paint immediately; when wallet arrives, start SSE and private hydration
+  // Mount: do public first paint if no wallet; when wallet arrives, start SSE without duplicate hydration
   useEffect(() => {
     if (!autoStart) return;
     cancelledRef.current = false;
-    // Public routes for initial paint (no wallet required)
-    void fetchPublicFirstPaint();
+    const hasWallet = !!selectedAccount?.publicKey;
+    // Public routes for initial paint only if no wallet (to avoid double initial payloads)
+    if (!hasWallet) void fetchPublicFirstPaint();
 
-    // When wallet is present: start SSE and hydrate privately once
-    if (selectedAccount?.publicKey) {
+    // When wallet is present: start SSE; skip immediate progressive refresh to avoid duplication
+    if (hasWallet) {
       (async () => {
         try { await startMarketsSSE(); } catch {}
-        try { await fetchProgressiveFallback(); } catch {}
       })();
     }
 
@@ -527,12 +662,13 @@ export function useMarkets(
     resolvedPageRef.current = 1;
     sseStartedForWalletRef.current = null;
     didPublicPaintRef.current = false;
-    // Kick off fresh flow
-    void fetchPublicFirstPaint();
-    if (selectedAccount?.publicKey) {
+    // Kick off fresh flow depending on wallet status to avoid duplicate logs/payloads
+    const hasWallet = !!selectedAccount?.publicKey;
+    if (!hasWallet) {
+      void fetchPublicFirstPaint();
+    } else {
       (async () => {
         try { await startMarketsSSE(); } catch {}
-        try { await fetchProgressiveFallback(); } catch {}
       })();
     }
   }, [selectedNetwork]);
