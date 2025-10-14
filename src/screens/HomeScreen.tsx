@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   RefreshControl,
+  FlatList,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -249,9 +250,9 @@ export function HomeScreen() {
     setIsSearchActive(isExpanded);
   };
 
-  const handleDailyForecastPress = (dayData: any) => {
+  const handleDailyForecastPress = useCallback((dayData: any) => {
     setSelectedDayDetail(dayData);
-  };
+  }, []);
 
   const handleBackFromDetail = () => {
     setSelectedDayDetail(null);
@@ -739,28 +740,33 @@ export function HomeScreen() {
                   <Text className="text-white text-xl font-better-semi-bold my-2">
                     Hourly Forecast
                   </Text>
-                  <ScrollView
+                  <FlatList
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 8 }}
-                  >
-                    {currentData.hourlyForecastData?.map(
-                      (h: any, idx: number) => (
+                    data={(currentData.hourlyForecastData as any) || []}
+                    keyExtractor={(_, idx) => String(idx)}
+                    renderItem={({ item }: { item: any }) => {
+                      const temperature = (
+                        Math.round(
+                          Number(item?.temperature?.degrees ?? item?.temperature ?? 0)
+                        ).toString() || "--"
+                      );
+                      return (
                         <HourlyForecastItem
-                          key={idx}
-                          time={h.time}
-                          temperature={
-                            Math.round(
-                              h.temperature?.degrees || h.temperature || 0
-                            ).toString() || "--"
-                          }
-                          description={h.description}
-                          icon={h.icon}
-                          iconUri={h.iconUri}
+                          time={item?.time}
+                          temperature={temperature}
+                          description={item?.description}
+                          icon={item?.icon}
+                          iconUri={item?.iconUri}
                         />
-                      )
-                    )}
-                  </ScrollView>
+                      );
+                    }}
+                    initialNumToRender={12}
+                    maxToRenderPerBatch={12}
+                    windowSize={5}
+                    removeClippedSubviews
+                  />
                 </GlassyCard>
               </MotiView>
             </Animated.View>
@@ -781,26 +787,28 @@ export function HomeScreen() {
                       ? "7 Day Forecast"
                       : "10 Day Forecast"}
                   </Text>
-                  <ScrollView
+                  <FlatList
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 4 }}
-                  >
-                    {currentData.dailyForecastData?.map(
-                      (d: any, idx: number) => (
-                        <DailyForecastItem
-                          key={idx}
-                          day={d.day}
-                          highTemp={d.highTemp}
-                          lowTemp={d.lowTemp}
-                          iconUri={d.iconUri}
-                          icon={d.icon}
-                          rawData={currentData?.dailyForecastData?.[idx]}
-                          onPress={handleDailyForecastPress}
-                        />
-                      )
+                    data={(currentData.dailyForecastData as any) || []}
+                    keyExtractor={(_, idx) => String(idx)}
+                    renderItem={({ item, index }: { item: any; index: number }) => (
+                      <DailyForecastItem
+                        day={item?.day}
+                        highTemp={item?.highTemp}
+                        lowTemp={item?.lowTemp}
+                        iconUri={item?.iconUri}
+                        icon={item?.icon}
+                        rawData={currentData?.dailyForecastData?.[index]}
+                        onPress={handleDailyForecastPress}
+                      />
                     )}
-                  </ScrollView>
+                    initialNumToRender={7}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    removeClippedSubviews
+                  />
                 </GlassyCard>
               </MotiView>
             </Animated.View>

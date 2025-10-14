@@ -10,7 +10,7 @@ interface HourlyForecastItemProps {
   precipitation?: string;
 }
 
-export function HourlyForecastItem({
+function HourlyForecastItemInternal({
   time,
   temperature,
   description,
@@ -68,3 +68,5 @@ export function HourlyForecastItem({
     </View>
   );
 }
+
+export const HourlyForecastItem = React.memo(HourlyForecastItemInternal);

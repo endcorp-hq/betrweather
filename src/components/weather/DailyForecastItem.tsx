@@ -12,7 +12,7 @@ interface DailyForecastItemProps {
   onPress?: (data: any) => void;
 }
 
-export function DailyForecastItem({
+function DailyForecastItemInternal({
   day,
   highTemp,
   lowTemp,
@@ -132,4 +132,6 @@ export function DailyForecastItem({
     </DarkCard>
     </TouchableOpacity>
   );
-} 
+}
+
+export const DailyForecastItem = React.memo(DailyForecastItemInternal); 
