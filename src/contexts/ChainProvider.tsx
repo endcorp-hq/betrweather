@@ -25,7 +25,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
 }) => {
   const [currentChain, setCurrentChain] = useState<NetworkEnvironment>('devnet');
   const [isLoading, setIsLoading] = useState(false);
-  const {selectedAccount} = useAuthorization();
+  const { selectedAccount, userSession } = useAuthorization();
   const connectionRef = useRef<Connection | null>(null);
 
   // Cleanup function for connections
@@ -79,6 +79,14 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       initializeChain();
     }
   }, [selectedAccount]);
+
+  // Reactively sync chain with the authorized session's chain selection
+  useEffect(() => {
+    const chain = userSession?.chain;
+    if (!chain) return;
+    const normalized: NetworkEnvironment = chain.includes('mainnet') ? 'mainnet' : 'devnet';
+    setCurrentChain((prev) => (prev !== normalized ? normalized : prev));
+  }, [userSession?.chain]);
 
   // Cleanup connection when component unmounts
   useEffect(() => {

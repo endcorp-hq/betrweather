@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { useBackendRelay } from "./useBackendRelay";
 import { useAuthorization } from "./solana/useAuthorization";
+import { useChain } from "../contexts/ChainProvider";
 import { useShortx } from "./solana/useContract";
 import { startSSE, log, timeStart } from "@/utils";
 
@@ -45,6 +46,7 @@ export function useMarkets(
   const { ensureAuthToken } = useBackendRelay();
   const { selectedAccount, userSession } = useAuthorization();
   const { marketEvents } = useShortx();
+  const { currentChain } = useChain();
 
   const API_BASE_RAW = process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8001";
   const API_BASE = API_BASE_RAW.replace(/\/$/, "");
@@ -88,10 +90,10 @@ export function useMarkets(
 
   const selectedNetwork = useMemo(() => {
     try {
-      const chain = userSession?.chain || '';
-      return chain.toLowerCase().includes('main') ? 'MAINNET' : 'DEVNET';
-    } catch { return 'DEVNET'; }
-  }, [userSession?.chain]);
+      const chain = currentChain || userSession?.chain || 'devnet';
+      return String(chain).toLowerCase().includes('main') ? 'mainnet' : 'devnet';
+    } catch { return 'devnet'; }
+  }, [currentChain, userSession?.chain]);
 
   // Determine if only relevant keys have a change to reduce re-renders
   const hasRelevantChange = (prev: any, patch: any) => {
