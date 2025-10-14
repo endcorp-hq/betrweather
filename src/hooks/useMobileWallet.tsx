@@ -1,27 +1,40 @@
-import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
-import { Account, useAuthorization } from "./solana/useAuthorization";
+import {
+  useAuthorization,
+} from "./solana/useAuthorization";
 import {
   Transaction,
   TransactionSignature,
   VersionedTransaction,
 } from "@solana/web3.js";
 import { useCallback, useMemo } from "react";
-import { Chain, SignInPayload } from "@solana-mobile/mobile-wallet-adapter-protocol";
-
+import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
+import { type SolanaSignInInput } from "@solana/wallet-standard-features";
+import { Web3MobileWallet, transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
+import { Account } from "src/types/solana-types";
 export function useMobileWallet() {
   const { authorizeSessionWithSignIn, authorizeSession, deauthorizeSession } =
     useAuthorization();
 
-  const connect = useCallback(async (chainIdentifier?: Chain): Promise<Account> => {
-    return await transact(async (wallet) => {
-      return await authorizeSession(wallet, chainIdentifier);
-    });
-  }, [authorizeSession]);
+  const connect = useCallback(
+    async (chainIdentifier?: Chain): Promise<Account> => {
+      return await transact(async (wallet: Web3MobileWallet) => {
+        return await authorizeSession(wallet, chainIdentifier);
+      });
+    },
+    [authorizeSession]
+  );
 
   const signIn = useCallback(
-    async (signInPayload: SignInPayload, chainIdentifier?: Chain): Promise<Account> => {
-      return await transact(async (wallet) => {
-        return await authorizeSessionWithSignIn(wallet, signInPayload, chainIdentifier);
+    async (
+      signInPayload: SolanaSignInInput,
+      chainIdentifier?: Chain,
+    ): Promise<Account> => {
+      return await transact(async (wallet: Web3MobileWallet) => {
+        return await authorizeSessionWithSignIn(
+          wallet,
+          signInPayload,
+          chainIdentifier,
+        );
       });
     },
     [authorizeSessionWithSignIn]
@@ -49,6 +62,7 @@ export function useMobileWallet() {
         });
       } catch (e) {
         console.log("this is error", e);
+        throw e;
       }
     },
     [authorizeSession]
@@ -56,7 +70,7 @@ export function useMobileWallet() {
 
   const signTransaction = useCallback(
     async (
-      transaction: Transaction | VersionedTransaction,
+      transaction: Transaction | VersionedTransaction
     ): Promise<Transaction | VersionedTransaction | undefined> => {
       try {
         return await transact(async (wallet) => {
@@ -75,14 +89,22 @@ export function useMobileWallet() {
   );
 
   const signMessage = useCallback(
-    async (message: Uint8Array): Promise<Uint8Array> => {
+    async (message: Uint8Array, chainIdentifier?: Chain): Promise<{ signature: Uint8Array; publicKey: string }> => {
       return await transact(async (wallet) => {
-        const authResult = await authorizeSession(wallet);
+        try{
+        const authResult = await authorizeSession(wallet, chainIdentifier);
         const signedMessages = await wallet.signMessages({
           addresses: [authResult.address],
           payloads: [message],
         });
-        return signedMessages[0];
+        return {
+          signature: signedMessages[0],
+          publicKey: authResult.publicKey.toBase58(),
+        }
+        } catch (e) {
+          console.log("this is error signing message", e);
+          throw e;
+        }
       });
     },
     [authorizeSession]
@@ -97,6 +119,13 @@ export function useMobileWallet() {
       signTransaction,
       signMessage,
     }),
-    [connect, signIn, disconnect, signAndSendTransaction, signTransaction, signMessage]
+    [
+      connect,
+      signIn,
+      disconnect,
+      signAndSendTransaction,
+      signTransaction,
+      signMessage,
+    ]
   );
 }

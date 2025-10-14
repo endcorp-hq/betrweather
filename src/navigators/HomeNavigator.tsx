@@ -31,19 +31,19 @@ export function HomeNavigator() {
       screenOptions={({ route }) => ({
         header: () =>
           route.name === "Markets" ||
-          route.name === "Trades" ||
+          route.name === "Profile" ||
           route.name === "MarketDetail" ? (
             <TopBar />
           ) : null,
         headerShown:
           route.name === "Markets" ||
-          route.name === "Trades" ||
+          route.name === "Profile" ||
           route.name === "MarketDetail",
       })}
     >
       <Tab.Screen name="Weather" component={HomeScreen} />
       <Tab.Screen name="Markets" component={MarketsGuarded} />
-      <Tab.Screen name="Trades" component={ProfileGuarded} />
+      <Tab.Screen name="Profile" component={ProfileGuarded} />
     </Tab.Navigator>
   );
 }

@@ -8,6 +8,8 @@ import bs58 from "bs58";
 import * as Crypto from "expo-crypto";
 import { useMobileWallet } from "./useMobileWallet";
 import { log, timeStart } from "@/utils";
+import { getJWTTokens, clearJWTTokens } from "../utils/authUtils";
+import { tokenManager } from "../utils/tokenManager";
 
 type BuildTxResponse = {
   txRef: string;
@@ -25,28 +27,6 @@ type ForwardTxRequest = {
 };
 
 type ForwardTxResponse = { signature: string; status: string };
-
-const TOKEN_STORAGE_KEY_PREFIX = "relay-jwt";
-
-type TokenRecord = { token: string; exp?: number };
-
-function base64UrlToJson<T = any>(segment: string): T | null {
-  try {
-    const b64 = segment.replace(/-/g, "+").replace(/_/g, "/");
-    const json = Buffer.from(b64, "base64").toString("utf8");
-    return JSON.parse(json) as T;
-  } catch {
-    return null;
-  }
-}
-
-function extractJwtExpMs(token: string): number | undefined {
-  const parts = token.split(".");
-  if (parts.length !== 3) return undefined;
-  const payload = base64UrlToJson<{ exp?: number }>(parts[1]);
-  if (!payload?.exp) return undefined;
-  return payload.exp * 1000; // seconds → ms
-}
 
 async function generateIdempotencyKey(): Promise<string> {
   // Prefer Expo Crypto randomUUID if available
@@ -90,93 +70,98 @@ export function useBackendRelay() {
     return process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8001";
   }, []);
 
-  const storageKey = useMemo(() => {
-    const wallet = selectedAccount?.publicKey?.toBase58?.();
-    const chain = currentChain || "devnet";
-    return `${TOKEN_STORAGE_KEY_PREFIX}:${chain}:${wallet || "anon"}`;
-  }, [selectedAccount, currentChain]);
-
   const bytesToBase64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
   const base64ToBytes = (b64: string) => new Uint8Array(Buffer.from(b64, "base64"));
 
+  /**
+   * Ensure we have a valid JWT token from the login system.
+   * This ONLY uses tokens from your login/signup flow.
+   * If no token exists or refresh fails, it throws an error (should trigger logout).
+   */
   const ensureAuthToken = useCallback(async (forceRefresh = false): Promise<string> => {
-    if (!selectedAccount?.publicKey) throw new Error("Wallet not connected");
+    if (!selectedAccount?.publicKey) {
+      throw new Error("Wallet not connected. Please reconnect your wallet.");
+    }
 
-    // In-memory first
-    if (!forceRefresh && tokenRef.current) return tokenRef.current;
+    // In-memory first (if we already got it this session)
+    if (!forceRefresh && tokenRef.current) {
+      return tokenRef.current;
+    }
 
     // If a token request is already in-flight, await it (coalesce calls)
     if (!forceRefresh && inflightTokenPromiseRef.current) {
       return inflightTokenPromiseRef.current;
     }
 
-    // Try storage
-    const cachedRaw = forceRefresh ? null : await AsyncStorage.getItem(storageKey);
-    if (cachedRaw && !forceRefresh) {
-      let record: TokenRecord | null = null;
-      try {
-        const parsed = JSON.parse(cachedRaw);
-        if (parsed && typeof parsed === "object" && typeof parsed.token === "string") {
-          record = parsed as TokenRecord;
-        }
-      } catch {
-        record = { token: cachedRaw };
-      }
-      const now = Date.now();
-      const expMs = record ? (record.exp ?? extractJwtExpMs(record.token)) : undefined;
-      const isExpired = !!expMs && now >= expMs - 60_000; // refresh 60s early
-      if (record && !isExpired) {
-        tokenRef.current = record.token;
-        return record.token;
-      }
-    }
-
     // Build a single in-flight promise to avoid thundering herd
     const promise = (async () => {
       const t = timeStart('Auth', 'ensureAuthToken');
-      // Challenge
-      const challengeRes = await fetch(`${API_BASE}/wallet/challenge`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet: selectedAccount.publicKey.toBase58() }),
-      });
-      if (!challengeRes.ok) throw new Error(`Challenge failed: ${challengeRes.status}`);
-      const { nonce } = await challengeRes.json();
+      
+      // Get JWT from login system
+      let tokens = await getJWTTokens();
+      
+      if (!tokens || !tokens.accessToken) {
+        // No JWT found - user needs to login
+        log('Auth', 'error', 'No JWT found. User must login.');
+        throw new Error("Authentication required. Please login.");
+      }
 
-      // Sign nonce with wallet
-      if (!signMessage) throw new Error("Wallet does not support signMessage");
-      const sigBytes = await signMessage(new TextEncoder().encode(nonce));
-      const signature = bs58.encode(sigBytes);
+      // Verify wallet matches
+      if (tokens.walletAddress !== selectedAccount.publicKey.toBase58()) {
+        log('Auth', 'warn', 'JWT wallet mismatch. Clearing tokens.');
+        await clearJWTTokens();
+        throw new Error("Wallet mismatch. Please login again.");
+      }
 
-      // Verify
-      const verifyRes = await fetch(`${API_BASE}/wallet/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          wallet: selectedAccount.publicKey.toBase58(),
-          nonce,
-          signature,
-        }),
-      });
-      if (!verifyRes.ok) throw new Error(`Verify failed: ${verifyRes.status}`);
-      const { token } = await verifyRes.json();
+      // Check if token needs refresh
+      const now = Date.now();
+      const isExpired = now >= tokens.expiresAt;
+      const needsRefresh = tokenManager.shouldRefresh(tokens);
 
-      const record: TokenRecord = { token, exp: extractJwtExpMs(token) };
-      tokenRef.current = record.token;
-      await AsyncStorage.setItem(storageKey, JSON.stringify(record));
+      if (isExpired || needsRefresh || forceRefresh) {
+        log('Auth', 'info', 'Token expired or needs refresh. Attempting refresh...');
+        
+        // Try to refresh
+        const refreshSuccess = await tokenManager.refreshTokens();
+        
+        if (!refreshSuccess) {
+          // Refresh failed - clear tokens and require login
+          log('Auth', 'error', 'Token refresh failed. User must login.');
+          await clearJWTTokens();
+          throw new Error("Session expired. Please login again.");
+        }
+        
+        // Get the newly refreshed tokens
+        tokens = await getJWTTokens();
+        if (!tokens || !tokens.accessToken) {
+          throw new Error("Failed to retrieve refreshed tokens. Please login again.");
+        }
+      }
+
+      // Cache in memory
+      tokenRef.current = tokens.accessToken;
       t.end();
-      log('Auth', 'info', 'JWT acquired');
-      return record.token;
+      log('Auth', 'info', 'JWT validated');
+      return tokens.accessToken;
     })();
 
     inflightTokenPromiseRef.current = promise;
     try {
-      const t = await promise;
-      return t;
+      const token = await promise;
+      return token;
+    } catch (error) {
+      // Clear memory cache on error
+      tokenRef.current = null;
+      throw error;
     } finally {
       inflightTokenPromiseRef.current = null;
     }
-  }, [API_BASE, selectedAccount, signMessage, storageKey]);
+  }, [selectedAccount]);
+
+  // Clear the in-memory token cache when wallet changes
+  const clearTokenCache = useCallback(() => {
+    tokenRef.current = null;
+  }, []);
 
   const buildOpenPosition = useCallback(
     async (args: {
@@ -680,11 +665,8 @@ export function useBackendRelay() {
         throw err;
       }
       if (!result) {
-        // Retry once after re-auth in case session stale
-        await ensureAuthToken(true);
-        result = (await signTransaction(unsignedTx)) as VersionedTransaction | undefined;
+        throw new Error("Wallet did not return a signed transaction");
       }
-      if (!result) throw new Error("Wallet did not return a signed transaction");
       const signed = result as VersionedTransaction;
 
       const signaturesB64 = signed.signatures.map((s) => bytesToBase64(s));
@@ -696,6 +678,7 @@ export function useBackendRelay() {
   return useMemo(
     () => ({
       ensureAuthToken,
+      clearTokenCache,
       buildOpenPosition,
       buildPayout,
       buildBubblegumBurn,
@@ -713,7 +696,7 @@ export function useBackendRelay() {
       getTxStreamUrl,
       signBuiltTransaction,
     }),
-    [ensureAuthToken, buildOpenPosition, buildPayout, buildBubblegumBurn, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, getMarkets, getUserBetsSummary, getUserBetsPaginated, getTxStreamUrl, signBuiltTransaction]
+    [ensureAuthToken, clearTokenCache, buildOpenPosition, buildPayout, buildBubblegumBurn, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, getMarkets, getUserBetsSummary, getUserBetsPaginated, getTxStreamUrl, signBuiltTransaction]
   );
 }
 

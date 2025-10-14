@@ -1,10 +1,12 @@
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { useAuthorization } from "../../hooks/solana/useAuthorization";
-import { DefaultBg } from "../ui";
-import { ConnectButton } from "./sign-in-ui";
+import { DefaultBg, LogoLoader } from "../ui";
+import { LoginButton } from "./sign-in-ui";
 import { useChainToggle } from "../../hooks/useChainToggle";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import React from "react";
+import { useState, useMemo, useEffect } from "react";
+import { tokenManager } from "../../utils/tokenManager";
 
 // Chain Toggle Component
 function ChainToggle({
@@ -73,10 +75,48 @@ export default function GuardedScreen({
   children: React.ReactNode;
 }) {
   const { selectedAccount } = useAuthorization();
+  const { disconnect } = useMobileWallet();
+  const { jwtTokens } = useBackendAuth();
   const { selectedChain, toggleChain } = useChainToggle();
+  const [hasValidAuth, setHasValidAuth] = useState(true);
 
-  if (selectedAccount) return <DefaultBg>{children}</DefaultBg>;
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!selectedAccount || !jwtTokens) {
+        setHasValidAuth(false);
+        return;
+      }
+      console.log("jwtTokens", !!jwtTokens.refreshToken, jwtTokens.refreshTokenExpiresAt);
+      const refreshTokenValid = tokenManager.isRefreshTokenValid(jwtTokens);
+      if (!refreshTokenValid) {
+        console.log("Refresh token invalid, logging out user");
+        await disconnect();
+        setHasValidAuth(false);
+        return;
+      }
+      
+      const accessTokenValid =
+        jwtTokens.accessToken &&
+        Date.now() < new Date(jwtTokens.expiresAt).getTime();
 
+      // If access token is invalid but refresh token is valid, try to refresh
+      if (!accessTokenValid && refreshTokenValid) {
+        console.log("Access token invalid, attempting refresh");
+        const refreshSuccess = await tokenManager.refreshTokens();
+        setHasValidAuth(refreshSuccess);
+      } else {
+        setHasValidAuth(!!accessTokenValid);
+      }
+    };
+
+    checkAuth();
+  }, [selectedAccount, jwtTokens, disconnect]);
+
+  if (hasValidAuth) {
+    return <DefaultBg>{children}</DefaultBg>;
+  }
+
+  // Show login screen
   return (
     <DefaultBg>
       <View className="flex-1 justify-center items-center">
@@ -90,14 +130,42 @@ export default function GuardedScreen({
           <Text className="text-white text-2xl font-better-bold mb-4">
             BetrWeather
           </Text>
-
           <ChainToggle selectedChain={selectedChain} onToggle={toggleChain} />
-
-          <View style={{ flexDirection: "row", gap: 16 }}>
-            <ConnectButton selectedChain={selectedChain} />
+          <View className="flex-row gap-4 mt-20">
+            <LoginButton selectedChain={selectedChain} />
+            <SignupButton selectedChain={selectedChain} />
           </View>
         </View>
       </View>
     </DefaultBg>
   );
 }
+
+// Signup Button Component (uses the drawer)
+function SignupButton({ selectedChain }: { selectedChain: Chain }) {
+  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => setIsDrawerVisible(true)}
+        activeOpacity={0.8}
+        className="relative overflow-hidden w-[120px] flex items-center justify-center rounded-lg border border-white/30 bg-white/10 p-3 text-center"
+      >
+        <Text className="font-better-medium text-white text-base text-nowrap">
+          Signup
+        </Text>
+      </TouchableOpacity>
+
+      <SignupDrawer
+        isVisible={isDrawerVisible}
+        onClose={() => setIsDrawerVisible(false)}
+        selectedChain={selectedChain}
+      />
+    </>
+  );
+}
+
+// Import the LoginDrawer component
+import { SignupDrawer } from "./sign-in-ui";
+import { useBackendAuth } from "src/hooks/useBackendAuth";import { useMobileWallet } from "@/hooks";
+

@@ -3,32 +3,39 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 
 // Usage: const { selected, FilterBar } = useFilters(["All", "Active", "Closed"]);
-export function useFilters(filters: string[]) {
-  const [selected, setSelected] = useState(filters[0]);
+export function useFilters(options: string[]) {
+  const [selected, setSelected] = useState(options[0]);
 
   const FilterBar = () => (
-    <View className="flex-row w-full h-10 items-center justify-center space-x-2 my-3">
-      {filters.map((filter) => (
+    <View className="flex-row mb-6">
+      {options.map((option) => (
         <TouchableOpacity
-          key={filter}
-          className={`px-4 py-2 rounded-xl mr-4 border ${
-            selected === filter ? "bg-white/90" : "bg-transparent border-white"
-          }`}
-          onPress={() => setSelected(filter)}
-          activeOpacity={0.85}
+          key={option}
+          onPress={() => setSelected(option)}
+          className="flex-1 py-3"
+          activeOpacity={0.7}
         >
           <Text
-            className={`font-better-regular ${
-              selected === filter ? "text-black" : "text-white"
+            className={`text-center font-better-semi-bold text-sm uppercase ${
+              selected === option
+                ? 'text-white'
+                : 'text-gray-400'
             }`}
           >
-            {filter}
+            {option === 'hourly' ? 'HOURLY' : 
+             option === 'daily' ? 'DAILY' : 
+             option === 'weekly' ? 'WEEKLY' : 
+             option === 'monthly' ? 'MONTHLY' : 
+             option === 'long-term' || option === 'longterm' ? 'LONG-TERM' : option}
           </Text>
+          {selected === option && (
+            <View className="h-0.5 bg-white mt-2" />
+          )}
         </TouchableOpacity>
       ))}
     </View>
   );
 
-  return { selected, FilterBar };
+  return { selected, setSelected, FilterBar };
 }
 

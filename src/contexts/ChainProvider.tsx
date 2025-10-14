@@ -1,9 +1,18 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+  useEffect,
+  useRef,
+} from "react";
 import { Connection, type ConnectionConfig } from "@solana/web3.js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAuthorization } from '../hooks/solana/useAuthorization';
+import { useAuthorization } from "../hooks/solana/useAuthorization";
+import { STORAGE_KEYS } from "../utils/constants";
 
-type NetworkEnvironment = 'mainnet' | 'devnet';
+type NetworkEnvironment = "mainnet" | "devnet";
 
 interface ChainContextType {
   currentChain: NetworkEnvironment | null;
@@ -18,13 +27,15 @@ interface ChainProviderProps {
   config?: ConnectionConfig;
 }
 
-export const ChainProvider: React.FC<ChainProviderProps> = ({ 
-  children, 
-  config = { commitment: "confirmed" } 
+export const ChainProvider: React.FC<ChainProviderProps> = ({
+  children,
+  config = { commitment: "confirmed" },
 }) => {
-  const [currentChain, setCurrentChain] = useState<NetworkEnvironment | null>(null);
+  const [currentChain, setCurrentChain] = useState<NetworkEnvironment | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
-  const {selectedAccount} = useAuthorization();
+  const { selectedAccount } = useAuthorization();
   const connectionRef = useRef<Connection | null>(null);
 
   // Cleanup function for connections
@@ -35,7 +46,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
         connectionRef.current;
         connectionRef.current = null;
       } catch (error) {
-        console.warn('Error cleaning up connection:', error);
+        console.warn("Error cleaning up connection:", error);
       }
     }
   }, []);
@@ -45,7 +56,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       try {
         setIsLoading(true);
         // First, check if user has a stored session with chain info
-        const userSession = await AsyncStorage.getItem('authorization-cache');
+        const userSession = await AsyncStorage.getItem(STORAGE_KEYS.AUTHORIZATION);
         if (userSession) {
           const parsedSession = JSON.parse(userSession);
           if (parsedSession?.userSession?.chain) {
@@ -64,17 +75,16 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
         // No session found; if wallet is connected still ensure default
         setCurrentChain('devnet');
       } catch (error) {
-        console.error('Error loading chain from storage:', error);
-        // remove user session from async storage and relogin
-        await AsyncStorage.removeItem('authorization-cache');
-        setCurrentChain('devnet');
+        console.error("Error loading chain from storage:", error);
+        // Remove user session using React Query
+        await AsyncStorage.removeItem(STORAGE_KEYS.AUTHORIZATION);
         setIsLoading(false);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if(selectedAccount) {
+    if (selectedAccount) {
       initializeChain();
     }
   }, [selectedAccount]);
@@ -93,16 +103,16 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
     
     const chainString = `https://api.${currentChain}.solana.com`;
     const rpcUrl = chainString;
-    
+
     // Reuse existing connection if RPC endpoint is the same
     if (connectionRef.current && connectionRef.current.rpcEndpoint === rpcUrl) {
       return connectionRef.current;
     }
-    
+
     // Create new connection only if endpoint changed
     const newConnection = new Connection(rpcUrl, config);
     connectionRef.current = newConnection;
-    
+
     return newConnection;
   }, [currentChain, config]);
 
@@ -116,7 +126,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
 export const useChain = () => {
   const context = useContext(ChainContext);
   if (!context) {
-    throw new Error('useChain must be used within a ChainProvider');
+    throw new Error("useChain must be used within a ChainProvider");
   }
   return context;
-}; 
+};

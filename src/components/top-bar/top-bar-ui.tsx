@@ -1,42 +1,11 @@
 import React, { useState } from "react";
-import { Account, useAuthorization } from "../../hooks/solana";
+import { useAuthorization } from "../../hooks/solana";
 import { useMobileWallet } from "../../hooks/useMobileWallet";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import { Linking, Text, TouchableOpacity, View, Modal } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
-export function TopBarWalletButton({
-  selectedAccount,
-  openMenu,
-}: {
-  selectedAccount: Account | null;
-  openMenu: () => void;
-}) {
-  const { connect } = useMobileWallet();
-  return (
-    <TouchableOpacity onPress={selectedAccount ? openMenu : () => connect()} activeOpacity={0.8}>
-      <View
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: 'rgba(255, 255, 255, 0.3)',
-        }}
-      >
-        <MaterialCommunityIcons 
-          name="account-circle" 
-          size={24} 
-          color="white" 
-        />
-      </View>
-    </TouchableOpacity>
-  );
-}
 
 export function TopBarSettingsButton() {
   const navigation = useNavigation();
@@ -82,10 +51,6 @@ export function TopBarWalletMenu() {
 
   return (
     <>
-      <TopBarWalletButton
-        selectedAccount={selectedAccount}
-        openMenu={openMenu}
-      />
       <Modal
         visible={visible}
         transparent={true}

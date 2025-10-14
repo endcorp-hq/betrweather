@@ -4,15 +4,18 @@ export function getMint(
     token: string,
     connection: "devnet" | "mainnet"
   ) {
+    console.log("token", token);
     switch (token) {
-      case "SOL":
+      case "SOL_9":
         return new PublicKey("So11111111111111111111111111111111111111112");
-      case "USDC":
+      case "USDC_6":
         if (connection === "devnet") {
           return new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
         } else {
           return new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
         }
+      case "BONK_5":
+        return new PublicKey("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263");
       default:
         return new PublicKey("So11111111111111111111111111111111111111112");
     }

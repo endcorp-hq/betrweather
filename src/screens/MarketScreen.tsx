@@ -3,12 +3,14 @@ import { ScrollView, Text, StyleSheet, View, RefreshControl, TouchableOpacity } 
 import { MarketCard, StatusFilterBar } from "@/components";
 import { computeDerived } from "@/utils";
 import { useFilters } from "@/components";
-import theme from '../theme';
+import theme from "../theme";
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
 
 import { useShortx } from "../hooks/solana";
 import { useMarketsContext } from "../contexts/MarketsProvider";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (
@@ -40,6 +42,7 @@ export default function MarketScreen() {
   // On-chain list overlays inside global markets state
   const { refresh: refreshOnchain } = useShortx();
   const progressive = useMarketsContext();
+  const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
 
   // Normalize backend markets to the UI shape used here
@@ -97,9 +100,8 @@ export default function MarketScreen() {
 
   //time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([
+    "hourly",
     "daily",
-    "weekly",
-    "monthly",
     "longterm",
   ]);
 
@@ -110,6 +112,10 @@ export default function MarketScreen() {
   const handleStatusFilterChange = useCallback((filter: string) => {
     setStatusFilter(filter);
   }, []);
+
+  const handlePortfolioPress = useCallback(() => {
+    navigation.navigate("ClaimPositions");
+  }, [navigation]);
 
   // Memoize filtered markets to prevent recalculation on every render
   const filteredMarkets = useMemo(() => {
@@ -142,7 +148,9 @@ export default function MarketScreen() {
             matchesStatus = now >= marketStart && now <= marketEnd;
           } else {
             // Future markets: active when betting is done but not resolved
-            matchesStatus = now >= marketStart && market.winningDirection === WinningDirection.NONE;
+            matchesStatus =
+              now >= marketStart &&
+              market.winningDirection === WinningDirection.NONE;
           }
           break;
         default:
@@ -180,7 +188,11 @@ export default function MarketScreen() {
 
         case "monthly":
           // Within the current month
-          const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          const startOfMonth = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            1
+          );
           const endOfMonth = new Date(
             today.getFullYear(),
             today.getMonth() + 1,
@@ -223,56 +235,70 @@ export default function MarketScreen() {
 
   return (
     <View className="flex-1">
-      <View className="flex-1">
-        {/* Fixed Header Section */}
-        <View className="px-4 pt-10">
-          <Text className="text-white text-2xl font-better-semi-bold mb-4">
-            Climate Prediction Markets
+      {/* Fixed Header Section */}
+      <View className="px-4 pt-10">
+        <View className="flex-row justify-between items-center mb-4">
+          <Text className="text-white text-2xl font-better-semi-bold">
+            Climate Markets
           </Text>
-          <TimeFilterBar />
-          <StatusFilterBar 
-            selected={statusFilter} 
-            onSelect={handleStatusFilterChange}
-          />
-        </View>
-
-        {/* Scrollable Market Cards Section */}
-        <ScrollView 
-          className="flex-1 px-4"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing || Boolean(progressive?.loading)}
-              onRefresh={onRefresh}
-              tintColor="#ffffff"
+          <TouchableOpacity
+            onPress={handlePortfolioPress}
+            activeOpacity={0.8}
+            className="flex-row items-center gap-4 bg-white/90 rounded-xl border-2 border-white/20 p-4 py-2"
+          >
+            <MaterialCommunityIcons
+              name="chart-line"
+              size={16}
+              color="black"
             />
-          }
-        >
-          {/* Do not block on loading; only show empty state when not loading */}
-          {!progressive?.loading && filteredMarkets.length === 0 && (
-            <View className="flex-1 justify-center items-center py-20">
-              <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
-            </View>
-          )}
-          
-          {/* Add top padding to separate cards from status buttons */}
-          <View>
-            {visibleMarkets.map((market, idx) => (
-              <MemoizedMarketCard
-                key={`market-${market.marketId ?? market.id ?? idx}-${market.marketStart}`}
-                market={market}
-                index={idx}
-              />
-            ))}
-            {canLoadMore && (
-              <TouchableOpacity onPress={loadMore} style={{ alignSelf: 'center', marginTop: 16, marginBottom: 32, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
-                <Text style={{ color: '#ffffff', fontSize: 14, fontFamily: 'Poppins-SemiBold' }}>Load more</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
+            <Text className="text-black text-sm font-better-semi-bold">
+              Portfolio
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <TimeFilterBar />
+        <StatusFilterBar
+          selected={statusFilter}
+          onSelect={handleStatusFilterChange}
+        />
       </View>
+
+      {/* Scrollable Market Cards Section */}
+      <ScrollView 
+        className="flex-1 px-4"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || Boolean(progressive?.loading)}
+            onRefresh={onRefresh}
+            tintColor="#ffffff"
+          />
+        }
+      >
+        {/* Do not block on loading; only show empty state when not loading */}
+        {!progressive?.loading && filteredMarkets.length === 0 && (
+          <View className="flex-1 justify-center items-center py-20">
+            <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
+          </View>
+        )}
+        
+        {/* Add top padding to separate cards from status buttons */}
+        <View>
+          {visibleMarkets.map((market, idx) => (
+            <MemoizedMarketCard
+              key={`market-${market.marketId ?? market.id ?? idx}-${market.marketStart}`}
+              market={market}
+              index={idx}
+            />
+          ))}
+          {canLoadMore && (
+            <TouchableOpacity onPress={loadMore} style={{ alignSelf: 'center', marginTop: 16, marginBottom: 32, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+              <Text style={{ color: '#ffffff', fontSize: 14, fontFamily: 'Poppins-SemiBold' }}>Load more</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -280,29 +306,29 @@ export default function MarketScreen() {
 const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   sectionTitle: {
     color: theme.colors.onSurface,
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: theme.spacing.lg,
   },
   filterCard: {
     marginBottom: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   errorText: {
     color: theme.colors.error,
     fontSize: 16,
     marginVertical: theme.spacing.md,
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptyText: {
     color: theme.colors.onSurfaceVariant,
     fontSize: 16,
     marginVertical: theme.spacing.lg,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

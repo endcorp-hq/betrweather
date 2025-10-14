@@ -3,6 +3,7 @@ import { USDC_ICON } from "./svg/usdc";
 import { useState, useEffect, useRef } from "react";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import theme from '../../theme';
+import { CurrencyType } from "src/types/currency";
 
 export const DynamicTextInput = ({
     value,
@@ -10,7 +11,7 @@ export const DynamicTextInput = ({
     placeholder,
     style,
     disabled = false,
-    selectedToken = "USDC",
+    selectedToken = CurrencyType.USDC_6,
     onTokenChange,
   }: {
     value: string;
@@ -18,8 +19,8 @@ export const DynamicTextInput = ({
     placeholder: string;
     style?: StyleProp<ViewStyle>;
     disabled?: boolean;
-    selectedToken?: "USDC" | "BONK" | "SOL";
-    onTokenChange?: (token: "USDC" | "BONK" | "SOL") => void;
+    selectedToken?: CurrencyType;
+    onTokenChange?: (token: CurrencyType) => void;
   }) => {
     const [fontSize, setFontSize] = useState(40);
     const [inputWidth, setInputWidth] = useState(120);
@@ -64,10 +65,7 @@ export const DynamicTextInput = ({
 
     const handleTokenToggle = () => {
       if (onTokenChange) {
-        const order: Array<"USDC" | "BONK" | "SOL"> = ["USDC", "BONK", "SOL"];
-        const idx = order.indexOf(selectedToken as any);
-        const next = order[(idx + 1) % order.length];
-        onTokenChange(next);
+        onTokenChange(selectedToken === CurrencyType.USDC_6 ? CurrencyType.BONK_5 : CurrencyType.USDC_6);
       }
     };
   
@@ -131,15 +129,16 @@ export const DynamicTextInput = ({
             borderColor: '#e5e5e5',
           }}
         >
-          {selectedToken === "USDC" && <USDC_ICON width={20} height={20} />}
-          {selectedToken === "BONK" && (
+          {selectedToken === CurrencyType.USDC_6 ? (
+            <USDC_ICON width={20} height={20} />
+          ) : (
             <Image
               source={require("../../../assets/bonk-logo.png")}
               style={{ width: 20, height: 20 }}
               resizeMode="contain"
             />
           )}
-          {selectedToken === "SOL" && (
+          {selectedToken === CurrencyType.SOL_9 && (
             <MaterialCommunityIcons name="currency-sign" size={20} color={theme.colors.onSurfaceVariant} />
           )}
           <Text style={{ 

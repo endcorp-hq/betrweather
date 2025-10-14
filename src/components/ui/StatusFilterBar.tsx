@@ -35,7 +35,6 @@ const statusOptions = [
 export function StatusFilterBar({ selected, onSelect }: StatusFilterBarProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Market Status</Text>
       <View style={styles.filterContainer}>
         {statusOptions.map((option, index) => {
           const isSelected = selected === option.key;
@@ -125,7 +124,7 @@ export function StatusFilterBar({ selected, onSelect }: StatusFilterBarProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 16,
+    marginBottom: 16,
     width: '100%',
   },
   title: {

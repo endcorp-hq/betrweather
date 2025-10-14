@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuthorization } from "./useAuthorization";
 import { useChain } from "@/contexts";
+import { getJWTTokens } from "../../utils/authUtils";
 
 // Simple exponential backoff for rate-limited requests (HTTP 429)
 async function withBackoff<T>(fn: () => Promise<T>, retries = 4) {
@@ -71,6 +72,12 @@ export function useNftMetadata() {
     setLastError(null);
     
     try {
+      const tokens = await getJWTTokens();
+
+      if(!tokens) {
+        throw new Error("No tokens found");
+      }
+
       const result = await withBackoff(async () => {
         const response = await fetch(
           `${process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001'}/nft/fetch-valid-positions`,
@@ -78,7 +85,7 @@ export function useNftMetadata() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "wallet-address": selectedAccount.publicKey.toBase58(),
+              Authorization: `Bearer ${tokens.accessToken}`,
             },
             body: JSON.stringify({
               ownerAddress: selectedAccount.publicKey.toBase58(),
@@ -95,7 +102,6 @@ export function useNftMetadata() {
           err.status = response.status;
           throw err;
         }
-
         return response.json();
       });
       // console.log(`useNftMetadata: Success response:`, result);

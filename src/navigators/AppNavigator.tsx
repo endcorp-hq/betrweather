@@ -12,6 +12,7 @@ import { TopBar } from "../components/top-bar/top-bar-feature";
 import GuardedScreen from "../components/sign-in/guarded-screen";
 import { LocationPermissionScreen } from "../screens/LocationPermissionScreen";
 import { AuthWarmup } from "../contexts/AuthWarmup";
+import ClaimPositionsScreen from "../screens/ClaimPositionsScreen";
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -31,6 +32,7 @@ type RootStackParamList = {
   HomeStack: undefined;
   Settings: undefined;
   MarketDetail: { id: string; dbId?: string | null; marketId?: string | null; market?: any };
+  ClaimPositions: undefined;
   // 🔥 Your screens go here
 };
 
@@ -46,6 +48,14 @@ const GuardedDetailScreen = () => {
   return (
     <GuardedScreen>
       <MarketDetailScreen />
+    </GuardedScreen>
+  );
+};
+
+const GuardedClaimPositionsScreen = () => {
+  return (
+    <GuardedScreen>
+      <ClaimPositionsScreen />
     </GuardedScreen>
   );
 };
@@ -67,6 +77,11 @@ const AppStack = () => {
       <Stack.Screen
         name="MarketDetail"
         component={GuardedDetailScreen}
+        options={{ headerShown: true, header: () => <TopBar /> }}
+      />
+      <Stack.Screen
+        name="ClaimPositions"
+        component={GuardedClaimPositionsScreen}
         options={{ headerShown: true, header: () => <TopBar /> }}
       />
     </Stack.Navigator>

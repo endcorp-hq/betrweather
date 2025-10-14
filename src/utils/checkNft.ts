@@ -151,9 +151,6 @@ export async function checkWhitelistNFTs(
   walletAddress: string,
   isMainnet: boolean = false
 ): Promise<AuthResult> {
-  console.log(`\n🔍 Starting NFT whitelist check for wallet: ${walletAddress}`);
-  console.log(`🌐 Network: ${isMainnet ? 'mainnet' : 'devnet'}`);
-  
   // Only perform NFT checks on mainnet
   if (!isMainnet) {
     console.log(`⏭️  NFT check skipped - not on mainnet`);
@@ -163,7 +160,6 @@ export async function checkWhitelistNFTs(
     };
   }
 
-  console.log(`🔗 Creating mainnet connection...`);
   // Create connection for mainnet
   const mainnetRpcUrl = `https://api.mainnet-beta.solana.com`;
   const connection = new Connection(mainnetRpcUrl);

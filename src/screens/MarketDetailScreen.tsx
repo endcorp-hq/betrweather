@@ -39,6 +39,7 @@ import { useToast } from "@/contexts";
 import { useChain } from "@/contexts";
 import type { ParsedAccountData } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
+import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "src/types/currency";
 
 const SUGGESTED_BETS_USDC = [1, 3, 5, 20];
 const SUGGESTED_BETS_BONK = ["30k", "60k", "100k", "200k"];
@@ -462,7 +463,9 @@ export default function SlotMachineScreen() {
   >(null);
   const [selectedMarket, setSelectedMarket] = useState<any | null>(routeMarket || null);
   // Comment out BONK in the token selection
-  const [selectedToken, setSelectedToken] = useState<"USDC" | "BONK" | "SOL">("USDC");
+  const [selectedToken, setSelectedToken] = useState<CurrencyType>(
+    CurrencyType.USDC_6
+  );
   const [showBetModal, setShowBetModal] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [solBalance, setSolBalance] = useState<number | null>(null);
@@ -570,9 +573,9 @@ export default function SlotMachineScreen() {
 
   // Keep CTA disabled when insufficient USDC or SOL for fees
   useEffect(() => {
-    const parsed = selectedToken === "BONK" ? parseBonkAmount(betAmount) : parseFloat(betAmount || "0");
-    const lacksSpl = selectedToken !== "SOL" && tokenBalance != null && parsed > 0 && parsed > tokenBalance;
-    const requiredSol = selectedToken === "SOL" ? parsed + (solFeeEstimate ?? 0) : (solFeeEstimate ?? 0);
+    const parsed = selectedToken === CurrencyType.BONK_5 ? parseBonkAmount(betAmount) : parseFloat(betAmount || "0");
+    const lacksSpl = selectedToken !== CurrencyType.SOL_9 && tokenBalance != null && parsed > 0 && parsed > tokenBalance;
+    const requiredSol = selectedToken === CurrencyType.SOL_9 ? parsed + (solFeeEstimate ?? 0) : (solFeeEstimate ?? 0);
     const lacksSol = solBalance != null && requiredSol > solBalance;
     setHasSufficientFunds(!(lacksSpl || lacksSol));
   }, [betAmount, selectedToken, tokenBalance, solBalance, solFeeEstimate]);
@@ -632,8 +635,7 @@ export default function SlotMachineScreen() {
   }, [routeDbId, routeMarketId, dbMarketByDbId, dbMarketByMarketId, routeMarket]);
 
   useEffect(() => {
-    const token = getMarketToken(selectedMarket?.mint || "");
-    setSelectedToken(token);
+    setSelectedToken(selectedMarket?.currency as CurrencyType);
   }, [selectedMarket]);
 
   const handleBet = async (bet: string) => {
@@ -794,7 +796,7 @@ export default function SlotMachineScreen() {
     try {
       // Parse the bet amount based on token type
       let parsedAmount: number;
-      if (selectedToken === "BONK") {
+      if (selectedToken === CurrencyType.BONK_5) {
         parsedAmount = parseBonkAmount(betAmount);
       } else {
         parsedAmount = parseFloat(betAmount);
@@ -818,7 +820,7 @@ export default function SlotMachineScreen() {
       if (!connection) {
         throw new Error("No Solana connection available");
       }
-      if (selectedToken !== "SOL" && marketMint) {
+      if (selectedToken !== CurrencyType.SOL_9 && marketMint) {
         try {
           const resp = await connection.getParsedTokenAccountsByOwner(
             selectedAccount.publicKey,
@@ -855,12 +857,21 @@ export default function SlotMachineScreen() {
         direction: bet === "yes" ? WinningDirection.YES : WinningDirection.NO,
       };
 
+      // Fetch JWT token for authorization
+      const authToken = await ensureAuthToken();
+
       const metadataUrl = `${process.env.EXPO_PUBLIC_BACKEND_URL}/nft/create`;
-      const metadataHeaders = { "wallet-address": selectedAccount.publicKey.toBase58() } as Record<string, string>;
+      const metadataHeaders = { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${authToken}`,
+        "wallet-address": selectedAccount.publicKey.toBase58() 
+      } as Record<string, string>;
+
       // Create metadata
       const response = await axios.post(metadataUrl, metadata, { headers: metadataHeaders });
 
       const metadataUri = response.data.metadataUrl;
+      console.log('this is the metadata uri', metadataUri);
       if (!metadataUri || !selectedMarket) {
         // Update loading toast to error
         toast.update(loadingToastId, {
@@ -885,14 +896,12 @@ export default function SlotMachineScreen() {
         marketId: Number(finalMarketId),
         direction: anchorDirection,
         amount: amountUi,
-        token: marketMint,
         payer: selectedAccount.publicKey,
         feeVaultAccount: new PublicKey(
           process.env.EXPO_PUBLIC_FEE_VAULT ||
             "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"
         ),
         metadataUri,
-        pageIndex: 0,
       });
 
       if (!buyIxs || typeof buyIxs === 'string') {
@@ -906,6 +915,7 @@ export default function SlotMachineScreen() {
       const signedTx = await signTransaction(tx);
       if (!signedTx) throw new Error('Wallet did not return a signed transaction');
       const signedTxB64 = Buffer.from((signedTx as any).serialize()).toString('base64');
+      console.log("signedTxB64", signedTxB64);
       const forwardBody = {
         signedTx: signedTxB64,
         options: { skipPreflight: false, maxRetries: 3 },
@@ -914,17 +924,20 @@ export default function SlotMachineScreen() {
       const forwarded = await forwardTx(forwardBody);
       const signature = forwarded.signature;
 
-      // Success! Update loading toast to success
-      const displayAmount =
-        selectedToken === "BONK"
-          ? formatBonkAmount(parsedAmount)
-          : `${parsedAmount}`;
-      toast.update(loadingToastId, {
-        type: "success",
-        title: "Bet Placed!",
-        message: `Successfully placed ${displayAmount} ${selectedToken} bet on ${bet.toUpperCase()}`,
-        duration: 4000,
-      });
+        // Success! Update loading toast to success
+        const displayAmount =
+          selectedToken === CurrencyType.BONK_5
+            ? formatBonkAmount(parsedAmount)
+            : `${parsedAmount}`;
+
+        const currencyDisplayName = CURRENCY_DISPLAY_NAMES[selectedToken];
+
+        toast.update(loadingToastId, {
+          type: "success",
+          title: "Bet Placed!",
+          message: `Successfully placed ${displayAmount} ${currencyDisplayName} bet on ${bet.toUpperCase()}`,
+          duration: 4000,
+        });
 
       setBetStatus("success");
 
@@ -939,6 +952,7 @@ export default function SlotMachineScreen() {
         setSelectedDirection(null);
         navigation.goBack();
       }, 2000);
+      
     } catch (error) {
       console.error("Bet error:", error);
       // Update loading toast to error
@@ -1171,7 +1185,7 @@ export default function SlotMachineScreen() {
                     value={betAmount}
                     onChangeText={(text) => {
                       // Allow different input patterns based on token
-                      if (selectedToken === "BONK") {
+                      if (selectedToken === CurrencyType.BONK_5) {
                         // Allow numbers and k/m suffixes for BONK
                         const regex = /^\d*\.?\d*[km]?$/i;
                         if (text === "" || regex.test(text)) {
@@ -1199,12 +1213,9 @@ export default function SlotMachineScreen() {
 
                 {/* Update the suggested amounts section to be additive */}
                 <View style={styles.suggestedRowBig}>
-                  {(
-                    selectedToken === "BONK"
-                      ? SUGGESTED_BETS_BONK
-                      : selectedToken === "SOL"
-                      ? SUGGESTED_BETS_SOL
-                      : SUGGESTED_BETS_USDC
+                  {(selectedToken === CurrencyType.BONK_5
+                    ? SUGGESTED_BETS_BONK
+                    : SUGGESTED_BETS_USDC
                   ).map((amt) => (
                     <TouchableOpacity
                       key={amt}
@@ -1216,7 +1227,7 @@ export default function SlotMachineScreen() {
                         // Add the amount to current input instead of replacing
                         let currentAmount = 0;
 
-                        if (selectedToken === "BONK") {
+                        if (selectedToken === CurrencyType.BONK_5) {
                           // Parse current BONK amount
                           currentAmount = parseBonkAmount(betAmount) || 0;
                           // Parse the suggested amount
@@ -1243,7 +1254,10 @@ export default function SlotMachineScreen() {
                           betStatus === "loading" && { opacity: 0.5 },
                         ]}
                       >
-                        +{selectedToken === "BONK" ? amt : selectedToken === "USDC" ? `$${amt}` : `${amt}`}
+                        +
+                        {selectedToken === CurrencyType.BONK_5
+                          ? amt
+                          : `$${amt}`}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -1255,12 +1269,12 @@ export default function SlotMachineScreen() {
                     Spend preview
                   </Text>
                   <Text style={{ color: "#374151", fontFamily: "Poppins-Regular", fontSize: 13, marginTop: 4 }}>
-                    {selectedToken === "BONK"
+                    {selectedToken === CurrencyType.BONK_5
                       ? `${formatBonkAmount(parseBonkAmount(betAmount || "0"))} BONK`
                       : `${(parseFloat(betAmount || "0") || 0).toFixed(2)} USDC`} + ~{(solFeeEstimate ?? 0.00002).toFixed(6)} SOL fees
                   </Text>
                   <Text style={{ color: "#6B7280", fontFamily: "Poppins-Regular", fontSize: 12, marginTop: 2 }}>
-                    Balance: {selectedToken === "SOL" ? `${(solBalance ?? 0).toFixed(5)} SOL` : selectedToken === "BONK" ? "—" : `${(tokenBalance ?? 0).toFixed(2)} ${selectedToken}`} · SOL: {(solBalance ?? 0).toFixed(5)}
+                    Balance: {selectedToken === CurrencyType.SOL_9 ? `${(solBalance ?? 0).toFixed(5)} SOL` : selectedToken === CurrencyType.BONK_5 ? "—" : `${(tokenBalance ?? 0).toFixed(2)} ${selectedToken}`} · SOL: {(solBalance ?? 0).toFixed(5)}
                   </Text>
                   {!hasSufficientFunds && (
                     <Text style={{ color: "#dc2626", fontFamily: "Poppins-SemiBold", fontSize: 12, marginTop: 4 }}>
@@ -1289,7 +1303,7 @@ export default function SlotMachineScreen() {
                   disabled={
                     betStatus !== "idle" ||
                     !betAmount ||
-                    (selectedToken === "BONK"
+                    (selectedToken === CurrencyType.BONK_5
                       ? parseBonkAmount(betAmount) <= 0
                       : parseFloat(betAmount) <= 0) ||
                     !hasSufficientFunds

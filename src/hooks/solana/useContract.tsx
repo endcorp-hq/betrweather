@@ -198,57 +198,56 @@ import { useAuthorization } from "./useAuthorization";
             new PublicKey(process.env.EXPO_PUBLIC_FEE_VAULT || "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"),
           );
 
-          setClient(shortxClient);
-          setIsInitialized(true);
-          console.log(`SDK initialized for ${currentChain.toUpperCase()}`);
-        } catch (err) {
-          setError(createShortxError(ShortxErrorType.INITIALIZATION, "Failed to initialize SDK", err));
-          setIsInitialized(false);
-        }
-      };
-      if(currentChain && connection) 
-      initializeSDK();
-    }, [connection, currentChain]); // Re-initialize when chain changes
-  
-    const fetchAllMarkets = async () => {
-      setLoadingMarkets(true);
-      setError(null);
-      try {
-        // Try backend DB markets first if wallet JWT is available
-        let loadedFromBackend = false;
-        if (selectedAccount?.publicKey && backendGetMarkets) {
-          try {
-            const db = await backendGetMarkets();
-            if (Array.isArray(db) && db.length > 0) {
-              setMarkets(db as any);
-              loadedFromBackend = true;
-            }
-          } catch (be) {
-            console.log('backend markets error', be);
-          }
-        }
-
-        if (!loadedFromBackend) {
-          // Fallback to on-chain authority markets
-          const authority = process.env.EXPO_PUBLIC_ADMIN_KEY ? new PublicKey(process.env.EXPO_PUBLIC_ADMIN_KEY) : null;
-          if (client && authority) {
-            const m = await client.trade.getMarketsByAuthority(authority);
-            setMarkets(Array.isArray(m) ? m : []);
-          } else {
-            setMarkets([]);
-          }
-        }
-      } catch (err: unknown) {
-        console.log('error', err);
-        setError(createShortxError(ShortxErrorType.MARKET_FETCH, "Unknown error", err));
-        setMarkets([]);
-      } finally {
-        setLoadingMarkets(false);
+        setClient(shortxClient);
+        setIsInitialized(true);
+        console.log(`SDK initialized for ${currentChain.toUpperCase()}`);
+      } catch (err) {
+        setError(
+          createShortxError(
+            ShortxErrorType.INITIALIZATION,
+            "Failed to initialize SDK",
+            err
+          )
+        );
+        setIsInitialized(false);
       }
     };
-  
-    const getMarketById = useCallback(async (id: number) => {
-      if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "Client not initialized");
+    if (currentChain && connection && selectedAccount) initializeSDK();
+  }, [connection, currentChain, selectedAccount]); // Re-initialize when chain changes
+
+  const fetchAllMarkets = async () => {
+    setLoadingMarkets(true);
+    setError(null);
+    try {
+      const authority = new PublicKey("8WngPkskxHkYrZZyFVmviu8o7QhHcGWHJ7mowTi5JxzN");
+      if (!authority) {
+        throw createShortxError(
+          ShortxErrorType.INITIALIZATION,
+          "Missing environment variables"
+        );
+      }
+      if (client) {
+        const m = await client.trade.getMarketsByAuthority(authority);
+        setMarkets(m || []);
+      }
+    } catch (err: unknown) {
+      console.log("error", err);
+      setError(
+        createShortxError(ShortxErrorType.MARKET_FETCH, "Unknown error", err)
+      );
+      setMarkets([]);
+    } finally {
+      setLoadingMarkets(false);
+    }
+  };
+
+  const getMarketById = useCallback(
+    async (id: number) => {
+      if (!client)
+        throw createShortxError(
+          ShortxErrorType.INITIALIZATION,
+          "Client not initialized"
+        );
       setLoadingMarket(true);
       setError(null);
       try {
@@ -271,8 +270,12 @@ import { useAuthorization } from "./useAuthorization";
         // 3) Last resort: avoid global getMarketById to prevent mismatch
         return null;
       } catch (e) {
-        console.error('Error fetching market:', e);
-        throw createShortxError(ShortxErrorType.MARKET_FETCH, "Failed to fetch market", e);
+        console.error("Error fetching market:", e);
+        throw createShortxError(
+          ShortxErrorType.MARKET_FETCH,
+          "Failed to fetch market",
+          e
+        );
       } finally {
         setLoadingMarket(false);
       }
@@ -284,9 +287,9 @@ import { useAuthorization } from "./useAuthorization";
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [client, refreshCount]);
 
-    // Update markets in real-time when market events are received
-    useEffect(() => {
-      if (marketEvents.length === 0) return;
+  // Update markets in real-time when market events are received
+  useEffect(() => {
+    if (marketEvents.length === 0) return;
 
       const latestEvent = marketEvents[0]; // Get the most recent event
       

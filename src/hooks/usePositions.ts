@@ -19,20 +19,50 @@ import { PublicKey as Web3PublicKey } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
 
 import { useChain } from "@/contexts";
+import { getJWTTokens } from "src/utils/authUtils";
+import { CurrencyType } from "src/types/currency";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { burnPosition } from "src/utils/positionUtils";
+import { toWeb3JsTransaction } from "@metaplex-foundation/umi-web3js-adapters";
+
+
+// Define the type for the backend response
+interface BackendPosition {
+  id: string;
+  userId: string;
+  userWallet: string;
+  marketId: number;
+  nftAddress: string;
+  amount: string;
+  currency: string;
+  direction: "yes" | "no";
+  isBurned: boolean;
+  isWon: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  positionNonce: number;
+  positionId: number;
+}
+
+interface BackendResponse {
+  validBets: BackendPosition[];
+  updatedBets: number;
+  removedBets: number;
+}
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
   const { fetchNftMetadata, loading, retryCount, lastError, clearError } = useNftMetadata();
-  const { getMarketById } = useShortx();
+  const { getMarketById, payoutPosition } = useShortx();
   const { toast } = useToast();
   const { currentChain } = useChain();
   const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildPayout, checkBubblegumAsset } = useBackendRelay();
   const { signTransaction } = useMobileWallet();
-
+  const queryClient = useQueryClient();
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
   const lastRefreshTime = useRef<number>(0);
-  const isRefreshing = useRef(false);
   const inflightPromiseRef = useRef<Promise<void> | null>(null);
   // Track positions removed locally (e.g., after burn) to prevent re-adding on refresh until backend syncs
   const locallyRemovedKeysRef = useRef<Set<string>>(new Set());
@@ -119,6 +149,7 @@ export function usePositions() {
     setLoadingMarkets(true);
     const p = (async () => {
       const metadata = await fetchNftMetadata();
+      console.log("metadata obtained", metadata);
       if (metadata) {
         // Prefer market from backend if included; fallback to client fetch
         const positionsMapped = metadata.map((position) => {
@@ -198,8 +229,6 @@ export function usePositions() {
         loading: operation === 'claim' ? 'Claiming Payout' : 'Burning Position',
         processing: operation === 'claim' ? 'Processing your claim...' : 'Processing your burn...',
         processingTx: 'Transaction sent to blockchain...',
-        transactionSent: 'Transaction Sent',
-        processingBlockchain: 'Processing on blockchain...',
         success: operation === 'claim' ? 'Payout Claimed!' : 'Position Burned!',
         successMessage: (amount: number) => 
           operation === 'claim' 
@@ -378,8 +407,50 @@ export function usePositions() {
       toast,
       setPositionClaiming,
       calculatePayout,
+      queryClient,
     ]
   );
+
+  // Claim payout mutation
+  const claimPayoutMutation = useMutation({
+    mutationFn: async (position: PositionWithMarket) => {
+      if (!selectedAccount?.publicKey) {
+        throw new Error("No wallet connected");
+      }
+
+      return payoutPosition({
+        marketId: position.marketId,
+        assetId: position.assetId,
+        payer: selectedAccount.publicKey,
+      });
+    },
+    onSuccess: () => {
+      // Invalidate positions to refetch fresh data
+      queryClient.invalidateQueries({ queryKey: ["positions"] });
+    },
+  });
+
+  // Burn position mutation
+  const burnPositionMutation = useMutation({
+    mutationFn: async (position: PositionWithMarket) => {
+      if (!selectedAccount?.publicKey) {
+        throw new Error("No wallet connected");
+      }
+
+      const umiTx = await burnPosition(position, selectedAccount, currentChain || "devnet");
+      if (!umiTx) {
+        throw new Error("Failed to create burn transaction");
+      }
+      
+      // Convert UMI transaction to Solana transaction
+      const solanaTx = toWeb3JsTransaction(umiTx);
+      return solanaTx;
+    },
+    onSuccess: () => {
+      // Invalidate positions to refetch fresh data
+      queryClient.invalidateQueries({ queryKey: ["positions"] });
+    },
+  });
 
   // Claim payout handler
   const handleClaimPayout = useCallback(

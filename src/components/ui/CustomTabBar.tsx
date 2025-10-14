@@ -146,7 +146,7 @@ export function CustomTabBar({
               iconName = "finance";
               activeColor = "#10b981"; // Green for markets/betting
             }
-            if (route.name === "Trades") {
+            if (route.name === "Profile") {
               iconName = "face-man";
               activeColor = "#f59e0b"; // Amber for profile
             }

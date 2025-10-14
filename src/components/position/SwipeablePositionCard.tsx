@@ -7,7 +7,6 @@ import {
   ImageBackground,
 } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { WinningDirection } from "@endcorp/depredict";
 import theme from "../../theme";
 import { LogoLoader } from "../ui/LoadingSpinner";
 import {
@@ -31,8 +30,21 @@ interface SwipeablePositionCardProps {
 
 // Helper function to format market time and date
 const formatMarketTime = (marketStart: string | number, marketEnd: string | number) => {
-  const start = new Date(Number(marketStart) * 1000);
-  const end = new Date(Number(marketEnd) * 1000);
+  // Handle both Unix timestamps (seconds) and ISO strings
+  const startMs = typeof marketStart === 'string' 
+    ? new Date(marketStart).getTime() 
+    : Number(marketStart) * 1000;
+  const endMs = typeof marketEnd === 'string' 
+    ? new Date(marketEnd).getTime() 
+    : Number(marketEnd) * 1000;
+    
+  const start = new Date(startMs);
+  const end = new Date(endMs);
+  
+  // Validate dates
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return 'Date unavailable';
+  }
   
   // Format time as 7pm - 8pm
   const startTime = start.toLocaleTimeString('en-US', { 
@@ -65,12 +77,12 @@ export function SwipeablePositionCard({
   onBurn
 }: SwipeablePositionCardProps) {
   // Check if position is claimable
-  const isClaimable = isPositionClaimable(position);
-  
+  const isClaimable = isPositionClaimable(position);  
   // Check if position is lost (for showing burn button)
-  const isLost = position.market?.winningDirection !== WinningDirection.NONE && 
-    ((position.direction === "Yes" && position.market.winningDirection === WinningDirection.NO) ||
-     (position.direction === "No" && position.market.winningDirection === WinningDirection.YES));
+  const isLost = position.market?.winningDirection !== 'NONE' && 
+    ((position.direction === "Yes" && position.market.winningDirection === 'NO') ||
+     (position.direction === "No" && position.market.winningDirection === 'YES'));
+
 
   const handleClaim = async () => {
     if (isClaimable && !isClaiming) {
@@ -124,14 +136,14 @@ export function SwipeablePositionCard({
             </View>
 
             {/* Resolved Direction (if applicable) */}
-            {position.market?.winningDirection !== WinningDirection.NONE &&
+            {position.market?.winningDirection !== 'NONE' &&
               position.market?.winningDirection && (
-                <View style={styles.resolvedContainer}>
+                <View style={styles.resolvedContainer} className="border border-red-500">
                   <Text className="text-white text-sm mr-2 font-better-regular">Resolved:</Text>
                   <View
                     style={[
                       styles.resolvedBadge,
-                      position.market.winningDirection === WinningDirection.YES
+                      position.market.winningDirection === 'YES'
                         ? styles.yesBadge
                         : styles.noBadge,
                     ]}
@@ -139,12 +151,12 @@ export function SwipeablePositionCard({
                     <Text
                       style={[
                         styles.resolvedText,
-                        position.market.winningDirection === WinningDirection.YES
+                        position.market.winningDirection === 'YES'
                           ? styles.yesText
                           : styles.noText,
                       ]}
                     >
-                      {position.market.winningDirection === WinningDirection.YES
+                      {position.market.winningDirection === 'YES'
                         ? "YES"
                         : "NO"}
                     </Text>
@@ -212,13 +224,13 @@ export function SwipeablePositionCard({
             {!isLost && (
               <View style={styles.payoutSection}>
                 <Text style={styles.payoutLabel}>
-                  {position.market?.winningDirection !== WinningDirection.NONE
+                  {position.market?.winningDirection !== 'NONE'
                     ? "Payout"
                     : "Expected Payout"}
                 </Text>
                 <Text style={styles.payoutValue}>
                   {(() => {
-                    const value = position.market?.winningDirection !== WinningDirection.NONE
+                    const value = position.market?.winningDirection !== 'NONE'
                       ? (calculatePayout(position) || 0)
                       : calculateExpectedPayout(position);
                     return `$${value.toFixed(2)}`;

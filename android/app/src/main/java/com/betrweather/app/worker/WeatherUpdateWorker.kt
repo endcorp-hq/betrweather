@@ -558,9 +558,9 @@ class WeatherUpdateWorker(
                 
                 if (!hasForegroundPermission || !hasBackgroundPermission) {
                     // No permissions - show simple message
-                    views.setTextViewText(com.betrweather.app.R.id.current_date_text, "Click to enable")
-                    views.setTextViewText(com.betrweather.app.R.id.weather_temp_text, "location")
-                    views.setTextViewText(com.betrweather.app.R.id.weather_description_text, "permissions")
+                        views.setTextViewText(com.betrweather.app.R.id.current_date_text, "Location permission required")
+                        views.setTextViewText(com.betrweather.app.R.id.weather_temp_text, "Click to provide background location permission")
+                        views.setTextViewText(com.betrweather.app.R.id.weather_description_text, "Select Allow always and re-add the widget")
                     
                     Log.d(TAG, "[Worker-$workerId] Widget updated with permission request message")
                 } else if (weatherData != null && !weatherData.hasError) {
