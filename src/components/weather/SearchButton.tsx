@@ -129,7 +129,7 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
         toValue: 1,
         duration: 200,
         delay: 150,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }),
     ]).start(() => {
       setTimeout(() => {
@@ -158,12 +158,12 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
       Animated.timing(inputOpacityAnim, {
         toValue: 0,
         duration: 150,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }),
       Animated.timing(suggestionsAnim, {
         toValue: 0,
         duration: 150,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }),
     ]).start(() => {
       setIsExpanded(false);
@@ -204,28 +204,28 @@ export function SearchButton({ onLocationSelect, onSearchToggle }: SearchButtonP
       Animated.timing(suggestionsAnim, {
         toValue: 1,
         duration: 200,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }).start();
     } else if (debouncedSearchQuery.length >= 3 && !isLoading) {
       //show when no suggestions and not loading
       Animated.timing(suggestionsAnim, {
         toValue: 1,
         duration: 200,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }).start();
     } else if(isLoading) {
       //show when loading
       Animated.timing(suggestionsAnim, {
         toValue: 1,
         duration: 200,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }).start();
     } else {
       // Hide dropdown when query is short
       Animated.timing(suggestionsAnim, {
         toValue: 0,
         duration: 150,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }).start();
     }
   }, [suggestions, isLoading, debouncedSearchQuery]);
