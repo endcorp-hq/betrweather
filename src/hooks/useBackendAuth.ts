@@ -101,7 +101,7 @@ export function useBackendAuth() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [STORAGE_KEYS.JWT_TOKENS] });
       setIsBackendAuthenticated(true);
-      toast.success("Signin successful!");
+      // toast.success("Signin successful!");
     },
     onError: (error) => {
       console.error("Backend signin failed:", error);
