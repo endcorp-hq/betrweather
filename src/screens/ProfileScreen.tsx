@@ -7,6 +7,7 @@ import * as Clipboard from "expo-clipboard";
 import { useMobileWallet } from "@/hooks";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LeaderboardEntry, useLeaderboard } from "../hooks/useLeaderboard";
+import { useUserStats } from "../hooks/useUserStats";
 
 export default function ProfileScreen() {
   const { user } = useUser();
@@ -141,13 +142,25 @@ export default function ProfileScreen() {
 
 // Personal Stats Component
 function PersonalStatsView({ user }: { user: any }) {
-  if (!user) {
+  const { data: stats, isLoading, error } = useUserStats();
+
+  if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <Text className="text-gray-400">Loading user data...</Text>
+        <Text className="text-gray-400">Loading stats...</Text>
       </View>
     );
   }
+
+  if (error) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <Text className="text-red-400">Failed to load stats</Text>
+      </View>
+    );
+  }
+
+  const display = stats || user;
 
   return (
     <View className="space-y-4">
@@ -159,14 +172,14 @@ function PersonalStatsView({ user }: { user: any }) {
               Total Trades
             </Text>
             <Text className="text-white font-better-medium">
-              {user.totalBets || 0}
+              {display?.totalBets || 0}
             </Text>
           </View>
 
           <View className="flex-row justify-between">
             <Text className="text-gray-300 font-better-regular">Won</Text>
             <Text className="text-green-400 font-better-medium">
-              {user.betsWon || 0}
+              {display?.betsWon || 0}
             </Text>
           </View>
 
@@ -183,13 +196,15 @@ function PersonalStatsView({ user }: { user: any }) {
           <View className="flex-row justify-between">
             <Text className="text-gray-300 font-better-regular">Streak</Text>
             <Text className="text-white font-better-medium">
-              {user.streak || 0}
+              {display?.streak || 0}
             </Text>
           </View>
           <View className="flex-row justify-between">
             <Text className="text-gray-300 font-better-regular">Win Rate</Text>
             <Text className="text-white font-better-medium">
-              {user.winRate || "0%"}
+              {typeof display?.winRate === "number"
+                ? `${display?.winRate.toFixed(2)}%`
+                : display?.winRate || "0%"}
             </Text>
           </View>
         </View>
@@ -202,20 +217,20 @@ function PersonalStatsView({ user }: { user: any }) {
           <View className="flex-row justify-between">
             <Text className="text-gray-300 font-better-regular">USDC</Text>
             <Text className="text-white font-better-medium">
-              {user.totalWonAmountUSDC || 0}
+              {display?.totalWonAmountUSDCFormatted || display?.totalWonAmountUSDC || 0}
             </Text>
           </View>
           <View className="flex-row justify-between">
             <Text className="text-gray-300 font-better-regular">BONK</Text>
             <Text className="text-white font-better-medium">
-              {user.totalWonAmountBonk || 0}
+              {display?.totalWonAmountBONKFormatted || display?.totalWonAmountBonk || 0}
             </Text>
           </View>
 
           <View className="flex-row justify-between">
             <Text className="text-gray-300 font-better-regular">SOL</Text>
             <Text className="text-white font-better-medium">
-              {user.totalWonAmountSol || 0}
+              {display?.totalWonAmountSOLFormatted || display?.totalWonAmountSol || 0}
             </Text>
           </View>
         </View>
