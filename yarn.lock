@@ -1230,9 +1230,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 "@endcorp/depredict@npm:^0.6.2":
   version: 0.6.4
   resolution: "@endcorp/depredict@npm:0.6.4"
+=======
+"@endcorp/depredict@npm:^0.6.7":
+  version: 0.6.7
+  resolution: "@endcorp/depredict@npm:0.6.7"
+>>>>>>> develop
   dependencies:
     "@metaplex-foundation/digital-asset-standard-api": "npm:^2.0.0"
     "@metaplex-foundation/mpl-account-compression": "npm:^0.0.1"
@@ -1245,7 +1251,11 @@ __metadata:
     "@metaplex-foundation/umi-rpc-web3js": "npm:^1.4.1"
     "@metaplex-foundation/umi-web3js-adapters": "npm:^1.2.0"
     bs58: "npm:^6.0.0"
+<<<<<<< HEAD
   checksum: 10c0/4476869f9c0a817add92f86104ac593c74ae2fa69ed477ae4d7644d669316d5c27a196a144d7162f4eaaed3f0280ff3a6e7dbf6cd78f2c3001e06747274c5183
+=======
+  checksum: 10c0/46323aa48b4df734d99d7c6a640da30a9e28812510bf532560343f1caaa4ea86afc018f0db26fec29743c5635deb41f76da69fb4d7e1083e3984a55f222834ad
+>>>>>>> develop
   languageName: node
   linkType: hard
 
@@ -3677,11 +3687,19 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:*":
+<<<<<<< HEAD
   version: 24.7.1
   resolution: "@types/node@npm:24.7.1"
   dependencies:
     undici-types: "npm:~7.14.0"
   checksum: 10c0/2525f2aa865d78b1c75faaf8c6bf2af51c930962d8078306620d9a76eafcbbea035142cf2cdc2fcf1b4010cd3958a1c6c59b67aba1ac205dc1e5f895ef6af673
+=======
+  version: 24.7.2
+  resolution: "@types/node@npm:24.7.2"
+  dependencies:
+    undici-types: "npm:~7.14.0"
+  checksum: 10c0/03f662f10e4b89bc97016e067101cbabe55025b54c24afb581fb50992d5eeaaf417bdae34bbc668ae8759d3cdbbbadf35fc8b9b29d26f52ede2525d48e919e49
+>>>>>>> develop
   languageName: node
   linkType: hard
 
@@ -4380,7 +4398,7 @@ __metadata:
   dependencies:
     "@babel/core": "npm:^7.20.0"
     "@coral-xyz/anchor": "npm:^0.31.1"
-    "@endcorp/depredict": "npm:^0.6.2"
+    "@endcorp/depredict": "npm:^0.6.7"
     "@expo/vector-icons": "npm:~14.0.4"
     "@metaplex-foundation/digital-asset-standard-api": "npm:^2.0.0"
     "@metaplex-foundation/mpl-bubblegum": "npm:^4.0.0"
@@ -4427,7 +4445,7 @@ __metadata:
     expo-video: "npm:~2.0.6"
     h3-reactnative: "https://github.com/endcorp-hq/h3-reactnative.git"
     moti: "npm:^0.30.0"
-    nativewind: "npm:^4.1.23"
+    nativewind: "npm:4.1.23"
     path-browserify: "npm:^1.0.1"
     react: "npm:18.3.1"
     react-native: "npm:0.76.9"
@@ -4816,9 +4834,15 @@ __metadata:
   linkType: hard
 
 "caniuse-lite@npm:^1.0.30001746":
+<<<<<<< HEAD
   version: 1.0.30001749
   resolution: "caniuse-lite@npm:1.0.30001749"
   checksum: 10c0/f5100599361be03e93cae1f38380fdb78b477b573cb27f8aaf8ed8461ac0233ea84c7e127f441ca0a82ff23f4c37a8855b7c6a02e79d70769a786550bc1be69e
+=======
+  version: 1.0.30001750
+  resolution: "caniuse-lite@npm:1.0.30001750"
+  checksum: 10c0/aa77ebf264ca8dcfe913fadaa19f06bf839d65dec24498fdb9c45739ab0828b8275ca30c698f4ee86829d38264eaa461edf4577e407753da8205ab1d285e105d
+>>>>>>> develop
   languageName: node
   linkType: hard
 
@@ -5420,6 +5444,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"detect-libc@npm:^2.0.3":
+  version: 2.1.2
+  resolution: "detect-libc@npm:2.1.2"
+  checksum: 10c0/acc675c29a5649fa1fb6e255f993b8ee829e510b6b56b0910666949c80c364738833417d0edb5f90e4e46be17228b0f2b66a010513984e18b15deeeac49369c4
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "didyoumean@npm:^1.2.2":
   version: 1.2.2
   resolution: "didyoumean@npm:1.2.2"
@@ -7594,6 +7628,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lightningcss-android-arm64@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-android-arm64@npm:1.30.2"
+  conditions: os=android & cpu=arm64
+  languageName: node
+  linkType: hard
+
 "lightningcss-darwin-arm64@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-darwin-arm64@npm:1.27.0"
@@ -7601,6 +7642,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-darwin-arm64@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-darwin-arm64@npm:1.30.2"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss-darwin-x64@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-darwin-x64@npm:1.27.0"
@@ -7608,6 +7659,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-darwin-x64@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-darwin-x64@npm:1.30.2"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss-freebsd-x64@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-freebsd-x64@npm:1.27.0"
@@ -7615,6 +7676,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-freebsd-x64@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-freebsd-x64@npm:1.30.2"
+  conditions: os=freebsd & cpu=x64
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss-linux-arm-gnueabihf@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-linux-arm-gnueabihf@npm:1.27.0"
@@ -7622,6 +7693,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-linux-arm-gnueabihf@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-linux-arm-gnueabihf@npm:1.30.2"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss-linux-arm64-gnu@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-linux-arm64-gnu@npm:1.27.0"
@@ -7629,6 +7710,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-linux-arm64-gnu@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-linux-arm64-gnu@npm:1.30.2"
+  conditions: os=linux & cpu=arm64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss-linux-arm64-musl@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-linux-arm64-musl@npm:1.27.0"
@@ -7636,6 +7727,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-linux-arm64-musl@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-linux-arm64-musl@npm:1.30.2"
+  conditions: os=linux & cpu=arm64 & libc=musl
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss-linux-x64-gnu@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-linux-x64-gnu@npm:1.27.0"
@@ -7643,6 +7744,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-linux-x64-gnu@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-linux-x64-gnu@npm:1.30.2"
+  conditions: os=linux & cpu=x64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss-linux-x64-musl@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-linux-x64-musl@npm:1.27.0"
@@ -7650,6 +7761,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-linux-x64-musl@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-linux-x64-musl@npm:1.30.2"
+  conditions: os=linux & cpu=x64 & libc=musl
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss-win32-arm64-msvc@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-win32-arm64-msvc@npm:1.27.0"
@@ -7657,6 +7778,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-win32-arm64-msvc@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-win32-arm64-msvc@npm:1.30.2"
+  conditions: os=win32 & cpu=arm64
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss-win32-x64-msvc@npm:1.27.0":
   version: 1.27.0
   resolution: "lightningcss-win32-x64-msvc@npm:1.27.0"
@@ -7664,6 +7795,59 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
+=======
+"lightningcss-win32-x64-msvc@npm:1.30.2":
+  version: 1.30.2
+  resolution: "lightningcss-win32-x64-msvc@npm:1.30.2"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"lightningcss@npm:^1.27.0":
+  version: 1.30.2
+  resolution: "lightningcss@npm:1.30.2"
+  dependencies:
+    detect-libc: "npm:^2.0.3"
+    lightningcss-android-arm64: "npm:1.30.2"
+    lightningcss-darwin-arm64: "npm:1.30.2"
+    lightningcss-darwin-x64: "npm:1.30.2"
+    lightningcss-freebsd-x64: "npm:1.30.2"
+    lightningcss-linux-arm-gnueabihf: "npm:1.30.2"
+    lightningcss-linux-arm64-gnu: "npm:1.30.2"
+    lightningcss-linux-arm64-musl: "npm:1.30.2"
+    lightningcss-linux-x64-gnu: "npm:1.30.2"
+    lightningcss-linux-x64-musl: "npm:1.30.2"
+    lightningcss-win32-arm64-msvc: "npm:1.30.2"
+    lightningcss-win32-x64-msvc: "npm:1.30.2"
+  dependenciesMeta:
+    lightningcss-android-arm64:
+      optional: true
+    lightningcss-darwin-arm64:
+      optional: true
+    lightningcss-darwin-x64:
+      optional: true
+    lightningcss-freebsd-x64:
+      optional: true
+    lightningcss-linux-arm-gnueabihf:
+      optional: true
+    lightningcss-linux-arm64-gnu:
+      optional: true
+    lightningcss-linux-arm64-musl:
+      optional: true
+    lightningcss-linux-x64-gnu:
+      optional: true
+    lightningcss-linux-x64-musl:
+      optional: true
+    lightningcss-win32-arm64-msvc:
+      optional: true
+    lightningcss-win32-x64-msvc:
+      optional: true
+  checksum: 10c0/5c0c73a33946dab65908d5cd1325df4efa290efb77f940b60f40448b5ab9a87d3ea665ef9bcf00df4209705050ecf2f7ecc649f44d6dfa5905bb50f15717e78d
+  languageName: node
+  linkType: hard
+
+>>>>>>> develop
 "lightningcss@npm:~1.27.0":
   version: 1.27.0
   resolution: "lightningcss@npm:1.27.0"
@@ -8390,9 +8574,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+<<<<<<< HEAD
 "nativewind@npm:^4.1.23":
   version: 4.2.1
   resolution: "nativewind@npm:4.2.1"
+=======
+"nativewind@npm:4.1.23":
+  version: 4.1.23
+  resolution: "nativewind@npm:4.1.23"
+>>>>>>> develop
   dependencies:
     comment-json: "npm:^4.2.5"
     debug: "npm:^4.3.7"
@@ -10883,11 +11073,19 @@ __metadata:
   linkType: hard
 
 "use-latest-callback@npm:^0.2.1":
+<<<<<<< HEAD
   version: 0.2.5
   resolution: "use-latest-callback@npm:0.2.5"
   peerDependencies:
     react: ">=16.8"
   checksum: 10c0/c70104d345fd0243eb90c813283c94234e99530086a2787d66e3ad8b0a8564a4c168d700b7f9602192a32087a8226eb6c85f450d91d9ecba1808a4e32a700f1b
+=======
+  version: 0.2.6
+  resolution: "use-latest-callback@npm:0.2.6"
+  peerDependencies:
+    react: ">=16.8"
+  checksum: 10c0/6523747b2d76f12a91cf80a3cd9803449571e9defa8db69e9a03b8199b211127d88c038063714fe31d3c2e63ca51a491bd05f4e34203795a1c692a5a44416610
+>>>>>>> develop
   languageName: node
   linkType: hard
 

@@ -15,7 +15,7 @@ import { STORAGE_KEYS } from "../utils/constants";
 type NetworkEnvironment = "mainnet" | "devnet";
 
 interface ChainContextType {
-  currentChain: NetworkEnvironment | null;
+  currentChain: NetworkEnvironment;
   connection: Connection | null;
   isLoading: boolean;
 }
@@ -88,6 +88,14 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       initializeChain();
     }
   }, [selectedAccount]);
+
+  // Reactively sync chain with the authorized session's chain selection
+  useEffect(() => {
+    const chain = userSession?.chain;
+    if (!chain) return;
+    const normalized: NetworkEnvironment = chain.includes('mainnet') ? 'mainnet' : 'devnet';
+    setCurrentChain((prev) => (prev !== normalized ? normalized : prev));
+  }, [userSession?.chain]);
 
   // Cleanup connection when component unmounts
   useEffect(() => {

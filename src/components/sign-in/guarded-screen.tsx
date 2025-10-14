@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Image } from "react-native";
+import { View, Text, TouchableOpacity, Image, Animated } from "react-native";
 import { useAuthorization } from "../../hooks/solana/useAuthorization";
 import { DefaultBg, LogoLoader } from "../ui";
 import { LoginButton } from "./sign-in-ui";
@@ -16,22 +16,58 @@ function ChainToggle({
   selectedChain: Chain;
   onToggle: () => void;
 }) {
+  const [containerWidth, setContainerWidth] = React.useState(0);
+  const progress = React.useRef(new Animated.Value(selectedChain.includes("mainnet") ? 0 : 1)).current;
+
+  React.useEffect(() => {
+    Animated.timing(progress, {
+      toValue: selectedChain.includes("mainnet") ? 0 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [selectedChain]);
+
+  const translateX = React.useMemo(() => {
+    const half = containerWidth / 2;
+    return progress.interpolate({ inputRange: [0, 1], outputRange: [0, half] });
+  }, [progress, containerWidth]);
+
   return (
     <View className="mb-12 mt-6">
       <TouchableOpacity
         onPress={onToggle}
         className="flex-row bg-white/10 rounded-full p-1 w-48 mx-auto"
       >
-        <View className="flex-1 relative rounded-full border border-primary">
-          {/* Sliding background */}
-          <View
-            className={`absolute top-0 bottom-0 w-1/2 bg-white/20 rounded-full transition-all duration-200 ${
-              selectedChain === "solana:devnet" ? "left-0" : "left-1/2"
-            }`}
+        <View
+          className="flex-1 relative rounded-full border border-primary"
+          onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        >
+          {/* Sliding background (Animated) */}
+          <Animated.View
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              width: "50%",
+              backgroundColor: "rgba(255,255,255,0.2)",
+              borderRadius: 9999,
+              transform: [{ translateX }],
+            }}
           />
 
           {/* Labels */}
           <View className="flex-row">
+          <View className="flex-1 py-2 px-1">
+              <Text
+                className={`text-center text-base font-better-medium ${
+                  selectedChain.includes("mainnet")
+                    ? "text-white"
+                    : "text-gray-400"
+                }`}
+              >
+                Mainnet
+              </Text>
+            </View>
             <View className="flex-1 py-2 px-1">
               <Text
                 className={`text-center text-base font-better-medium ${
@@ -41,17 +77,6 @@ function ChainToggle({
                 }`}
               >
                 Devnet
-              </Text>
-            </View>
-            <View className="flex-1 py-2 px-1">
-              <Text
-                className={`text-center text-base font-better-medium ${
-                  selectedChain.includes("mainnet")
-                    ? "text-white"
-                    : "text-gray-400"
-                }`}
-              >
-                Mainnet
               </Text>
             </View>
           </View>

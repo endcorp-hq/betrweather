@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useMemo, useRef } from "react";
 import { useAuthorization } from "./solana/useAuthorization";
-import { useChain } from "@/contexts";
+import { useChain } from "../contexts/ChainProvider";
 import { Buffer } from "buffer";
 import { MessageV0, VersionedTransaction, Transaction } from "@solana/web3.js";
 import bs58 from "bs58";
@@ -219,7 +219,7 @@ export function useBackendRelay() {
       marketId: number;
       payerPubkey: string; // base58
       assetId: string; // base58
-      network?: string;
+      network: string;
     }): Promise<BuildTxResponse> => {
       const token = await ensureAuthToken();
       const headersBase = {
@@ -502,7 +502,8 @@ export function useBackendRelay() {
       'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
     } as Record<string, string>;
 
-    const url = `${API_BASE}/markets`;
+    const net = (currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet';
+    const url = `${API_BASE}/markets?network=${encodeURIComponent(net)}`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
     if (res.status === 401) {
       const fresh = await ensureAuthToken(true);
@@ -526,7 +527,8 @@ export function useBackendRelay() {
       Authorization: `Bearer ${token}`,
       'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
     } as Record<string, string>;
-    const url = `${API_BASE.replace(/\/$/, '')}/markets/active`;
+    const net = (currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet';
+    const url = `${API_BASE.replace(/\/$/, '')}/markets/active?network=${encodeURIComponent(net)}`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
     if (res.status === 401) {
       const fresh = await ensureAuthToken(true);
@@ -543,7 +545,8 @@ export function useBackendRelay() {
       Authorization: `Bearer ${token}`,
       'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
     } as Record<string, string>;
-    const url = `${API_BASE.replace(/\/$/, '')}/markets/observing`;
+    const net = (currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet';
+    const url = `${API_BASE.replace(/\/$/, '')}/markets/observing?network=${encodeURIComponent(net)}`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
     if (res.status === 401) {
       const fresh = await ensureAuthToken(true);
@@ -560,7 +563,8 @@ export function useBackendRelay() {
       Authorization: `Bearer ${token}`,
       'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
     } as Record<string, string>;
-    const url = `${API_BASE.replace(/\/$/, '')}/markets/resolved?lastHours=${encodeURIComponent(String(lastHours))}`;
+    const net = (currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet';
+    const url = `${API_BASE.replace(/\/$/, '')}/markets/resolved?lastHours=${encodeURIComponent(String(lastHours))}&network=${encodeURIComponent(net)}`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
     if (res.status === 401) {
       const fresh = await ensureAuthToken(true);

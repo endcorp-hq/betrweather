@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuthorization } from "./useAuthorization";
-import { useChain } from "@/contexts";
+import { useChain } from "../../contexts/ChainProvider";
 import { getJWTTokens } from "../../utils/authUtils";
 
 // Simple exponential backoff for rate-limited requests (HTTP 429)

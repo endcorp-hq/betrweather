@@ -22,7 +22,7 @@ import React, {
 import { Position } from "@endcorp/depredict";
   import BN from "bn.js";
   import { useCallback } from 'react';
-  import { useChain } from "@/contexts";
+  import { useChain } from "../../contexts/ChainProvider";
 import { useAuthorization } from "./useAuthorization";
   import { useBackendRelay } from "../useBackendRelay";
   
@@ -293,7 +293,10 @@ import { useAuthorization } from "./useAuthorization";
 
       const latestEvent = marketEvents[0]; // Get the most recent event
       
-      setMarkets(prevMarkets => {
+      // Reduce main-thread blocking by batching updates
+      // @ts-ignore startTransition exists in React 18
+      const run = (React as any).startTransition || ((fn: any) => fn());
+      run(() => setMarkets(prevMarkets => {
         const existingMarketIndex = prevMarkets.findIndex(market => market.marketId === latestEvent.marketId.toString());
         
         if (existingMarketIndex !== -1) {
@@ -342,7 +345,7 @@ import { useAuthorization } from "./useAuthorization";
               if (client) {
                 const newMarket = await client.trade.getMarketById(latestEvent.marketId);
                 if (newMarket) {
-                  setMarkets(prev => {
+                  run(() => setMarkets(prev => {
                     // Check if market already exists to prevent duplicates
                     const marketExists = prev.some(market => market.marketId === latestEvent.marketId.toString());
                     if (marketExists) {
@@ -351,7 +354,7 @@ import { useAuthorization } from "./useAuthorization";
                     }
                     // console.log(`Added new market ${latestEvent.marketId} to the list`);
                     return [newMarket, ...prev];
-                  });
+                  }));
                 }
               }
             } catch (error) {
@@ -362,7 +365,7 @@ import { useAuthorization } from "./useAuthorization";
           fetchNewMarket();
           return prevMarkets; // Return current markets while fetching
         }
-      });
+      }));
     }, [marketEvents, client]);
   
     useEffect(() => {

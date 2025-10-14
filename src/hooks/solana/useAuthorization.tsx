@@ -165,6 +165,11 @@ export function useAuthorization() {
     [authorization, setAuthorization]
   );
 
+  // Local-only logout: clear cached authorization without opening wallet
+  const clearSession = useCallback(() => {
+    setAuthorization(null);
+  }, [setAuthorization]);
+
   return useMemo(
     () => ({
       accounts: authorization?.accounts ?? null,

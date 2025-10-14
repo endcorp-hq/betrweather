@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { ScrollView, Text, StyleSheet, View, RefreshControl, TouchableOpacity } from "react-native";
+import React, { useState, useMemo, useCallback } from "react";
+import { Text, StyleSheet, View, FlatList } from "react-native";
 import { MarketCard, StatusFilterBar } from "@/components";
 import { computeDerived } from "@/utils";
 import { useFilters } from "@/components";
@@ -226,12 +226,18 @@ export default function MarketScreen() {
     });
   }, [mergedMarkets, statusFilter, timeFilter]);
 
-  // Client-side pagination
-  const [visibleCount, setVisibleCount] = useState(10);
-  useEffect(() => { setVisibleCount(10); }, [statusFilter, timeFilter, mergedMarkets.length]);
-  const visibleMarkets = useMemo(() => filteredMarkets.slice(0, visibleCount), [filteredMarkets, visibleCount]);
-  const canLoadMore = filteredMarkets.length > visibleCount;
-  const loadMore = useCallback(() => setVisibleCount((c) => c + 10), []);
+  // FlatList render item
+  const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
+    <MemoizedMarketCard
+      market={item}
+      index={index}
+    />
+  ), []);
+
+  const keyExtractor = useCallback((item: any, index: number) => {
+    const id = item?.marketId ?? item?.id ?? index;
+    return String(id);
+  }, []);
 
   return (
     <View className="flex-1">

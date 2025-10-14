@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@endcorp/depredict": "^0.6.2",
+    "@endcorp/depredict": "^0.6.7",
     "@expo/vector-icons": "~14.0.4",
     "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
     "@metaplex-foundation/mpl-bubblegum": "^4.0.0",
@@ -67,7 +67,7 @@
     "expo-video": "~2.0.6",
     "h3-reactnative": "https://github.com/endcorp-hq/h3-reactnative.git",
     "moti": "^0.30.0",
-    "nativewind": "^4.1.23",
+    "nativewind": "4.1.23",
     "path-browserify": "^1.0.1",
     "react": "18.3.1",
     "react-native": "0.76.9",

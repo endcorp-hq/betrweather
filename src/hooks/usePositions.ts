@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { InteractionManager } from "react-native";
-import { useAuthorization, useNftMetadata, useShortx } from "./solana";
+import { useAuthorization } from "./solana/useAuthorization";
+import { useNftMetadata } from "./solana/useNft";
 import { useBackendRelay } from "./useBackendRelay";
 import { Buffer } from "buffer";
 import { useMobileWallet } from "./useMobileWallet";
@@ -18,47 +19,14 @@ import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 import { PublicKey as Web3PublicKey } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
 
-import { useChain } from "@/contexts";
-import { getJWTTokens, isTokenExpired } from "src/utils/authUtils";
-import { CurrencyType } from "src/types/currency";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { burnPosition } from "src/utils/positionUtils";
-import { toWeb3JsTransaction } from "@metaplex-foundation/umi-web3js-adapters";
-import { tokenManager } from "src/utils/tokenManager";
-
-
-// Define the type for the backend response
-interface BackendPosition {
-  id: string;
-  userId: string;
-  userWallet: string;
-  marketId: number;
-  nftAddress: string;
-  amount: string;
-  currency: string;
-  direction: "yes" | "no";
-  isBurned: boolean;
-  isWon: boolean;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  positionNonce: number;
-  positionId: number;
-}
-
-interface BackendResponse {
-  validBets: BackendPosition[];
-  updatedBets: number;
-  removedBets: number;
-}
+import { useChain } from "../contexts/ChainProvider";
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
-  const { fetchNftMetadata, loading, retryCount, lastError, clearError } = useNftMetadata();
-  const { getMarketById, payoutPosition } = useShortx();
+  const { fetchNftMetadata, loading, retryCount, lastError } = useNftMetadata();
   const { toast } = useToast();
   const { currentChain } = useChain();
-  const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildPayout, checkBubblegumAsset } = useBackendRelay();
+  const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildPayout, checkBubblegumAsset, getMarketById: backendGetMarketById } = useBackendRelay();
   const { signTransaction } = useMobileWallet();
   const queryClient = useQueryClient();
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
@@ -102,7 +70,7 @@ export function usePositions() {
       );
       if (missingIds.length === 0) return;
 
-      // Limit concurrency to avoid large spikes; process in small batches
+      // Limit concurrency to avoid large spikes; process in small batches (backend only)
       const concurrency = 4;
       const results: Array<{ id: number; market: any } | null> = [];
       for (let i = 0; i < missingIds.length; i += concurrency) {
@@ -110,7 +78,7 @@ export function usePositions() {
         const batch = await Promise.all(
           slice.map(async (id) => {
             try {
-              const market = await getMarketById(id);
+              const market = await backendGetMarketById(id);
               return market ? { id, market } : null;
             } catch {
               return null;
@@ -134,7 +102,7 @@ export function usePositions() {
       );
     } catch {}
     finally { t.end({ missing: 0 }); }
-  }, [getMarketById]);
+  }, [backendGetMarketById]);
 
   // Manual refresh function
   const refreshPositions = useCallback(async () => {
@@ -472,7 +440,7 @@ export function usePositions() {
           marketId: position.marketId,
           payerPubkey: selectedAccount.publicKey.toBase58(),
           assetId: new Web3PublicKey(position.assetId).toBase58(),
-          network: currentChain || 'devnet',
+          network: currentChain,
         });
         const messageBase64 = (build as any).message || (build as any).messageBase64;
         if (!messageBase64) throw new Error('Builder did not return base64 message');
@@ -594,6 +562,18 @@ export function usePositions() {
     const bId = Number(b.marketId) || Number.MAX_SAFE_INTEGER;
     return aId - bId;
   });
+
+  // Clear positions and caches on network or wallet change to avoid stale cross-network items
+  // Then trigger a fresh background refresh
+  useEffect(() => {
+    locallyRemovedKeysRef.current.clear();
+    setPositions([]);
+    lastRefreshTime.current = 0;
+    inflightPromiseRef.current = null;
+    if (selectedAccount?.publicKey) {
+      InteractionManager.runAfterInteractions(() => { void refreshPositions(); });
+    }
+  }, [currentChain, selectedAccount?.publicKey?.toBase58?.()]);
 
   return {
     positions: sortedPositions,

@@ -12,7 +12,7 @@ import { type SolanaSignInInput } from "@solana/wallet-standard-features";
 import { Web3MobileWallet, transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { Account } from "src/types/solana-types";
 export function useMobileWallet() {
-  const { authorizeSessionWithSignIn, authorizeSession, deauthorizeSession } =
+  const { authorizeSessionWithSignIn, authorizeSession, clearSession } =
     useAuthorization();
 
   const connect = useCallback(
@@ -41,10 +41,10 @@ export function useMobileWallet() {
   );
 
   const disconnect = useCallback(async (): Promise<void> => {
-    await transact(async (wallet) => {
-      await deauthorizeSession(wallet);
-    });
-  }, [deauthorizeSession]);
+    // Prefer local-only logout for smoother UX
+    clearSession();
+    // Optionally, also deauthorize with wallet in background later if desired
+  }, [clearSession]);
 
   const signAndSendTransaction = useCallback(
     async (

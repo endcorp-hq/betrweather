@@ -48,6 +48,20 @@ export function extractErrorMessage(error: unknown, fallbackMessage: string = "A
   // If it's an Error object
   if (error instanceof Error) {
     const errorStr = error.message;
+    const lower = (errorStr || "").toLowerCase();
+
+    // Wallet took too long → blockhash expired / transaction timed out
+    if (
+      lower.includes("blockhash not found") ||
+      lower.includes("transaction expired") ||
+      lower.includes("timed out") ||
+      lower.includes("timeout") ||
+      lower.includes("too old") ||
+      lower.includes("last valid block height") ||
+      lower.includes("block height exceeded")
+    ) {
+      return "Took too long to approve in wallet and the transaction expired. Please try again.";
+    }
     
     // Handle Solana/relay simulation errors
     if (errorStr.includes("Simulation failed") || errorStr.includes("SIMULATION_FAILED")) {
