@@ -1230,9 +1230,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@endcorp/depredict@npm:^0.6.6":
-  version: 0.6.6
-  resolution: "@endcorp/depredict@npm:0.6.6"
+"@endcorp/depredict@npm:^0.6.7":
+  version: 0.6.7
+  resolution: "@endcorp/depredict@npm:0.6.7"
   dependencies:
     "@metaplex-foundation/digital-asset-standard-api": "npm:^2.0.0"
     "@metaplex-foundation/mpl-account-compression": "npm:^0.0.1"
@@ -1245,7 +1245,7 @@ __metadata:
     "@metaplex-foundation/umi-rpc-web3js": "npm:^1.4.1"
     "@metaplex-foundation/umi-web3js-adapters": "npm:^1.2.0"
     bs58: "npm:^6.0.0"
-  checksum: 10c0/f0f13f9da9ee524e9a3a1e7b2ce96dc39c5e15b914fac78c92792fec1d386faaa3306e3f2688800728e3ad6d0ed78b0662de2af83e1c0023512403d506f66bcc
+  checksum: 10c0/46323aa48b4df734d99d7c6a640da30a9e28812510bf532560343f1caaa4ea86afc018f0db26fec29743c5635deb41f76da69fb4d7e1083e3984a55f222834ad
   languageName: node
   linkType: hard
 
@@ -4380,7 +4380,7 @@ __metadata:
   dependencies:
     "@babel/core": "npm:^7.20.0"
     "@coral-xyz/anchor": "npm:^0.31.1"
-    "@endcorp/depredict": "npm:^0.6.6"
+    "@endcorp/depredict": "npm:^0.6.7"
     "@expo/vector-icons": "npm:~14.0.4"
     "@metaplex-foundation/digital-asset-standard-api": "npm:^2.0.0"
     "@metaplex-foundation/mpl-bubblegum": "npm:^4.0.0"
