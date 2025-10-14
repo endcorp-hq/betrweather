@@ -19,11 +19,12 @@ import { PublicKey as Web3PublicKey } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
 
 import { useChain } from "@/contexts";
-import { getJWTTokens } from "src/utils/authUtils";
+import { getJWTTokens, isTokenExpired } from "src/utils/authUtils";
 import { CurrencyType } from "src/types/currency";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { burnPosition } from "src/utils/positionUtils";
 import { toWeb3JsTransaction } from "@metaplex-foundation/umi-web3js-adapters";
+import { tokenManager } from "src/utils/tokenManager";
 
 
 // Define the type for the backend response
@@ -148,6 +149,14 @@ export function usePositions() {
     const t = timeStart('Positions', 'refresh');
     setLoadingMarkets(true);
     const p = (async () => {
+      if (!selectedAccount) return;
+      const tokens = await getJWTTokens();
+      if (!tokens) return;
+      const expired = isTokenExpired(tokens);
+      if (expired) {
+        const success = await tokenManager.refreshTokens();
+        if (!success) return;
+      }
       const metadata = await fetchNftMetadata();
       console.log("metadata obtained", metadata);
       if (metadata) {

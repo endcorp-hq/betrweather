@@ -95,6 +95,7 @@ export function useBackendRelay() {
 
     // Build a single in-flight promise to avoid thundering herd
     const promise = (async () => {
+      if(!selectedAccount?.address) return
       const t = timeStart('Auth', 'ensureAuthToken');
       
       // Get JWT from login system
