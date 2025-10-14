@@ -95,16 +95,17 @@ export function useBackendRelay() {
 
     // Build a single in-flight promise to avoid thundering herd
     const promise = (async () => {
-      if(!selectedAccount?.address) return
+      if (!selectedAccount?.address) {
+        throw new Error("Wallet not connected. Please reconnect your wallet.");
+      }
       const t = timeStart('Auth', 'ensureAuthToken');
       
       // Get JWT from login system
       let tokens = await getJWTTokens();
       
       if (!tokens || !tokens.accessToken) {
-        // No JWT found - user needs to login
-        log('Auth', 'error', 'No JWT found. User must login.');
-        throw new Error("Authentication required. Please login.");
+        // Quietly signal missing JWT so callers can gate
+        throw new Error("JWT_MISSING");
       }
 
       // Verify wallet matches
@@ -126,10 +127,10 @@ export function useBackendRelay() {
         const refreshSuccess = await tokenManager.refreshTokens();
         
         if (!refreshSuccess) {
-          // Refresh failed - clear tokens and require login
-          log('Auth', 'error', 'Token refresh failed. User must login.');
+          // Refresh failed - clear tokens and let caller decide UX
+          log('Auth', 'warn', 'Token refresh failed.');
           await clearJWTTokens();
-          throw new Error("Session expired. Please login again.");
+          throw new Error("JWT_REFRESH_FAILED");
         }
         
         // Get the newly refreshed tokens

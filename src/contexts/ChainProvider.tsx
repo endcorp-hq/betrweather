@@ -35,7 +35,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
     null
   );
   const [isLoading, setIsLoading] = useState(false);
-  const { selectedAccount } = useAuthorization();
+  const { selectedAccount, userSession } = useAuthorization();
   const connectionRef = useRef<Connection | null>(null);
 
   // Cleanup function for connections
@@ -125,7 +125,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
   }, [currentChain, config]);
 
   return (
-    <ChainContext.Provider value={{ currentChain, connection, isLoading }}>
+    <ChainContext.Provider value={{ currentChain: currentChain ?? 'devnet', connection, isLoading }}>
       {children}
     </ChainContext.Provider>
   );

@@ -3,6 +3,7 @@ import { InteractionManager } from "react-native";
 import { useAuthorization } from "./solana/useAuthorization";
 import { useNftMetadata } from "./solana/useNft";
 import { useBackendRelay } from "./useBackendRelay";
+import { useShortx } from "./solana";
 import { Buffer } from "buffer";
 import { useMobileWallet } from "./useMobileWallet";
 
@@ -14,18 +15,23 @@ import {
   extractErrorMessage,
   getAssetInfo,
 } from "@/utils";
+import { getJWTTokens, isTokenExpired } from "../utils/authUtils";
+import { tokenManager } from "../utils/tokenManager";
+
 // Bubblegum burn handled by backend builder; remove client-side burn
 import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 import { PublicKey as Web3PublicKey } from "@solana/web3.js";
 import { getMarketToken } from "src/utils/marketUtils";
 
 import { useChain } from "../contexts/ChainProvider";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
   const { fetchNftMetadata, loading, retryCount, lastError } = useNftMetadata();
   const { toast } = useToast();
   const { currentChain } = useChain();
+  const { payoutPosition } = useShortx();
   const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildPayout, checkBubblegumAsset, getMarketById: backendGetMarketById } = useBackendRelay();
   const { signTransaction } = useMobileWallet();
   const queryClient = useQueryClient();
@@ -407,27 +413,7 @@ export function usePositions() {
     },
   });
 
-  // Burn position mutation
-  const burnPositionMutation = useMutation({
-    mutationFn: async (position: PositionWithMarket) => {
-      if (!selectedAccount?.publicKey) {
-        throw new Error("No wallet connected");
-      }
 
-      const umiTx = await burnPosition(position, selectedAccount, currentChain || "devnet");
-      if (!umiTx) {
-        throw new Error("Failed to create burn transaction");
-      }
-      
-      // Convert UMI transaction to Solana transaction
-      const solanaTx = toWeb3JsTransaction(umiTx);
-      return solanaTx;
-    },
-    onSuccess: () => {
-      // Invalidate positions to refetch fresh data
-      queryClient.invalidateQueries({ queryKey: ["positions"] });
-    },
-  });
 
   // Claim payout handler
   const handleClaimPayout = useCallback(

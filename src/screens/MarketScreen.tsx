@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { Text, StyleSheet, View, FlatList } from "react-native";
+import { Text, StyleSheet, View, FlatList, ScrollView, RefreshControl, TouchableOpacity } from "react-native";
 import { MarketCard, StatusFilterBar } from "@/components";
 import { computeDerived } from "@/utils";
 import { useFilters } from "@/components";
@@ -289,20 +289,15 @@ export default function MarketScreen() {
           </View>
         )}
         
-        {/* Add top padding to separate cards from status buttons */}
+        {/* Render markets */}
         <View>
-          {visibleMarkets.map((market, idx) => (
+          {filteredMarkets.map((market, idx) => (
             <MemoizedMarketCard
               key={`market-${market.marketId ?? market.id ?? idx}-${market.marketStart}`}
               market={market}
               index={idx}
             />
           ))}
-          {canLoadMore && (
-            <TouchableOpacity onPress={loadMore} style={{ alignSelf: 'center', marginTop: 16, marginBottom: 32, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
-              <Text style={{ color: '#ffffff', fontSize: 14, fontFamily: 'Poppins-SemiBold' }}>Load more</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </ScrollView>
     </View>
