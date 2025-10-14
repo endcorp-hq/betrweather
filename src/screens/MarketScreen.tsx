@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { Text, StyleSheet, View, FlatList, ScrollView, RefreshControl, TouchableOpacity } from "react-native";
+import { Text, StyleSheet, View, FlatList, TouchableOpacity } from "react-native";
 import { MarketCard, StatusFilterBar } from "@/components";
 import { computeDerived } from "@/utils";
 import { useFilters } from "@/components";
@@ -269,37 +269,31 @@ export default function MarketScreen() {
         />
       </View>
 
-      {/* Scrollable Market Cards Section */}
-      <ScrollView 
-        className="flex-1 px-4"
+      {/* Virtualized Market Cards Section */}
+      <FlatList
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        data={filteredMarkets}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+    getItemLayout={(_, index) => {
+      // Approximate item height from MarketCard styles.height (320) + margins (~24)
+      const ITEM_HEIGHT = 344;
+      return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index };
+    }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing || Boolean(progressive?.loading)}
-            onRefresh={onRefresh}
-            tintColor="#ffffff"
-          />
-        }
-      >
-        {/* Do not block on loading; only show empty state when not loading */}
-        {!progressive?.loading && filteredMarkets.length === 0 && (
+        refreshing={refreshing || Boolean(progressive?.loading)}
+        onRefresh={onRefresh}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews
+        ListEmptyComponent={!progressive?.loading ? (
           <View className="flex-1 justify-center items-center py-20">
-            <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>  
+            <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>
           </View>
-        )}
-        
-        {/* Render markets */}
-        <View>
-          {filteredMarkets.map((market, idx) => (
-            <MemoizedMarketCard
-              key={`market-${market.marketId ?? market.id ?? idx}-${market.marketStart}`}
-              market={market}
-              index={idx}
-            />
-          ))}
-        </View>
-      </ScrollView>
+        ) : null}
+      />
     </View>
   );
 }
