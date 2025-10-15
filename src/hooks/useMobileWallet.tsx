@@ -54,19 +54,34 @@ export function useMobileWallet() {
     ): Promise<TransactionSignature | undefined> => {
       try {
         return await transact(async (wallet) => {
-          await authorizeSession(wallet);
-          const signatures = await wallet.signAndSendTransactions({
-            transactions: [transaction],
-            minContextSlot,
-          });
-          return signatures[0];
+          try {
+            await authorizeSession(wallet);
+            const signatures = await wallet.signAndSendTransactions({
+              transactions: [transaction],
+              minContextSlot,
+            });
+            return signatures[0];
+          } catch (e: any) {
+            const msg = String(e?.message || e || "");
+            // Retry once if wallet session is stale
+            if (msg.includes('authorization request failed') || msg.includes('auth')) {
+              try { await deauthorizeSession(wallet as any); } catch {}
+              await authorizeSession(wallet);
+              const signatures = await wallet.signAndSendTransactions({
+                transactions: [transaction],
+                minContextSlot,
+              });
+              return signatures[0];
+            }
+            throw e;
+          }
         });
       } catch (e) {
         console.log("this is error", e);
         throw e;
       }
     },
-    [authorizeSession]
+    [authorizeSession, deauthorizeSession]
   );
 
   const signTransaction = useCallback(
@@ -75,18 +90,32 @@ export function useMobileWallet() {
     ): Promise<Transaction | VersionedTransaction | undefined> => {
       try {
         return await transact(async (wallet) => {
-          await authorizeSession(wallet);
-          const signatures = await wallet.signTransactions({
-            transactions: [transaction],
-          });
-          return signatures[0];
+          try {
+            await authorizeSession(wallet);
+            const signatures = await wallet.signTransactions({
+              transactions: [transaction],
+            });
+            return signatures[0];
+          } catch (e: any) {
+            const msg = String(e?.message || e || "");
+            // Retry once on stale/invalid auth
+            if (msg.includes('authorization request failed') || msg.includes('auth')) {
+              try { await deauthorizeSession(wallet as any); } catch {}
+              await authorizeSession(wallet);
+              const signatures = await wallet.signTransactions({
+                transactions: [transaction],
+              });
+              return signatures[0];
+            }
+            throw e;
+          }
         });
       } catch (e) {
         console.log("wallet signTransaction error", e);
         throw e;
       }
     },
-    [authorizeSession]
+    [authorizeSession, deauthorizeSession]
   );
 
   const signMessage = useCallback(
