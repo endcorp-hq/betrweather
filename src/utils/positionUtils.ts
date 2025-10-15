@@ -17,7 +17,6 @@ export interface PositionWithMarket {
   marketId: number;
   direction: "Yes" | "No";
   amount: number; // UI units
-  isActive?: boolean;
   isBurned?: boolean;
   userWallet?: string;
   // Legacy/optional fields kept for backward compatibility in UI filtering
@@ -26,7 +25,6 @@ export interface PositionWithMarket {
   currency: string;
   isBurned: boolean;
   isWon: boolean;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
   nftAddress: string;

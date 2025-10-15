@@ -153,7 +153,6 @@ export function usePositions() {
               marketId,
               amount: amountUiUnits,
               direction: mappedDirection as "Yes" | "No",
-              isActive: p.isActive ?? undefined,
               isBurned: p.isBurned ?? p.burned ?? undefined,
               userWallet: p.userWallet ?? p.owner ?? undefined,
               market,

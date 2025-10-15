@@ -66,8 +66,6 @@ export default function MarketScreen() {
         marketEnd: toSeconds(m.marketEnd),
         marketType: normalizedMarketType,
         currency: m.currency,
-        isActive: Boolean(m.isActive),
-        // Preserve live values from stream/backend when present
         winningDirection: m.winningDirection ?? WinningDirection.NONE,
         yesLiquidity: m.yesLiquidity ?? "0",
         noLiquidity: m.noLiquidity ?? "0",

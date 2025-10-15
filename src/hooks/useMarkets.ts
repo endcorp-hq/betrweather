@@ -106,7 +106,6 @@ export function useMarkets(
       "winningDirection",
       "marketState",
       "nextPositionId",
-      "isActive",
       "marketType",
       "question",
     ];
