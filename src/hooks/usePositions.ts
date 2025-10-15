@@ -9,6 +9,7 @@ import { useMobileWallet } from "./useMobileWallet";
 
 import { useToast } from "../contexts/CustomToast/ToastProvider";
 import { log, timeStart } from "@/utils";
+import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "../types/currency";
 import {
   PositionWithMarket,
   calculatePayout,
@@ -30,7 +31,7 @@ export function usePositions() {
   const { selectedAccount } = useAuthorization();
   const { fetchNftMetadata, loading, retryCount, lastError } = useNftMetadata();
   const { toast } = useToast();
-  const { currentChain } = useChain();
+  const { currentChain, connection } = useChain();
   const { payoutPosition } = useShortx();
   const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildPayout, checkBubblegumAsset, getMarketById: backendGetMarketById } = useBackendRelay();
   const { signTransaction } = useMobileWallet();
@@ -132,7 +133,7 @@ export function usePositions() {
         if (!success) return;
       }
       const metadata = await fetchNftMetadata();
-      console.log("metadata obtained", metadata);
+      // console.log("metadata obtained", metadata);
       if (metadata) {
         // Prefer market from backend if included; fallback to client fetch
         const positionsMapped = metadata.map((position) => {
@@ -207,16 +208,32 @@ export function usePositions() {
       // Set claiming state for this specific position
       setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, true);
 
+      // Safety guard: never leave UI stuck if relay hangs unexpectedly
+      const guardTimeoutId = setTimeout(() => {
+        try {
+          setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
+        } catch {}
+      }, 30000);
+
       // Define labels based on operation
       const labels = {
         loading: operation === 'claim' ? 'Claiming Payout' : 'Burning Position',
         processing: operation === 'claim' ? 'Processing your claim...' : 'Processing your burn...',
         processingTx: 'Transaction sent to blockchain...',
         success: operation === 'claim' ? 'Payout Claimed!' : 'Position Burned!',
-        successMessage: (amount: number) => 
-          operation === 'claim' 
-            ? `Successfully claimed ${amount.toFixed(2)} ${getMarketToken(position.market.mint)}!`
-            : 'Position successfully burned!',
+        successMessage: (amount: number) => {
+          if (operation !== 'claim') return 'Position successfully burned!';
+          // Prefer explicit currency if provided by backend; else infer from decimals
+          const currencyType: CurrencyType | undefined = (position.market as any)?.currency as CurrencyType | undefined;
+          const inferred: CurrencyType = ((): CurrencyType => {
+            const d = Number((position.market as any)?.decimals ?? 6);
+            if (d === 9) return CurrencyType.SOL_9;
+            if (d === 5) return CurrencyType.BONK_5;
+            return CurrencyType.USDC_6;
+          })();
+          const symbol = CURRENCY_DISPLAY_NAMES[currencyType || inferred];
+          return `Successfully claimed ${amount.toFixed(2)} ${symbol}!`;
+        },
         error: operation === 'claim' ? 'Failed to claim payout' : 'Failed to burn position'
       };
 
@@ -275,7 +292,7 @@ export function usePositions() {
               const signedTxB64 = Buffer.from((signed as any).serialize()).toString('base64');
               const forwarded = await forwardTx({
                 signedTx: signedTxB64,
-                options: { skipPreflight: false, maxRetries: 3 },
+                options: { skipPreflight: true, maxRetries: 3 },
               });
               signature = forwarded.signature;
             }
@@ -288,32 +305,52 @@ export function usePositions() {
             }
 
             if (signature) {
-              // Remove position from UI immediately for better UX
+              // Wait for confirmation before mutating UI
+              if (connection) {
+                try {
+                  await connection.confirmTransaction(signature, 'confirmed');
+                  const [status, parsed] = await Promise.all([
+                    connection.getSignatureStatuses([signature]),
+                    connection.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0 } as any),
+                  ]);
+                  const err = (status?.value?.[0] as any)?.err ?? (parsed as any)?.meta?.err;
+                  if (err) throw new Error('Transaction confirmed with error');
+                } catch (postErr) {
+                  // Confirmation failed or returned error → surface error and stop
+                  toast.update(loadingToastId, {
+                    type: "error",
+                    title: "Transaction Failed",
+                    message: "Your transaction did not confirm successfully.",
+                    duration: 4000,
+                  });
+                  setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
+                  try { clearTimeout(guardTimeoutId); } catch {}
+                  return;
+                }
+              }
+
+              // Success: now remove from UI and show success toast
               setPositions((prev) =>
                 prev.filter(
                   (p) => !(new Web3PublicKey(p.assetId).toBase58() === new Web3PublicKey(position.assetId).toBase58() && p.marketId === position.marketId)
                 )
               );
-
-              // Remember removal locally to prevent re-adding on subsequent refreshes until backend reflects it
               try {
                 const key = makePositionKey({ assetId: new Web3PublicKey(position.assetId).toBase58(), marketId: position.marketId });
                 locallyRemovedKeysRef.current.add(key);
               } catch {}
 
-              // Show final success message by updating the existing toast
               let uiPayout = 0;
               if (operation === 'claim') {
                 const rawPayout = calculatePayout(position) || 0;
                 const decimals = Number(position.market?.decimals ?? 6);
-                // Guard: if payout looks like base units, scale down
                 const scale = Math.pow(10, decimals);
                 uiPayout = rawPayout >= scale ? rawPayout / scale : rawPayout;
               }
-              const successMessage = operation === 'claim' 
+              const successMessage = operation === 'claim'
                 ? labels.successMessage(uiPayout)
                 : (signature === 'ALREADY_BURNED' ? 'Position already burned' : labels.successMessage(0));
-                
+
               toast.update(loadingToastId, {
                 type: "success",
                 title: labels.success,
@@ -321,8 +358,8 @@ export function usePositions() {
                 duration: 4000,
               });
 
-              // Reset claiming state immediately
               setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
+              try { clearTimeout(guardTimeoutId); } catch {}
             } else {
               // Transaction failed
               toast.update(loadingToastId, {
@@ -332,15 +369,19 @@ export function usePositions() {
                 duration: 4000,
               });
               setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
+              try { clearTimeout(guardTimeoutId); } catch {}
             }
           } catch (error) {
             console.error(`Error in background ${operation} transaction:`, error);
             const errMsg = String((error as any)?.message || error || "");
             const isAlreadySettledClaim =
               operation === 'claim' && (
-                errMsg.includes('Position not found') ||
-                errMsg.includes('6013') ||
-                errMsg.includes('0x177d')
+              errMsg.includes('Position not found') ||
+              errMsg.includes('6013') ||
+              errMsg.includes('0x177d') ||
+              errMsg.includes('POSITION_ALREADY_CLAIMED') ||
+              errMsg.toLowerCase().includes('already settled on-chain') ||
+              errMsg.toLowerCase().includes('record marked claimed')
               );
 
             if (isAlreadySettledClaim) {
@@ -355,13 +396,15 @@ export function usePositions() {
                 locallyRemovedKeysRef.current.add(key);
               } catch {}
 
+              // Show warning instead of success: on-chain reports position not found
               toast.update(loadingToastId, {
-                type: "success",
-                title: "Payout Claimed!",
-                message: "Position already settled on-chain.",
+                type: "warning",
+                title: "Position Not Found",
+                message: "Removed from your portfolio. It may have already been claimed.",
                 duration: 4000,
               });
               setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
+              try { clearTimeout(guardTimeoutId); } catch {}
             } else {
               toast.update(loadingToastId, {
                 type: "error",
@@ -370,6 +413,7 @@ export function usePositions() {
                 duration: 4000,
               });
               setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
+              try { clearTimeout(guardTimeoutId); } catch {}
             }
           }
         });
@@ -383,6 +427,7 @@ export function usePositions() {
           duration: 4000,
         });
         setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
+        try { clearTimeout(guardTimeoutId); } catch {}
       }
     },
     [
@@ -436,7 +481,7 @@ export function usePositions() {
           signedTx: signedTxB64,
           // Use cNFT assetId as reference per new claim processing contract
           reference: new Web3PublicKey(position.assetId).toBase58(),
-          options: { skipPreflight: false, maxRetries: 3 },
+          options: { skipPreflight: true, maxRetries: 3 },
         });
         return forwarded.signature
           ? ({ relaySubmitted: true, signature: forwarded.signature } as any)
@@ -509,7 +554,7 @@ export function usePositions() {
             const res = await forwardTx({
               signedTx: signedTxB64,
               reference: assetIdB58,
-              options: { skipPreflight: false, maxRetries: 3 },
+              options: { skipPreflight: true, maxRetries: 3 },
             });
             return res.signature ? ({ relaySubmitted: true, signature: res.signature } as any) : null;
           } catch (fe: any) {

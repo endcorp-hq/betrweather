@@ -1,13 +1,12 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
-  RefreshControl,
   TouchableOpacity,
+  FlatList,
 } from "react-native";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { DefaultBg, LogoLoader, SwipeablePositionCard } from "@/components";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useAuthorization } from "../hooks/solana/useAuthorization";
@@ -22,12 +21,21 @@ export default function ProfileScreen() {
   const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout, handleBurnPosition, lastError, retryCount } = usePositionsContext();
   const [refreshing, setRefreshing] = useState(false);
   const [hasAttemptedInitialLoad, setHasAttemptedInitialLoad] = useState(false);
+  const pageSize = 5;
+  const [visibleCount, setVisibleCount] = useState(pageSize);
   
   // Reset the flag when account changes
   React.useEffect(() => {
     setHasAttemptedInitialLoad(false);
   }, [selectedAccount?.publicKey?.toString()]);
 
+
+  // Clamp visible count when positions change
+  useEffect(() => {
+    if (visibleCount > positions.length) {
+      setVisibleCount(Math.max(pageSize, positions.length));
+    }
+  }, [positions.length, visibleCount]);
 
   const handleCardPress = useCallback((marketId: number) => {
     navigation.navigate("MarketDetail", { id: marketId.toString() });
@@ -40,10 +48,17 @@ export default function ProfileScreen() {
       await Promise.allSettled([refreshPositions()]);
       // Reset the flag after a successful manual refresh
       setHasAttemptedInitialLoad(false);
+      setVisibleCount(pageSize);
     } finally {
       setRefreshing(false);
     }
   }, [refreshPositions]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loading || refreshing) return;
+    if (visibleCount >= positions.length) return;
+    setVisibleCount((current) => Math.min(current + pageSize, positions.length));
+  }, [loading, refreshing, visibleCount, positions.length]);
 
   // Show loading state only for initial load, not for background refreshes
   if (loading && positions.length === 0 && !hasAttemptedInitialLoad) {
@@ -255,23 +270,43 @@ export default function ProfileScreen() {
 
 
         
-        {/* Positions Section with Moti animations */}
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={theme.colors.primary}
-              colors={[theme.colors.primary, theme.colors.secondary, theme.colors.tertiary]}
-              progressBackgroundColor={theme.colors.surfaceContainer}
-            />
+        {/* Positions Section with infinite scroll */}
+        <FlatList
+          data={positions.slice(0, visibleCount)}
+          keyExtractor={(position: any) =>
+            `${position.assetId?.toString?.() ?? position.assetId}-${position.positionId}-${position.positionNonce}`
           }
-        >
-          {/* Show confirmed positions */}
-          {positions.length === 0 ? (
+          renderItem={({ item: position, index: idx }: { item: any; index: number }) => (
+            <MotiView
+              from={{
+                opacity: 0,
+                translateY: 10,
+              }}
+              animate={{
+                opacity: 1,
+                translateY: 0,
+              }}
+              transition={{
+                type: "timing",
+                duration: 350,
+                delay: (3 + idx) * 50,
+              }}
+              style={{ marginBottom: 16 }}
+            >
+              <SwipeablePositionCard
+                position={position}
+                onClaim={async () => {
+                  await handleClaimPayout(position);
+                }}
+                onBurn={async () => {
+                  await handleBurnPosition(position);
+                }}
+                onPress={() => handleCardPress(position.marketId)}
+                isClaiming={position.isClaiming || false}
+              />
+            </MotiView>
+          )}
+          ListEmptyComponent={
             <MotiView
               from={{
                 opacity: 0,
@@ -299,40 +334,14 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             </MotiView>
-          ) : (
-            positions.map((position: any, idx: number) => (
-              <MotiView
-                key={`${position.assetId?.toString?.() ?? position.assetId}-${position.positionId}-${position.positionNonce}`}
-                from={{
-                  opacity: 0,
-                  translateY: 10,
-                }}
-                animate={{
-                  opacity: 1,
-                  translateY: 0,
-                }}
-                transition={{
-                  type: "timing",
-                  duration: 350,
-                  delay: (3 + idx) * 50, // Start after stats (3) + staggered for each card
-                }}
-                style={{ marginBottom: 16 }}
-              >
-                <SwipeablePositionCard
-                  position={position}
-                  onClaim={async () => {
-                    await handleClaimPayout(position);
-                  }}
-                  onBurn={async () => {
-                    await handleBurnPosition(position);
-                  }}
-                  onPress={() => handleCardPress(position.marketId)}
-                  isClaiming={position.isClaiming || false}
-                />
-              </MotiView>
-            ))
-          )}
-        </ScrollView>
+          }
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.4}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+        />
       </View>
     </DefaultBg>
   );
