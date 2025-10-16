@@ -72,6 +72,9 @@ export function useNftMetadata() {
     setLastError(null);
     
     try {
+      if(!selectedAccount.publicKey) {
+        return null;
+      }
       const tokens = await getJWTTokens();
 
       if(!tokens) {

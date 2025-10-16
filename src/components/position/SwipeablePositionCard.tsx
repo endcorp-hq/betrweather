@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(16, 185, 129, 0.4)",
   },
   burnButton: {
-    backgroundColor: "rgba(239, 68, 68, 0.85)",
+    backgroundColor: "rgba(239, 68, 68, 0.7)",
   },
   burnButtonDisabled: {
     backgroundColor: "rgba(239, 68, 68, 0.4)",

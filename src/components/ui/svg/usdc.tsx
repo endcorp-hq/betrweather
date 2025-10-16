@@ -6,7 +6,7 @@ export const USDC_ICON = ({width, height}: {width: number, height: number}) => {
     <Svg
       width={width}
       height={height}
-      viewBox={`0 0 ${width * 7.5} ${height * 7.5}`}
+      viewBox="0 0 120 120"
       fill="none"
     >
       <Path

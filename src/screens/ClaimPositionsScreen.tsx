@@ -78,7 +78,7 @@ export default function ProfileScreen() {
     <DefaultBg>
       <View style={styles.container}>
         {/* Back Button */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 8 }}>
+        <View style={{ paddingHorizontal: 20, marginBottom: 40 }}>
           <TouchableOpacity
             onPress={() => navigation.navigate('Markets' as never)}
             style={{
@@ -137,11 +137,11 @@ export default function ProfileScreen() {
             <View
               style={[
                 styles.statCard,
-                { borderColor: "rgba(255, 255, 255, 0.6)" },
+                { borderColor: "rgba(255, 255, 255, 0.85)", backgroundColor: "rgba(255, 255, 255, 0.85)" },
               ]}
             >
-              <Text style={styles.statNumber}>{positions.length}</Text>
-              <Text style={styles.statLabel}>Total Positions</Text>
+              <Text style={styles.statNumber} className="!text-black">{positions.length}</Text>
+              <Text style={styles.statLabel} className="!text-black">Total Positions</Text>
             </View>
           </MotiView>
 
@@ -164,16 +164,16 @@ export default function ProfileScreen() {
             <View
               style={[
                 styles.statCard,
-                { borderColor: "rgba(139, 92, 246, 0.6)" },
+                { borderColor: "rgba(139, 92, 246, 0.85)", backgroundColor: "rgba(139, 92, 246, 0.85)" },
               ]}
             >
-              <Text style={styles.statNumber}>
+              <Text style={styles.statNumber} className="text-black">
                 $
                 {positions
                   .reduce((sum: number, position: any) => sum + position.amount, 0)
                   .toFixed(0)}
               </Text>
-              <Text style={styles.statLabel}>Total Wagered</Text>
+              <Text style={styles.statLabel} className="!text-white">Total Wagered</Text>
             </View>
           </MotiView>
 
@@ -196,10 +196,10 @@ export default function ProfileScreen() {
             <View
               style={[
                 styles.statCard,
-                { borderColor: "rgba(16, 185, 129, 0.6)" },
+                { borderColor: "rgba(16, 185, 129, 0.85)", backgroundColor: "rgba(16, 185, 129, 0.85)" },
               ]}
             >
-              <Text style={styles.statNumber}>
+              <Text style={styles.statNumber} className="text-black">
                 $
                 {positions
                   .filter((position: any) => {
@@ -212,7 +212,7 @@ export default function ProfileScreen() {
                   }, 0)
                   .toFixed(0)}
               </Text>
-              <Text style={styles.statLabel}>Unclaimed</Text>
+              <Text style={styles.statLabel} className="!text-white">Unclaimed</Text>
             </View>
           </MotiView>
         </View>

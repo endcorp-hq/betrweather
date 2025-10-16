@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, Alert, ScrollView, Image } from "react-native";
 import { DefaultBg } from "../components/ui";
 import { useUser } from "../hooks/useUser";
 import { useAuthorization } from "../hooks/solana/useAuthorization";
@@ -7,7 +7,8 @@ import * as Clipboard from "expo-clipboard";
 import { useMobileWallet } from "@/hooks";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LeaderboardEntry, useLeaderboard } from "../hooks/useLeaderboard";
-import { useUserStats } from "../hooks/useUserStats";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { USDC_ICON } from "../components/ui/svg/usdc";
 
 export default function ProfileScreen() {
   const { user } = useUser();
@@ -75,13 +76,11 @@ export default function ProfileScreen() {
         {/* Wallet Address Section */}
         <TouchableOpacity
           onPress={copyWalletAddress}
-          className="flex-row items-center rounded-lg mb-8"
+          className="flex-row items-center mb-4"
         >
           {/* Wallet Icon */}
           <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center mr-3">
-            <Text className="text-white text-sm">
-              <MaterialCommunityIcons name="wallet" size={12} color="white" />
-            </Text>
+            <MaterialCommunityIcons name="wallet" size={16} color="white" />
           </View>
 
           {/* Wallet Address */}
@@ -90,13 +89,26 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* Streak Badge */}
+        <View className="mb-8">
+          <View className="flex-row items-center bg-green-500/20 px-3 py-2 rounded-full border border-green-500/40 self-start">
+            <MaterialCommunityIcons name="fire" size={18} color="#34d399" />
+            <Text className="text-green-400 text-[15px] font-better-semi-bold ml-1 mt-1">
+              {user?.streak || 0}
+            </Text>
+          </View>
+        </View>
+
         {/* Segment Buttons */}
         <View className="flex-row bg-white/10 rounded-lg p-1 mb-6">
           <TouchableOpacity
             onPress={() => setSelectedSegment("personal")}
             className={`flex-1 py-3 rounded-md ${
-              selectedSegment === "personal" ? "bg-white/20" : "bg-transparent"
+              selectedSegment === "personal" ? "" : "bg-transparent"
             }`}
+            style={selectedSegment === "personal" ? {
+              backgroundColor: '#8b5cf6',
+            } : {}}
           >
             <Text
               className={`text-center font-better-medium ${
@@ -111,9 +123,12 @@ export default function ProfileScreen() {
             onPress={() => setSelectedSegment("leaderboard")}
             className={`flex-1 py-3 rounded-md ${
               selectedSegment === "leaderboard"
-                ? "bg-white/20"
+                ? ""
                 : "bg-transparent"
             }`}
+            style={selectedSegment === "leaderboard" ? {
+              backgroundColor: '#8b5cf6',
+            } : {}}
           >
             <Text
               className={`text-center font-better-medium ${
@@ -140,97 +155,139 @@ export default function ProfileScreen() {
   );
 }
 
+const formatNumber = (value: number | string | undefined, decimals: number): string => {
+  if (!value && value !== 0) return "0";
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num)) return "0";
+  
+  // Convert to fixed decimal string
+  const fixed = typeof num === "number" ? num.toFixed(decimals) : num;
+  
+  // Remove trailing zeros and decimal point if whole number
+  const formatted = fixed.replace(/\.?0+$/, '');
+  
+  return formatted;
+};
+
+
+
 // Personal Stats Component
 function PersonalStatsView({ user }: { user: any }) {
-  const { data: stats, isLoading, error } = useUserStats();
-
-  if (isLoading) {
+  if (!user) {
     return (
       <View className="flex-1 items-center justify-center">
-        <Text className="text-gray-400">Loading stats...</Text>
+        <Text className="text-gray-400">Loading user data...</Text>
       </View>
     );
   }
-
-  if (error) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-red-400">Failed to load stats</Text>
-      </View>
-    );
-  }
-
-  const display = stats || user;
 
   return (
-    <View className="space-y-4">
-      {/* Main Stats */}
-      <View className="bg-white/10 rounded-lg p-4">
-        <View className="space-y-3">
-          <View className="flex-row justify-between">
-            <Text className="text-gray-300 font-better-regular">
-              Total Trades
+    <View className=" flex flex-col gap-y-4">
+      {/* Grid Cards - Bets Won & Win Rate */}
+      <View className="flex-row gap-4">
+        {/* Bets Won Card */}
+        <View className="flex-1 bg-white/10 rounded-2xl p-6 border border-white/5">
+          <View className="items-center">
+            
+            
+            {/* Main Value */}
+            <Text className="text-white text-[32px] font-better-bold mt-4 mb-2">
+              {user.betsWon || 0}
             </Text>
-            <Text className="text-white font-better-medium">
-              {display?.totalBets || 0}
+            
+            {/* Label */}
+            <Text className="text-white text-base font-better-medium mb-1">
+              Bets Won
             </Text>
-          </View>
-
-          <View className="flex-row justify-between">
-            <Text className="text-gray-300 font-better-regular">Won</Text>
-            <Text className="text-green-400 font-better-medium">
-              {display?.betsWon || 0}
-            </Text>
-          </View>
-
-          {/* <View className="flex-row justify-between">
-            <Text className="text-gray-300 font-better-regular">Lost</Text>
-            <Text className="text-red-400 font-better-medium">{user.betsLost || 0}</Text>
-          </View> */}
-        </View>
-      </View>
-
-      {/* Win Rate and Streak */}
-      <View className="bg-white/10 rounded-lg p-4">
-        <View className="space-y-3">
-          <View className="flex-row justify-between">
-            <Text className="text-gray-300 font-better-regular">Streak</Text>
-            <Text className="text-white font-better-medium">
-              {display?.streak || 0}
-            </Text>
-          </View>
-          <View className="flex-row justify-between">
-            <Text className="text-gray-300 font-better-regular">Win Rate</Text>
-            <Text className="text-white font-better-medium">
-              {typeof display?.winRate === "number"
-                ? `${display?.winRate.toFixed(2)}%`
-                : display?.winRate || "0%"}
+            
+            {/* Subtitle */}
+            <Text className="text-gray-400 text-base font-better-regular">
+              Total Bets: <Text className="text-white font-better-semi-bold">{user.totalBets || 0}</Text>
             </Text>
           </View>
         </View>
+
+        {/* Win Rate Card */}
+        <View className="flex-1 bg-white/10 rounded-2xl p-6 border border-white/5">
+          <View className="items-center">
+           
+            
+            {/* Main Value */}
+            <Text className="text-white text-[32px] font-better-bold mt-4 mb-2">
+              {formatNumber(user.winRate, 1)}%
+            </Text>
+            
+            {/* Label */}
+            <Text className="text-white text-base font-better-medium mb-1">
+              Win Rate
+            </Text>
+            
+            {/* Subtitle */}
+            {/* <Text className="text-gray-400 text-sm font-better-regular">
+              Success rate
+            </Text> */}
+          </View>
+        </View>
       </View>
 
-      {/* Won Amounts */}
-      <View className="bg-white/10 rounded-lg p-4">
-        <Text className="text-white font-better-medium">Total Winnings</Text>
+      {/* Full Width Winnings Card */}
+      <View className="bg-white/10 rounded-2xl p-6 border border-white/5">
+        <View className="flex-row items-center mb-4">
+          <MaterialCommunityIcons 
+            name="trophy" 
+            size={24} 
+            color="#fbbf24" 
+          />
+          <Text className="text-white text-lg font-better-semi-bold ml-2">
+            Total Winnings
+          </Text>
+        </View>
+        
         <View className="space-y-3">
-          <View className="flex-row justify-between">
-            <Text className="text-gray-300 font-better-regular">USDC</Text>
-            <Text className="text-white font-better-medium">
-              {display?.totalWonAmountUSDCFormatted || display?.totalWonAmountUSDC || 0}
+          {/* USDC */}
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+            <View className="w-8 h-8 rounded-full flex items-center justify-center mr-3">
+                <USDC_ICON width={20} height={20} />
+              </View>
+              <Text className="text-gray-300 font-better-regular text-base">USDC</Text>
+            </View>
+            <Text className="text-white font-better-semi-bold text-lg">
+              ${formatNumber((user.totalWonAmountUSDC || 0) / 1000000, 2)}
             </Text>
           </View>
-          <View className="flex-row justify-between">
-            <Text className="text-gray-300 font-better-regular">BONK</Text>
-            <Text className="text-white font-better-medium">
-              {display?.totalWonAmountBONKFormatted || display?.totalWonAmountBonk || 0}
+          
+          {/* BONK */}
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-full items-center justify-center mr-3">
+                <Image
+                  source={require("../../assets/bonk-logo.png")}
+                  style={{ width: 18, height: 18 }}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text className="text-gray-300 font-better-regular text-base">BONK</Text>
+            </View>
+            <Text className="text-white font-better-semi-bold text-lg">
+              {formatNumber((user.totalWonAmountBonk || 0) / 1000000, 2)}
             </Text>
           </View>
 
-          <View className="flex-row justify-between">
-            <Text className="text-gray-300 font-better-regular">SOL</Text>
-            <Text className="text-white font-better-medium">
-              {display?.totalWonAmountSOLFormatted || display?.totalWonAmountSol || 0}
+          {/* SOL */}
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <View className="w-8 h-8 rounded-full items-center justify-center mr-3">
+                <Image
+                  source={require("../../assets/sol-logo.jpeg")}
+                  style={{ width: 18, height: 18, borderRadius: 16 }}
+                  resizeMode="cover"
+                />
+              </View>
+              <Text className="text-gray-300 font-better-regular text-base">SOL</Text>
+            </View>
+            <Text className="text-white font-better-semi-bold text-lg">
+              {formatNumber((user.totalWonAmountSol || 0) / LAMPORTS_PER_SOL, 2)}
             </Text>
           </View>
         </View>
@@ -244,6 +301,18 @@ function LeaderboardView() {
   const { data: leaderboardData, isLoading, error } = useLeaderboard();
   const { user } = useUser();
 
+  // Sort by betsWon (descending) and reassign ranks
+  const sortedLeaderboardData = React.useMemo(() => {
+    if (!leaderboardData) return [];
+    
+    return [...leaderboardData]
+      .sort((a, b) => b.betsWon - a.betsWon)
+      .map((entry, index) => ({
+        ...entry,
+        rank: index + 1
+      }));
+  }, [leaderboardData]);
+  
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -264,7 +333,7 @@ function LeaderboardView() {
     );
   }
 
-  if (!leaderboardData?.length) {
+  if (!sortedLeaderboardData?.length) {
     return (
       <View className="flex-1 items-center justify-center">
         <Text className="text-gray-400 font-better-regular">
@@ -276,23 +345,13 @@ function LeaderboardView() {
 
   return (
     <View className="space-y-4 flex-1">
-      {/* Leaderboard Header */}
-      {/* <View className="bg-white/10 rounded-lg p-4 mb-10">
-        <Text className="text-white text-lg font-better-semi-bold mb-2">
-          Top Players
-        </Text>
-        <Text className="text-gray-300 text-sm font-better-regular">
-          {leaderboardData.length} total players
-        </Text>
-      </View> */}
-
       {/* Leaderboard List */}
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         className="flex-1"
       >
-        {leaderboardData.map((entry) => (
+        {sortedLeaderboardData.map((entry) => (
           <LeaderboardItem
             key={entry.wallet}
             entry={entry}
@@ -323,7 +382,15 @@ function LeaderboardItem({
     if (rank === 1) return "🥇";
     if (rank === 2) return "🥈";
     if (rank === 3) return "🥉";
-    return `#${rank}`;
+    return `${rank}`;
+  };
+
+  // Add this helper function
+  const truncateName = (name: string | undefined) => {
+    const displayName = name || "Anonymous";
+    return displayName.length > 15 
+      ? displayName.substring(0, 15) + "..." 
+      : displayName;
   };
 
   return (
@@ -348,19 +415,13 @@ function LeaderboardItem({
 
           {/* User Avatar and Name */}
           <View className="flex-row items-center flex-1">
-            <View className="w-10 h-10 bg-white/20 rounded-full items-center justify-center mr-3">
-              <Text className="text-white text-lg font-better-semi-bold">
-                {entry.name?.charAt(0)?.toUpperCase() || "U"}
-              </Text>
-            </View>
-
             <View className="flex-1">
               <Text
                 className={`text-white font-better-semi-bold ${
                   isCurrentUser ? "text-blue-300" : ""
                 }`}
               >
-                {entry.name || "Anonymous"}
+                {truncateName(entry.name)}
               </Text>
               <Text className="text-gray-400 text-xs font-better-regular">
                 {entry.winRate.toFixed(1)}% win rate
