@@ -10,6 +10,7 @@ import { useMobileWallet } from "./useMobileWallet";
 import { log, timeStart } from "@/utils";
 import { getJWTTokens, clearJWTTokens } from "../utils/authUtils";
 import { tokenManager } from "../utils/tokenManager";
+import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 
 type BuildTxResponse = {
   txRef: string;
@@ -72,6 +73,10 @@ export function useBackendRelay() {
 
   const bytesToBase64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
   const base64ToBytes = (b64: string) => new Uint8Array(Buffer.from(b64, "base64"));
+
+  const resolveNet = (argNet?: string): string => {
+    return ENABLE_NETWORK_TOGGLE ? (argNet || currentChain || "devnet") : "mainnet";
+  };
 
   /**
    * Ensure we have a valid JWT token from the login system.
@@ -187,7 +192,7 @@ export function useBackendRelay() {
       let res = await fetch(openUrl, {
         method: "POST",
         headers: headersBase,
-        body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+        body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
       });
       if (res.status === 401) {
         // Force re-auth and retry once
@@ -199,7 +204,7 @@ export function useBackendRelay() {
             ...headersBase,
             Authorization: `Bearer ${fresh}`,
           },
-          body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+          body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
         });
       }
       if (!res.ok) {
@@ -234,7 +239,7 @@ export function useBackendRelay() {
       let res = await fetch(payoutUrl, {
         method: "POST",
         headers: headersBase,
-        body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+        body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
@@ -245,7 +250,7 @@ export function useBackendRelay() {
             ...headersBase,
             Authorization: `Bearer ${fresh}`,
           },
-          body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+          body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
         });
       }
       if (!res.ok) throw new Error(`Build payout failed: ${res.status}`);
@@ -285,7 +290,7 @@ export function useBackendRelay() {
           leafOwner: args.leafOwner || args.payerPubkey,
           payerPubkey: args.payerPubkey || args.leafOwner,
           coreCollection: args.coreCollection,
-          network: args.network || currentChain || "devnet",
+          network: resolveNet(args.network),
         }),
       });
       if (res.status === 401) {
@@ -302,7 +307,7 @@ export function useBackendRelay() {
             leafOwner: args.leafOwner || args.payerPubkey,
             payerPubkey: args.payerPubkey || args.leafOwner,
             coreCollection: args.coreCollection,
-            network: args.network || currentChain || "devnet",
+            network: resolveNet(args.network),
           }),
         });
       }
@@ -335,7 +340,7 @@ export function useBackendRelay() {
       let res = await fetch(verifyUrl, {
         method: "POST",
         headers: headersBase,
-        body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+        body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
@@ -346,7 +351,7 @@ export function useBackendRelay() {
             ...headersBase,
             Authorization: `Bearer ${fresh}`,
           },
-          body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+          body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
         });
       }
       if (!res.ok) throw new Error(`Ownership verify failed: ${res.status}`);
@@ -370,7 +375,7 @@ export function useBackendRelay() {
       let res = await fetch(checkUrl, {
         method: "POST",
         headers: headersBase,
-        body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+        body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
@@ -381,7 +386,7 @@ export function useBackendRelay() {
             ...headersBase,
             Authorization: `Bearer ${fresh}`,
           },
-          body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+          body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
         });
       }
       if (!res.ok) {
@@ -414,7 +419,7 @@ export function useBackendRelay() {
       let res = await fetch(`${API_BASE}/nft/map-position`, {
         method: "POST",
         headers: headersBase,
-        body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+        body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
@@ -424,7 +429,7 @@ export function useBackendRelay() {
             ...headersBase,
             Authorization: `Bearer ${fresh}`,
           },
-          body: JSON.stringify({ ...args, network: args.network || currentChain || "devnet" }),
+          body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
         });
       }
       if (!res.ok) throw new Error(`map-position failed: ${res.status}`);
@@ -503,7 +508,9 @@ export function useBackendRelay() {
       'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
     } as Record<string, string>;
 
-    const net = (currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet';
+    const net = ENABLE_NETWORK_TOGGLE
+      ? ((currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet')
+      : 'mainnet';
     const url = `${API_BASE}/markets?network=${encodeURIComponent(net)}`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
     if (res.status === 401) {
@@ -528,7 +535,9 @@ export function useBackendRelay() {
       Authorization: `Bearer ${token}`,
       'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
     } as Record<string, string>;
-    const net = (currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet';
+    const net = ENABLE_NETWORK_TOGGLE
+      ? ((currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet')
+      : 'mainnet';
     const url = `${API_BASE.replace(/\/$/, '')}/markets/active?network=${encodeURIComponent(net)}`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
     if (res.status === 401) {
@@ -546,7 +555,9 @@ export function useBackendRelay() {
       Authorization: `Bearer ${token}`,
       'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
     } as Record<string, string>;
-    const net = (currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet';
+    const net = ENABLE_NETWORK_TOGGLE
+      ? ((currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet')
+      : 'mainnet';
     const url = `${API_BASE.replace(/\/$/, '')}/markets/observing?network=${encodeURIComponent(net)}`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
     if (res.status === 401) {
@@ -564,7 +575,9 @@ export function useBackendRelay() {
       Authorization: `Bearer ${token}`,
       'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
     } as Record<string, string>;
-    const net = (currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet';
+    const net = ENABLE_NETWORK_TOGGLE
+      ? ((currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet')
+      : 'mainnet';
     const url = `${API_BASE.replace(/\/$/, '')}/markets/resolved?lastHours=${encodeURIComponent(String(lastHours))}&network=${encodeURIComponent(net)}`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
     if (res.status === 401) {

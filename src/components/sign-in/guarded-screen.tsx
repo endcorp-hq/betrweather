@@ -1,12 +1,13 @@
 import { View, Text, TouchableOpacity, Image, Animated } from "react-native";
 import { useAuthorization } from "../../hooks/solana/useAuthorization";
-import { DefaultBg, LogoLoader } from "../ui";
+import { DefaultBg } from "../ui";
 import { LoginButton } from "./sign-in-ui";
 import { useChainToggle } from "../../hooks/useChainToggle";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import React from "react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { tokenManager } from "../../utils/tokenManager";
+import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 
 // Chain Toggle Component
 function ChainToggle({
@@ -103,6 +104,7 @@ export default function GuardedScreen({
   const { disconnect } = useMobileWallet();
   const { jwtTokens } = useBackendAuth();
   const { selectedChain, toggleChain } = useChainToggle();
+  const effectiveSelectedChain: Chain = ENABLE_NETWORK_TOGGLE ? selectedChain : 'solana:mainnet-beta';
   const [hasValidAuth, setHasValidAuth] = useState(true);
 
   useEffect(() => {
@@ -155,10 +157,12 @@ export default function GuardedScreen({
           <Text className="text-white text-2xl font-better-bold mb-4">
             BetrWeather
           </Text>
-          <ChainToggle selectedChain={selectedChain} onToggle={toggleChain} />
+          {ENABLE_NETWORK_TOGGLE ? (
+            <ChainToggle selectedChain={selectedChain} onToggle={toggleChain} />
+          ) : null}
           <View className="flex-row gap-4 mt-20">
-            <LoginButton selectedChain={selectedChain} />
-            <SignupButton selectedChain={selectedChain} />
+            <LoginButton selectedChain={effectiveSelectedChain} />
+            <SignupButton selectedChain={effectiveSelectedChain} />
           </View>
         </View>
       </View>

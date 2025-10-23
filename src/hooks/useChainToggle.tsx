@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Chain } from '@solana-mobile/mobile-wallet-adapter-protocol';
 import { useAuthorization } from './solana/useAuthorization';
+import { ENABLE_NETWORK_TOGGLE } from 'src/config/featureFlags';
 
 export function useChainToggle() {
   const { userSession } = useAuthorization();
@@ -8,6 +9,10 @@ export function useChainToggle() {
 
   // Initialize and keep toggle in sync with stored session chain
   useEffect(() => {
+    if (!ENABLE_NETWORK_TOGGLE) {
+      setSelectedChain('solana:mainnet-beta');
+      return;
+    }
     const chain = userSession?.chain;
     if (!chain) return;
     const next: Chain = chain === 'mainnet' ? 'solana:mainnet-beta' : 'solana:devnet';
@@ -15,6 +20,7 @@ export function useChainToggle() {
   }, [userSession?.chain]);
   
   const toggleChain = useCallback(() => {
+    if (!ENABLE_NETWORK_TOGGLE) return; // no-op when disabled
     setSelectedChain(prev => prev === 'solana:mainnet-beta' ? 'solana:devnet' : 'solana:mainnet-beta');
   }, []);
   
@@ -23,6 +29,7 @@ export function useChainToggle() {
   }, []);
   
   const getChainIdentifier = useCallback(() => {
+    if (!ENABLE_NETWORK_TOGGLE) return 'solana:mainnet-beta';
     return selectedChain === 'solana:mainnet-beta' ? 'solana:mainnet-beta' : 'solana:devnet';
   }, [selectedChain]);
   

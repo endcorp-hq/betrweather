@@ -19,7 +19,6 @@ This project is submitted to the [Solana Mobile Hackathon](https://solanamobile.
 2. Enable "Install from Unknown Sources" in your Android settings
 3. Install the APK
 4. Open the app and connect your Solana wallet
-5. Get some devnet USDC/BONK: [Compatible USDC Faucet](https://faucet.circle.com/)
 
 ### Prerequisites
 - Android device running Android 8.0+
@@ -101,6 +100,32 @@ yarn build:local
 3. **Set up Android emulator** or connect physical device
 4. **Install Solana wallet app** on device/emulator
 5. **Configure environment variables** (see `.env.example`)
+
+## Network mode (mainnet-only by default)
+
+By default, the app runs on Solana mainnet and hides the network switch.
+
+- Behavior
+  - Mainnet is always used unless explicitly enabled via an env flag
+  - The network toggle UI is hidden by default
+- Enable the network toggle (for development/testing):
+
+```bash
+EXPO_PUBLIC_ENABLE_NETWORK_TOGGLE=true
+```
+
+- RPC override:
+  - `EXPO_PUBLIC_SOLANA_RPC_URL`: optional custom RPC endpoint (use mainnet or devnet URL)
+
+Example `.env`:
+
+```bash
+# Hide the toggle and pin to mainnet (default)
+EXPO_PUBLIC_ENABLE_NETWORK_TOGGLE=false
+
+# Optional: provide a universal RPC (mainnet or devnet)
+EXPO_PUBLIC_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+```
 
 ### Native Development (Kotlin)
 This project includes native Kotlin development for:

@@ -20,6 +20,7 @@ import { Account, WalletAuthorization } from "src/types/solana-types";
 import { STORAGE_KEYS } from "../../utils/constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clearUserData } from "src/utils/userStorage";
+import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 
 const DEVNET_CHAIN: Chain = "solana:devnet";
 
@@ -99,10 +100,12 @@ export function useAuthorization(): {
       const nextAuthWithSession: WalletAuthorization = {
         ...nextAuthorization,
         userSession: {
-          chain: chainIdentifier?.includes("mainnet")
-            ? ("mainnet" as const)
-            : ("devnet" as const),
-          tier: chainIdentifier?.includes("mainnet") ? resolvedTier : "public",
+          chain: ENABLE_NETWORK_TOGGLE
+            ? (chainIdentifier?.includes("mainnet") ? ("mainnet" as const) : ("devnet" as const))
+            : ("mainnet" as const),
+          tier: ENABLE_NETWORK_TOGGLE
+            ? (chainIdentifier?.includes("mainnet") ? resolvedTier : "public")
+            : resolvedTier,
           timestamp: Date.now(),
         },
       };
@@ -117,7 +120,7 @@ export function useAuthorization(): {
     async (wallet: Web3MobileWallet, chainIdentifier?: Chain): Promise<Account> => {
       const authorizationResult = await wallet.authorize({
         identity: APP_IDENTITY,
-        chain: chainIdentifier || DEVNET_CHAIN,
+        chain: ENABLE_NETWORK_TOGGLE ? (chainIdentifier || DEVNET_CHAIN) : ("solana:mainnet-beta" as Chain),
         auth_token: authorization?.authToken,
       });
       console.log("authorizationResult", authorizationResult);
@@ -137,7 +140,7 @@ export function useAuthorization(): {
     ): Promise<Account> => {
       const authorizationResult = await wallet.authorize({
         identity: APP_IDENTITY,
-        chain: chainIdentifier || DEVNET_CHAIN,
+        chain: ENABLE_NETWORK_TOGGLE ? (chainIdentifier || DEVNET_CHAIN) : ("solana:mainnet-beta" as Chain),
         auth_token: authorization?.authToken,
         sign_in_payload: signInPayload,
       });

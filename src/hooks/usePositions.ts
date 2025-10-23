@@ -26,6 +26,7 @@ import { getMarketToken } from "src/utils/marketUtils";
 
 import { useChain } from "../contexts/ChainProvider";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
@@ -504,7 +505,7 @@ export function usePositions() {
 
         // Step 1: backend asset check (burned/ownership) – no signing if early exit
         const assetIdB58 = new Web3PublicKey(position.assetId).toBase58();
-        const check = await checkBubblegumAsset({ assetId: assetIdB58, network: currentChain || 'devnet' });
+        const check = await checkBubblegumAsset({ assetId: assetIdB58, network: ENABLE_NETWORK_TOGGLE ? (currentChain || 'devnet') : 'mainnet' });
         if (check?.burned === true) {
           // Signal already-burned success to removal logic and custom toast
           return { relaySubmitted: true, signature: 'ALREADY_BURNED' } as any;
@@ -515,7 +516,7 @@ export function usePositions() {
           await verifyOwnership({
             assetId: new Web3PublicKey(position.assetId).toBase58(),
             owner: selectedAccount.publicKey.toBase58(),
-            network: currentChain || 'devnet',
+            network: ENABLE_NETWORK_TOGGLE ? (currentChain || 'devnet') : 'mainnet',
           });
         } catch {}
 
@@ -529,7 +530,7 @@ export function usePositions() {
               leafOwner: selectedAccount.publicKey.toBase58(),
               payerPubkey: selectedAccount.publicKey.toBase58(),
               coreCollection: position.market?.nftCollectionMint,
-              network: currentChain || 'devnet',
+              network: ENABLE_NETWORK_TOGGLE ? (currentChain || 'devnet') : 'mainnet',
             });
           } catch (e: any) {
             const emsg = String(e?.message || e);

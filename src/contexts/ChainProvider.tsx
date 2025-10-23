@@ -11,6 +11,7 @@ import { Connection, type ConnectionConfig } from "@solana/web3.js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthorization } from "../hooks/solana/useAuthorization";
 import { STORAGE_KEYS } from "../utils/constants";
+import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 
 type NetworkEnvironment = "mainnet" | "devnet";
 
@@ -55,7 +56,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
     const initializeChain = async () => {
       try {
         setIsLoading(true);
-        // First, check if user has a stored session with chain info
+        // First, check if user has a stored session with chain info (ignored when toggle disabled)
         const userSession = await AsyncStorage.getItem(STORAGE_KEYS.AUTHORIZATION);
         if (userSession) {
           const parsedSession = JSON.parse(userSession);
@@ -63,17 +64,17 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
             // Normalize chain to 'mainnet' | 'devnet'
             const raw: string = parsedSession.userSession.chain;
             const normalized: NetworkEnvironment = raw.includes('mainnet') ? 'mainnet' : 'devnet';
-            setCurrentChain(normalized);
+            setCurrentChain(ENABLE_NETWORK_TOGGLE ? normalized : 'mainnet');
             setIsLoading(false);
             return;
           }
-          // No chain stored; default to devnet to ensure a working connection
-          setCurrentChain('devnet');
+          // No chain stored; default depends on feature flag
+          setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'mainnet');
           setIsLoading(false);
           return;
         }
-        // No session found; if wallet is connected still ensure default
-        setCurrentChain('devnet');
+        // No session found; default depends on feature flag
+        setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'mainnet');
       } catch (error) {
         console.error("Error loading chain from storage:", error);
         // Remove user session using React Query
@@ -89,12 +90,12 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
     }
   }, [selectedAccount]);
 
-  // Reactively sync chain with the authorized session's chain selection
+  // Reactively sync chain with the authorized session's chain selection (ignored when toggle disabled)
   useEffect(() => {
     const chain = userSession?.chain;
     if (!chain) return;
     const normalized: NetworkEnvironment = chain.includes('mainnet') ? 'mainnet' : 'devnet';
-    setCurrentChain((prev) => (prev !== normalized ? normalized : prev));
+    setCurrentChain((prev) => (prev !== (ENABLE_NETWORK_TOGGLE ? normalized : 'mainnet') ? (ENABLE_NETWORK_TOGGLE ? normalized : 'mainnet') : prev));
   }, [userSession?.chain]);
 
   // Cleanup connection when component unmounts
@@ -109,9 +110,10 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       return null;
     }
     
-    const chainString = currentChain === 'mainnet' 
+    const effectiveChain: NetworkEnvironment = ENABLE_NETWORK_TOGGLE ? currentChain : 'mainnet';
+    const chainString = effectiveChain === 'mainnet' 
       ? 'https://api.mainnet-beta.solana.com'
-      : `https://api.${currentChain}.solana.com`;
+      : `https://api.${effectiveChain}.solana.com`;
     const rpcUrl = chainString;
 
     // Reuse existing connection if RPC endpoint is the same
@@ -127,7 +129,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
   }, [currentChain, config]);
 
   return (
-    <ChainContext.Provider value={{ currentChain: currentChain ?? 'devnet', connection, isLoading }}>
+    <ChainContext.Provider value={{ currentChain: (ENABLE_NETWORK_TOGGLE ? (currentChain ?? 'devnet') : 'mainnet'), connection, isLoading }}>
       {children}
     </ChainContext.Provider>
   );

@@ -1,16 +1,12 @@
 export type NetworkEnv = 'mainnet' | 'devnet' | 'mainnet-beta';
+import { ENABLE_NETWORK_TOGGLE } from 'src/config/featureFlags';
 
 export function resolveRpcUrl(network: NetworkEnv): string {
-  const net = network === 'mainnet-beta' ? 'mainnet' : network;
+  const net = ENABLE_NETWORK_TOGGLE ? (network === 'mainnet-beta' ? 'mainnet' : network) : 'mainnet';
 
-  const mainnetOverride = process.env.EXPO_PUBLIC_RPC_MAINNET;
-  const devnetOverride = process.env.EXPO_PUBLIC_RPC_DEVNET;
-
-  if (net === 'mainnet' && mainnetOverride) return mainnetOverride;
-  if (net === 'devnet' && devnetOverride) return devnetOverride;
+  const universalOverride = process.env.EXPO_PUBLIC_SOLANA_RPC_URL;
+  if (universalOverride) return universalOverride;
 
   const host = net === 'mainnet' ? 'mainnet-beta' : 'devnet';
   return `https://api.${host}.solana.com`;
 }
-
-

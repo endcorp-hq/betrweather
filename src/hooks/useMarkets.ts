@@ -90,9 +90,12 @@ export function useMarkets(
 
   const selectedNetwork = useMemo(() => {
     try {
+      if (!process.env.EXPO_PUBLIC_ENABLE_NETWORK_TOGGLE || String(process.env.EXPO_PUBLIC_ENABLE_NETWORK_TOGGLE).trim().toLowerCase() !== 'true') {
+        return 'mainnet';
+      }
       const chain = currentChain || userSession?.chain || 'devnet';
       return String(chain).toLowerCase().includes('main') ? 'mainnet' : 'devnet';
-    } catch { return 'devnet'; }
+    } catch { return 'mainnet'; }
   }, [currentChain, userSession?.chain]);
 
   // Determine if only relevant keys have a change to reduce re-renders
