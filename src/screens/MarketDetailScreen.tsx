@@ -26,19 +26,16 @@ import {
   MaterialCard,
   DefaultBg,
 } from "@/components";
-import { WinningDirection, MarketType, Market } from "@endcorp/depredict";
+import { WinningDirection, MarketType } from "@endcorp/depredict";
 import axios from "axios";
 import { useAPI } from "../hooks/useAPI";
 import { formatDate, extractErrorMessage } from "@/utils";
-// import { PublicKey } from "@solana/web3.js";
 import theme from "../theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import SwipeButton from "rn-swipe-button";
-import { useToast } from "@/contexts";
-import { useChain } from "@/contexts";
+import { useToast, useChain } from "@/contexts";
 import type { ParsedAccountData } from "@solana/web3.js";
-import { getMarketToken } from "src/utils/marketUtils";
 import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "src/types/currency";
 
 const SUGGESTED_BETS_USDC = [1, 3, 5, 20];

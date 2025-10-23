@@ -9,8 +9,6 @@ import {
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
-import { checkWhitelistNFTs } from "../../utils/checkNft";
-import { toast } from "../../utils/toastUtils";
 import { Web3MobileWallet } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import {
   getAccountFromAuthorizedAccount,
@@ -50,13 +48,27 @@ function getAuthorizationFromAuthorizationResult(
 }
 
 export const APP_IDENTITY = {
-  name: "Random",
-  uri: "https://betrweather.com",
+  name: "BetrWeather",
+  uri: "https://betrweather.xyz",
 };
 
-export function useAuthorization() {
+export function useAuthorization(): {
+  accounts: Account[] | null;
+  authorizeSession: (
+    wallet: Web3MobileWallet,
+    chainIdentifier?: Chain
+  ) => Promise<Account>;
+  deauthorizeSession: (wallet: DeauthorizeAPI) => Promise<void>;
+  authorizeSessionWithSignIn: (
+    wallet: Web3MobileWallet,
+    signInPayload: SolanaSignInInput,
+    chainIdentifier?: Chain
+  ) => Promise<Account>;
+  selectedAccount: Account | null;
+  userSession: WalletAuthorization["userSession"] | null;
+  isLoading: boolean;
+} {
   const queryClient = useQueryClient();
-
   const { data: authorization, isLoading } = useQuery({
     queryKey: [STORAGE_KEYS.AUTHORIZATION],
     queryFn: () => fetchAuthorization(),
@@ -80,18 +92,8 @@ export function useAuthorization() {
         authorization?.selectedAccount
       );
 
-      // Check whitelist for mainnet
-      if (chainIdentifier?.includes("mainnet")) {
-        const authResult = await checkWhitelistNFTs(
-          nextAuthorization.selectedAccount.publicKey.toBase58(),
-          true
-        );
-
-        if (!authResult.authorized) {
-          toast.error("You need to be on the whitelist to access mainnet.");
-          throw new Error("User is not authorized for mainnet");
-        }
-      }
+      // Whitelist and access control are enforced server-side via token issuance
+      const resolvedTier: "public" | "superteam" | "seeker" = "public";
 
       // Store wallet authorization
       const nextAuthWithSession: WalletAuthorization = {
@@ -100,7 +102,7 @@ export function useAuthorization() {
           chain: chainIdentifier?.includes("mainnet")
             ? ("mainnet" as const)
             : ("devnet" as const),
-          tier: chainIdentifier?.includes("mainnet") ? "superteam" : "public",
+          tier: chainIdentifier?.includes("mainnet") ? resolvedTier : "public",
           timestamp: Date.now(),
         },
       };
@@ -112,7 +114,7 @@ export function useAuthorization() {
   );
 
   const authorizeSession = useCallback(
-    async (wallet: Web3MobileWallet, chainIdentifier?: Chain) => {
+    async (wallet: Web3MobileWallet, chainIdentifier?: Chain): Promise<Account> => {
       const authorizationResult = await wallet.authorize({
         identity: APP_IDENTITY,
         chain: chainIdentifier || DEVNET_CHAIN,
@@ -132,7 +134,7 @@ export function useAuthorization() {
       wallet: Web3MobileWallet,
       signInPayload: SolanaSignInInput,
       chainIdentifier?: Chain
-    ) => {
+    ): Promise<Account> => {
       const authorizationResult = await wallet.authorize({
         identity: APP_IDENTITY,
         chain: chainIdentifier || DEVNET_CHAIN,
@@ -150,7 +152,7 @@ export function useAuthorization() {
   );
 
   const deauthorizeSession = useCallback(
-    async (wallet: DeauthorizeAPI) => {
+    async (wallet: DeauthorizeAPI): Promise<void> => {
       if (authorization?.authToken == null) {
         return;
       }
@@ -164,11 +166,6 @@ export function useAuthorization() {
     },
     [authorization, setAuthorization]
   );
-
-  // Local-only logout: clear cached authorization without opening wallet
-  const clearSession = useCallback(() => {
-    setAuthorization(null);
-  }, [setAuthorization]);
 
   return useMemo(
     () => ({

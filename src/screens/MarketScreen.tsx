@@ -39,8 +39,7 @@ const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: 
 ));
 
 export default function MarketScreen() {
-  // On-chain list overlays inside global markets state
-  const { refresh: refreshOnchain } = useShortx();
+
   const progressive = useMarketsContext();
   const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
@@ -87,14 +86,12 @@ export default function MarketScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.allSettled([
-        Promise.resolve(progressive?.refresh?.()),
-        Promise.resolve(refreshOnchain?.()),
-      ]);
+      // Only trigger backend progressive refresh to avoid extra RPC calls
+      await Promise.resolve(progressive?.refresh?.());
     } finally {
       setRefreshing(false);
     }
-  }, [progressive, refreshOnchain]);
+  }, [progressive]);
 
   //time filters
   const { selected: timeFilter, FilterBar: TimeFilterBar } = useFilters([
