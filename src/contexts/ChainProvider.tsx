@@ -109,7 +109,9 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       return null;
     }
     
-    const chainString = `https://api.${currentChain}.solana.com`;
+    const chainString = currentChain === 'mainnet' 
+      ? 'https://api.mainnet-beta.solana.com'
+      : `https://api.${currentChain}.solana.com`;
     const rpcUrl = chainString;
 
     // Reuse existing connection if RPC endpoint is the same
