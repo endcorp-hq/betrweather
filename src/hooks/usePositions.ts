@@ -8,13 +8,12 @@ import { Buffer } from "buffer";
 import { useMobileWallet } from "./useMobileWallet";
 
 import { useToast } from "../contexts/CustomToast/ToastProvider";
-import { log, timeStart } from "@/utils";
+import { timeStart } from "@/utils";
 import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "../types/currency";
 import {
   PositionWithMarket,
   calculatePayout,
   extractErrorMessage,
-  getAssetInfo,
 } from "@/utils";
 import { getJWTTokens, isTokenExpired } from "../utils/authUtils";
 import { tokenManager } from "../utils/tokenManager";
@@ -22,19 +21,16 @@ import { tokenManager } from "../utils/tokenManager";
 // Bubblegum burn handled by backend builder; remove client-side burn
 import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
 import { PublicKey as Web3PublicKey } from "@solana/web3.js";
-import { getMarketToken } from "src/utils/marketUtils";
 
 import { useChain } from "../contexts/ChainProvider";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function usePositions() {
   const { selectedAccount } = useAuthorization();
   const { fetchNftMetadata, loading, retryCount, lastError } = useNftMetadata();
   const { toast } = useToast();
   const { currentChain, connection } = useChain();
-  const { payoutPosition } = useShortx();
-  const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildSettle, checkBubblegumAsset, getMarketById: backendGetMarketById } = useBackendRelay();
+  const { forwardTx, signBuiltTransaction, buildSettle, getMarketById: backendGetMarketById } = useBackendRelay();
   const { signTransaction } = useMobileWallet();
   const queryClient = useQueryClient();
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
@@ -205,6 +201,21 @@ export function usePositions() {
       operation: 'claim' | 'burn',
       createTransaction: () => Promise<any>
     ) => {
+      // Helper: detect user-cancelled wallet actions across platforms/adapters
+      const isUserCancelled = (err: unknown): boolean => {
+        const msg = String((err as any)?.message ?? err ?? '').toLowerCase();
+        return (
+          msg.includes('cancellation') || // java.util.concurrent.CancellationException
+          msg.includes('canceled') ||
+          msg.includes('cancelled') ||
+          msg.includes('user rejected') ||
+          msg.includes('user declined') ||
+          msg.includes('rejected by user') ||
+          msg.includes('wallet closed') ||
+          msg.includes('closed wallet') ||
+          msg.includes('did not return a signed transaction')
+        );
+      };
       // Set claiming state for this specific position
       setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, true);
 
@@ -372,6 +383,18 @@ export function usePositions() {
               try { clearTimeout(guardTimeoutId); } catch {}
             }
           } catch (error) {
+            // Graceful user cancellation handling (do not log as error)
+            if (isUserCancelled(error)) {
+              toast.update(loadingToastId, {
+                type: "info",
+                title: "Cancelled",
+                message: operation === 'claim' ? 'Claim cancelled' : 'Burn cancelled',
+                duration: 2500,
+              });
+              setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
+              try { clearTimeout(guardTimeoutId); } catch {}
+              return;
+            }
             console.error(`Error in background ${operation} transaction:`, error);
             const errMsg = String((error as any)?.message || error || "");
             const isAlreadySettledClaim =
@@ -419,6 +442,18 @@ export function usePositions() {
         });
 
       } catch (error) {
+        // Graceful user cancellation handling for pre-send phases (e.g., signing the built TX)
+        if (isUserCancelled(error)) {
+          toast.update(loadingToastId, {
+            type: "info",
+            title: "Cancelled",
+            message: operation === 'claim' ? 'Claim cancelled' : 'Burn cancelled',
+            duration: 2500,
+          });
+          setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
+          try { clearTimeout(guardTimeoutId); } catch {}
+          return;
+        }
         console.error(`Error ${operation}ing position:`, error);
         toast.update(loadingToastId, {
           type: "error",
@@ -438,27 +473,6 @@ export function usePositions() {
       queryClient,
     ]
   );
-
-  // Claim payout mutation
-  const claimPayoutMutation = useMutation({
-    mutationFn: async (position: PositionWithMarket) => {
-      if (!selectedAccount?.publicKey) {
-        throw new Error("No wallet connected");
-      }
-
-      return payoutPosition({
-        marketId: position.marketId,
-        assetId: position.assetId,
-        payer: selectedAccount.publicKey,
-      });
-    },
-    onSuccess: () => {
-      // Invalidate positions to refetch fresh data
-      queryClient.invalidateQueries({ queryKey: ["positions"] });
-    },
-  });
-
-
 
   // Claim payout handler → unified settle builder
   const handleClaimPayout = useCallback(
@@ -494,96 +508,7 @@ export function usePositions() {
     [handlePositionTransaction, buildSettle, signBuiltTransaction, forwardTx, selectedAccount, currentChain]
   );
 
-  // Burn position handler (Bubblegum burn remains for legacy/manual burns)
-  const handleBurnPosition = useCallback(
-    async (position: PositionWithMarket) => {
-      if (!selectedAccount?.publicKey) return;
-      
-      await handlePositionTransaction(position, 'burn', async () => {
-        // Debug: print the cNFT AssetID we're attempting to burn
-        try {
-          const assetIdB58 = new Web3PublicKey(position.assetId).toBase58();
-          console.log('[Burn] AssetID:', assetIdB58, 'marketId:', position.marketId);
-        } catch {}
-
-        // Step 1: backend asset check (burned/ownership) – no signing if early exit
-        const assetIdB58 = new Web3PublicKey(position.assetId).toBase58();
-        const check = await checkBubblegumAsset({ assetId: assetIdB58, network: ENABLE_NETWORK_TOGGLE ? (currentChain || 'devnet') : 'mainnet' });
-        if (check?.burned === true) {
-          // Signal already-burned success to removal logic and custom toast
-          return { relaySubmitted: true, signature: 'ALREADY_BURNED' } as any;
-        }
-
-        // Optional preflight ownership check
-        try {
-          await verifyOwnership({
-            assetId: new Web3PublicKey(position.assetId).toBase58(),
-            owner: selectedAccount.publicKey.toBase58(),
-            network: ENABLE_NETWORK_TOGGLE ? (currentChain || 'devnet') : 'mainnet',
-          });
-        } catch {}
-
-        // Build burn via backend, sign locally, forward
-        const doBuildSignForward = async () => {
-          // 1) Build; surface early backend errors without prompting a signature
-          let b: any;
-          try {
-            b = await buildBubblegumBurn({
-              assetId: new Web3PublicKey(position.assetId).toBase58(),
-              leafOwner: selectedAccount.publicKey.toBase58(),
-              payerPubkey: selectedAccount.publicKey.toBase58(),
-              coreCollection: position.market?.nftCollectionMint,
-              network: ENABLE_NETWORK_TOGGLE ? (currentChain || 'devnet') : 'mainnet',
-            });
-          } catch (e: any) {
-            const emsg = String(e?.message || e);
-            if (emsg.includes('ASSET_ALREADY_BURNED_DAS') || emsg.includes('ASSET_ALREADY_BURNED_DB')) {
-              throw new Error('Already burned');
-            }
-            if (emsg.includes('LEAF_OWNER_NOT_AUTHORIZED')) {
-              throw new Error('Wallet is not owner/delegate');
-            }
-            throw e;
-          }
-
-          // 2) Sign locally
-          const msgB64 = b.message || b.messageBase64;
-          if (!msgB64) throw new Error('Builder did not return base64 message');
-          const { signedTx } = await signBuiltTransaction(msgB64);
-          const signedTxB64 = Buffer.from(signedTx.serialize()).toString('base64');
-
-          // 3) Forward; handle post-submit statuses
-          try {
-            const res = await forwardTx({
-              signedTx: signedTxB64,
-              reference: assetIdB58,
-              options: { skipPreflight: true, maxRetries: 3 },
-            });
-            return res.signature ? ({ relaySubmitted: true, signature: res.signature } as any) : null;
-          } catch (fe: any) {
-            const fmsg = String(fe?.message || fe);
-            if (fmsg.includes('ASSET_ALREADY_BURNED_SYNCED')) {
-              // Treat as already-burned success to remove from list and show proper toast
-              return { relaySubmitted: true, signature: 'ALREADY_BURNED' } as any;
-            }
-            throw fe;
-          }
-        };
-
-        try {
-          return await doBuildSignForward();
-        } catch (err: any) {
-          const msg = String(err?.message || err);
-          if (msg.includes('PROOF_STALE') || msg.includes('Invalid root recomputed')) {
-            // Rebuild immediately with fresh proof, re-sign, and forward again
-            return await doBuildSignForward();
-          }
-          throw err;
-        }
-      });
-    },
-    [handlePositionTransaction, verifyOwnership, buildBubblegumBurn, signBuiltTransaction, forwardTx, selectedAccount, currentChain]
-  );
+  
 
   // Filter out positions with null markets for better UX
   const validPositions = positions.filter(
@@ -615,7 +540,6 @@ export function usePositions() {
     loadingMarkets,
     refreshPositions,
     handleClaimPayout,
-    handleBurnPosition,
     lastError,
     retryCount,
   };
