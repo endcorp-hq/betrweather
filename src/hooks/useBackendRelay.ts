@@ -21,6 +21,10 @@ type BuildTxResponse = {
   expiresAt: number;
 };
 
+type BuildSettleResponse = BuildTxResponse & {
+  isPayoutPositive?: boolean;
+};
+
 type ForwardTxRequest = {
   signedTx: string; // base64 serialized VersionedTransaction
   reference?: string; // optional readonly key
@@ -220,13 +224,15 @@ export function useBackendRelay() {
     [API_BASE, ensureAuthToken, currentChain, selectedAccount]
   );
 
-  const buildPayout = useCallback(
+
+  // Unified ShortX settle builder (single flow for claim or burn)
+  const buildSettle = useCallback(
     async (args: {
       marketId: number;
       payerPubkey: string; // base58
       assetId: string; // base58
       network: string;
-    }): Promise<BuildTxResponse> => {
+    }): Promise<BuildSettleResponse> => {
       const token = await ensureAuthToken();
       const headersBase = {
         "Content-Type": "application/json",
@@ -234,96 +240,32 @@ export function useBackendRelay() {
         "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
       } as Record<string, string>;
 
-      const payoutUrl = `${API_BASE}/tx/build/shortx/payout`;
-      log('Relay', 'debug', 'build payout', { url: payoutUrl });
-      let res = await fetch(payoutUrl, {
+      const settleUrl = `${API_BASE}/tx/build/shortx/settle`;
+      log('Relay', 'debug', 'build settle', { url: settleUrl });
+      let res = await fetch(settleUrl, {
         method: "POST",
         headers: headersBase,
         body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
       });
       if (res.status === 401) {
         const fresh = await ensureAuthToken(true);
-        log('Relay', 'warn', 'Retry build payout with fresh token');
-        res = await fetch(payoutUrl, {
+        log('Relay', 'warn', 'Retry build settle with fresh token');
+        res = await fetch(settleUrl, {
           method: "POST",
-          headers: {
-            ...headersBase,
-            Authorization: `Bearer ${fresh}`,
-          },
+          headers: { ...headersBase, Authorization: `Bearer ${fresh}` },
           body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
         });
       }
-      if (!res.ok) throw new Error(`Build payout failed: ${res.status}`);
+      if (!res.ok) throw new Error(`Build settle failed: ${res.status}`);
       const data = await res.json();
       if (!data.message && data.messageBase64) {
         data.message = data.messageBase64;
       }
-      return data;
+      return data as BuildSettleResponse;
     },
     [API_BASE, ensureAuthToken, currentChain, selectedAccount]
   );
 
-  // Build Bubblegum burn (server-side DAS + burnV2), returns base64 v0 message
-  const buildBubblegumBurn = useCallback(
-    async (args: {
-      assetId: string; // base58
-      payerPubkey?: string; // base58 (leafOwner) - legacy
-      leafOwner?: string; // base58 (preferred)
-      coreCollection?: string; // base58
-      network?: string;
-    }): Promise<BuildTxResponse> => {
-      const token = await ensureAuthToken();
-      const headersBase = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
-      } as Record<string, string>;
-
-      const burnUrl = `${API_BASE}/tx/build/bubblegum/burn`;
-      log('Relay', 'debug', 'build bubblegum burn', { url: burnUrl });
-      let res = await fetch(burnUrl, {
-        method: "POST",
-        headers: headersBase,
-        body: JSON.stringify({
-          assetId: args.assetId,
-          // Send both to support either backend contract
-          leafOwner: args.leafOwner || args.payerPubkey,
-          payerPubkey: args.payerPubkey || args.leafOwner,
-          coreCollection: args.coreCollection,
-          network: resolveNet(args.network),
-        }),
-      });
-      if (res.status === 401) {
-        const fresh = await ensureAuthToken(true);
-        log('Relay', 'warn', 'Retry bubblegum burn with fresh token');
-        res = await fetch(burnUrl, {
-          method: "POST",
-          headers: {
-            ...headersBase,
-            Authorization: `Bearer ${fresh}`,
-          },
-          body: JSON.stringify({
-            assetId: args.assetId,
-            leafOwner: args.leafOwner || args.payerPubkey,
-            payerPubkey: args.payerPubkey || args.leafOwner,
-            coreCollection: args.coreCollection,
-            network: resolveNet(args.network),
-          }),
-        });
-      }
-      if (!res.ok) {
-        let errText = '';
-        try { errText = await res.text(); } catch {}
-        throw new Error(errText || `Build bubblegum burn failed: ${res.status}`);
-      }
-      const data = await res.json();
-      if (!data.message && data.messageBase64) {
-        data.message = data.messageBase64;
-      }
-      return data;
-    },
-    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
-  );
 
   // DAS ownership verification preflight
   const verifyOwnership = useCallback(
@@ -699,8 +641,7 @@ export function useBackendRelay() {
       ensureAuthToken,
       clearTokenCache,
       buildOpenPosition,
-      buildPayout,
-      buildBubblegumBurn,
+      buildSettle,
       verifyOwnership,
       checkBubblegumAsset,
       mapPosition,
@@ -715,7 +656,7 @@ export function useBackendRelay() {
       getTxStreamUrl,
       signBuiltTransaction,
     }),
-    [ensureAuthToken, clearTokenCache, buildOpenPosition, buildPayout, buildBubblegumBurn, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, getMarkets, getUserBetsSummary, getUserBetsPaginated, getTxStreamUrl, signBuiltTransaction]
+    [ensureAuthToken, clearTokenCache, buildOpenPosition, buildSettle, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, getMarkets, getUserBetsSummary, getUserBetsPaginated, getTxStreamUrl, signBuiltTransaction]
   );
 }
 

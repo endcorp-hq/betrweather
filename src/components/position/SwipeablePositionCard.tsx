@@ -14,7 +14,10 @@ import {
   getStatusText,
   getStatusIcon,
   isPositionClaimable,
+  isPositionLost,
+  calculatePayout,
 } from "../../utils/positionUtils";
+import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "../../types/currency";
 
 interface SwipeablePositionCardProps {
   position: PositionWithMarket;
@@ -24,7 +27,20 @@ interface SwipeablePositionCardProps {
   onBurn: () => Promise<void>;
 }
 
-// Minimal card design – no time/amount/resolved data
+// Minimal card design for portfolio positions
+
+const currencySet = new Set<string>(Object.values(CurrencyType));
+
+const resolveCurrency = (value?: string | null): CurrencyType | undefined => {
+  if (!value) return undefined;
+  const normalized = value.toUpperCase();
+  return currencySet.has(normalized) ? (normalized as CurrencyType) : undefined;
+};
+
+const formatAmountDisplay = (value: number) =>
+  Number.isFinite(value)
+    ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "0.00";
 
 export function SwipeablePositionCard({
   position,
@@ -33,13 +49,27 @@ export function SwipeablePositionCard({
   isClaiming,
   onBurn
 }: SwipeablePositionCardProps) {
-  // Check if position is claimable
-  const isClaimable = isPositionClaimable(position);  
-  // Check if position is lost (for showing burn button)
-  const isLost = position.market?.winningDirection !== 'NONE' && 
-    ((position.direction === "Yes" && position.market.winningDirection === 'NO') ||
-     (position.direction === "No" && position.market.winningDirection === 'YES'));
+  // Only allow actions when market is resolved to a YES/NO outcome
+  const isClaimable = isPositionClaimable(position);
+  const isLost = isPositionLost(position);
 
+  const resolvedCurrency =
+    resolveCurrency(position.currency) ??
+    resolveCurrency(position.market?.currency);
+
+  const baseAmount = Number.isFinite(Number(position.amount))
+    ? Number(position.amount)
+    : 0;
+  const payoutAmount = isClaimable ? calculatePayout(position) : null;
+  const displayAmount = isClaimable && payoutAmount !== null ? payoutAmount : baseAmount;
+  const amountLabel = isClaimable ? "Payout" : "Stake";
+  const fallbackCurrency = position.market?.currency || position.currency || "";
+  const currencyLabel = resolvedCurrency
+    ? CURRENCY_DISPLAY_NAMES[resolvedCurrency]
+    : fallbackCurrency.includes("_")
+      ? fallbackCurrency.split("_")[0]
+      : fallbackCurrency;
+  const amountDisplay = formatAmountDisplay(displayAmount);
 
   const handleClaim = async () => {
     if (isClaimable && !isClaiming) {
@@ -62,7 +92,7 @@ export function SwipeablePositionCard({
       )}
       <View style={styles.minimalCard}>
         <View style={styles.leftContent}>
-          {/* Status (WON/LOST/OPEN) */}
+          {/* Status (WON/LOST/BETTING/OBSERVING) */}
           <View style={styles.headerRow}>
             <View
               style={[
@@ -90,6 +120,14 @@ export function SwipeablePositionCard({
           <Text style={styles.questionText} numberOfLines={2}>
             {position.market?.question || `Market #${position.marketId}`}
           </Text>
+
+          <View style={styles.amountRow}>
+            <Text style={styles.amountLabel}>{amountLabel}</Text>
+            <Text style={styles.amountValue}>
+              {amountDisplay}
+              {currencyLabel ? ` ${currencyLabel}` : ""}
+            </Text>
+          </View>
 
           {/* Left actions
           <TouchableOpacity
@@ -216,6 +254,20 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 6,
     marginTop: 6,
+  },
+  amountRow: {
+    marginTop: 2,
+  },
+  amountLabel: {
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 12,
+    fontFamily: "Poppins-Medium",
+  },
+  amountValue: {
+    color: "white",
+    fontSize: 18,
+    fontFamily: "Poppins-SemiBold",
+    marginTop: 2,
   },
   actionButtonsRow: {
     flexDirection: "row",

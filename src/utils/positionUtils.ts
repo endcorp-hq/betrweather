@@ -1,12 +1,4 @@
-// import { WinningDirection } from "@endcorp/depredict";
-import { keypairIdentity, publicKey } from "@metaplex-foundation/umi";
-import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import {
-  burn,
-  fetchAsset,
-  collectionAddress,
-  fetchCollection,
-} from "@metaplex-foundation/mpl-core";
+import type { PublicKey } from "@metaplex-foundation/umi";
 import { CurrencyType } from "src/types/currency";
 import { apiClient } from "./apiClient";
 import { getJWTTokens } from "./authUtils";
@@ -23,7 +15,6 @@ export interface PositionWithMarket {
   positionId?: number;
   positionNonce?: number;
   currency: string;
-  isBurned: boolean;
   isWon: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -42,11 +33,7 @@ export const getWeatherBackground = (position: PositionWithMarket) => {
   };
 
   // Determine position status
-  if (!position.market) {
-    return backgrounds.active; // Default to active if no market data
-  }
-
-  if (position.market.winningDirection !== 'NONE') {
+  if (position.market && isMarketResolvedAndEnded(position.market)) {
     // Check if user won
     const userWon =
       position.direction === "Yes"
@@ -61,106 +48,146 @@ export const getWeatherBackground = (position: PositionWithMarket) => {
 
 export const getStatusColor = (position: PositionWithMarket) => {
   if (!position.market) return "#3b82f6";
+  if (!isMarketResolvedAndEnded(position.market)) return "#3b82f6";
+  const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
+  const userWon =
+    position.direction === "Yes"
+      ? wd === 'YES'
+      : wd === 'NO';
 
-  if (position.market.winningDirection !== 'NONE') {
-    // Check if user won
-    const userWon =
-      position.direction === "Yes"
-        ? position.market.winningDirection === 'YES'
-        : position.market.winningDirection === 'NO';
-
-    return userWon ? "#10b981" : "#ef4444";
-  }
-  return "#3b82f6";
+  return userWon ? "#10b981" : "#ef4444";
 };
 
 export const getStatusText = (position: PositionWithMarket) => {
-  if (position.market.winningDirection !== 'NONE') {
+  if (position.market && isMarketResolvedAndEnded(position.market)) {
+    const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
     const userWon =
       position.direction === "Yes"
-        ? position.market.winningDirection === 'YES'
-        : position.market.winningDirection === 'NO';
+        ? wd === 'YES'
+        : wd === 'NO';
 
     return userWon ? "WON" : "LOST";
   }
+  // Unresolved: differentiate between betting window and live observing
+  try {
+    const nowMs = Date.now();
+    const startMs = Number(position.market?.marketStart) * 1000;
+    if (Number.isFinite(startMs) && nowMs < startMs) {
+      return "BETTING";
+    }
+  } catch {}
   return "OBSERVING";
+};
+
+// Helper: determine if market is truly resolved and ended
+export const isMarketResolvedAndEnded = (market: any): boolean => {
+  if (!market) return false;
+  const rawState = market?.marketState;
+  const stateRaw =
+    typeof rawState === "string"
+      ? rawState.toUpperCase()
+      : rawState && typeof rawState === "object"
+        ? JSON.stringify(rawState).toUpperCase()
+        : "";
+  const backendResolved =
+    stateRaw.includes("RESOLV") ||
+    stateRaw.includes("SETTL") ||
+    stateRaw.includes("CLOSED") ||
+    stateRaw.includes("FINAL");
+  if (!backendResolved) return false;
+
+  const wd = String(market?.winningDirection ?? "NONE").toUpperCase();
+  const outcomeResolved = wd === "YES" || wd === "NO";
+  if (!outcomeResolved) return false;
+
+  // If we have an end time, ensure it has passed; otherwise trust outcome flag
+  const endMs = Number(market?.marketEnd) * 1000;
+  const timeEnded = Number.isFinite(endMs) ? Date.now() >= endMs : true;
+  return timeEnded;
 };
 
 export const getStatusIcon = (position: PositionWithMarket) => {
   if (!position.market) return "clock-outline";
-
-  if (position.market.winningDirection !== 'NONE') {
+  if (isMarketResolvedAndEnded(position.market)) {
+    const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
     const userWon =
       position.direction === "Yes"
-        ? position.market.winningDirection === 'YES'
-        : position.market.winningDirection === 'NO';
+        ? wd === 'YES'
+        : wd === 'NO';
 
     return userWon ? "trophy" : "close-circle";
   }
   return "clock-outline";
 };
 
-export const calculatePayout = (position: PositionWithMarket): number | null=> {
+export const calculatePayout = (position: PositionWithMarket): number | null => {
   if (!position.market) return null;
+  if (!isMarketResolvedAndEnded(position.market)) return null;
+  const wd = String(position.market?.winningDirection ?? "NONE").toUpperCase();
+  const userWon =
+    position.direction === "Yes"
+      ? wd === "YES"
+      : wd === "NO";
 
-  if (position.market.winningDirection !== 'NONE') {
-    const userWon =
-      position.direction === "Yes"
-        ? position.market.winningDirection === 'YES'
-        : position.market.winningDirection === 'NO';
-
-    if (userWon) {
-      // amount now comes from DB in UI units; liquidity still needs decimals scaling
-      const userBetAmount = Number(position.amount || 0);
-      const decimals = Number(position.market.decimals ?? 6);
-      const scale = Math.pow(10, decimals);
-      const yesLiquidity = Number(position.market.yesLiquidity || 0) / scale;
-      const noLiquidity = Number(position.market.noLiquidity || 0) / scale;
-
-      // Determine winning and losing side liquidity
-      const winningLiquidity =
-        position.market.winningDirection === 'YES'
-          ? yesLiquidity
-          : noLiquidity;
-      const losingLiquidity =
-        position.market.winningDirection === 'YES'
-          ? noLiquidity
-          : yesLiquidity;
-
-      // If there's no liquidity on the losing side, user just gets their bet back
-      if (losingLiquidity === 0) {
-        return formatPositionAmount(
-          userBetAmount,
-          position.currency as CurrencyType
-        );
-      }
-
-      // Calculate user's share of the winning side
-      const userShare = userBetAmount / winningLiquidity;
-
-      // Calculate payout: user's share of losing side + original bet
-      const payout = userShare * losingLiquidity + userBetAmount;
-
-      // Ensure user gets at least their original bet back
-      const output = Math.max(payout, userBetAmount);
-      return formatPositionAmount(output, position.currency as CurrencyType);
-    } else {
-      return formatPositionAmount(0, position.currency as CurrencyType); // Lost the bet
-    }
+  if (!userWon) {
+    return formatPositionAmount(0, position.currency as CurrencyType); // Lost the bet
   }
-  return null; // Market not resolved yet
+
+  // amount now comes from DB in UI units; liquidity still needs decimals scaling
+  const userBetAmount = Number(position.amount || 0);
+  const decimals = Number(position.market.decimals ?? 6);
+  const scale = Math.pow(10, decimals);
+  const yesLiquidity = Number(position.market.yesLiquidity || 0) / scale;
+  const noLiquidity = Number(position.market.noLiquidity || 0) / scale;
+
+  // Determine winning and losing side liquidity
+  const winningLiquidity =
+    position.market.winningDirection === "YES"
+      ? yesLiquidity
+      : noLiquidity;
+  const losingLiquidity =
+    position.market.winningDirection === "YES"
+      ? noLiquidity
+      : yesLiquidity;
+
+  // If there's no liquidity on the losing side, user just gets their bet back
+  if (losingLiquidity === 0) {
+    return formatPositionAmount(
+      userBetAmount,
+      position.currency as CurrencyType
+    );
+  }
+
+  // Calculate user's share of the winning side
+  const userShare = userBetAmount / winningLiquidity;
+
+  // Calculate payout: user's share of losing side + original bet
+  const payout = userShare * losingLiquidity + userBetAmount;
+
+  // Ensure user gets at least their original bet back
+  const output = Math.max(payout, userBetAmount);
+  return formatPositionAmount(output, position.currency as CurrencyType);
 };
 
 // Check if position is claimable
 export const isPositionClaimable = (position: PositionWithMarket) => {
   if (!position.market) return false;
-
+  if (!isMarketResolvedAndEnded(position.market)) return false;
+  const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
   return (
-    position.market.winningDirection !== 'NONE' &&
-    ((position.direction === "Yes" &&
-      position.market.winningDirection === 'YES') ||
-      (position.direction === "No" &&
-        position.market.winningDirection === 'NO'))
+    (position.direction === "Yes" && wd === 'YES') ||
+    (position.direction === "No" && wd === 'NO')
+  );
+};
+
+// Check if position is lost (resolved and user lost)
+export const isPositionLost = (position: PositionWithMarket) => {
+  if (!position.market) return false;
+  if (!isMarketResolvedAndEnded(position.market)) return false;
+  const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
+  return (
+    (position.direction === "Yes" && wd === 'NO') ||
+    (position.direction === "No" && wd === 'YES')
   );
 };
 
@@ -194,44 +221,6 @@ export const calculateExpectedPayout = (position: PositionWithMarket) => {
   // Ensure user gets at least their original bet back
   const output = Math.max(expectedPayout, userBetAmount);
   return formatPositionAmount(output, position.currency as CurrencyType);
-};
-
-export const burnPosition = async (
-  position: PositionWithMarket,
-  signer: any,
-  currentChain: string
-) => {
-  try {
-    const chainString = `https://${currentChain}.helius-rpc.com/?api-key=${process.env.EXPO_PUBLIC_HELIUS_API_KEY}`;
-    const rpcUrl = chainString;
-    const umi = createUmi(rpcUrl);
-    umi.use(keypairIdentity(signer));
-
-    const assetId = publicKey(position.nftAddress);
-    const asset = await fetchAsset(umi, assetId);
-
-    const collectionId = collectionAddress(asset);
-
-    let collection = undefined;
-
-    if (collectionId) {
-      collection = await fetchCollection(umi, collectionId);
-    }
-
-    // Build the burn transaction
-    const tx = await burn(umi, {
-      asset: asset,
-      collection: collection,
-    }).buildWithLatestBlockhash(umi);
-
-    console.log("UMI burn transaction built:", tx);
-
-    // Return the UMI transaction (will be converted and signed by the wallet adapter)
-    return tx;
-  } catch (error) {
-    console.error("Error burning position", error);
-    return null;
-  }
 };
 
 export async function getUserBetsRefreshed(walletAddress: string) {

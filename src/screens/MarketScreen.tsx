@@ -81,8 +81,6 @@ export default function MarketScreen() {
     });
   }, [dbMarkets]);
 
-  // (focus refresh removed to avoid spamming backend)
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {

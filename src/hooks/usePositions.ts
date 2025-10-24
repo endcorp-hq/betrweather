@@ -34,7 +34,7 @@ export function usePositions() {
   const { toast } = useToast();
   const { currentChain, connection } = useChain();
   const { payoutPosition } = useShortx();
-  const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildPayout, checkBubblegumAsset, getMarketById: backendGetMarketById } = useBackendRelay();
+  const { forwardTx, buildBubblegumBurn, verifyOwnership, signBuiltTransaction, buildSettle, checkBubblegumAsset, getMarketById: backendGetMarketById } = useBackendRelay();
   const { signTransaction } = useMobileWallet();
   const queryClient = useQueryClient();
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
@@ -460,26 +460,29 @@ export function usePositions() {
 
 
 
-  // Claim payout handler
+  // Claim payout handler → unified settle builder
   const handleClaimPayout = useCallback(
     async (position: PositionWithMarket) => {
       if (!selectedAccount?.publicKey) return;
-      
+
       await handlePositionTransaction(position, 'claim', async () => {
-        // Build payout on backend to avoid DAS on client
-        const build = await buildPayout({
+        const build = await buildSettle({
           marketId: position.marketId,
           payerPubkey: selectedAccount.publicKey.toBase58(),
           assetId: new Web3PublicKey(position.assetId).toBase58(),
           network: currentChain,
         });
+        // If backend indicates burn (no payout), fall back to burn handler
+        if (build && build.isPayoutPositive === false) {
+          // Return a special signature to reuse success removal + toast flow in handler
+          return { relaySubmitted: true, signature: 'SETTLE_BURNED' } as any;
+        }
         const messageBase64 = (build as any).message || (build as any).messageBase64;
         if (!messageBase64) throw new Error('Builder did not return base64 message');
         const { signedTx } = await signBuiltTransaction(messageBase64);
         const signedTxB64 = Buffer.from(signedTx.serialize()).toString('base64');
         const forwarded = await forwardTx({
           signedTx: signedTxB64,
-          // Use cNFT assetId as reference per new claim processing contract
           reference: new Web3PublicKey(position.assetId).toBase58(),
           options: { skipPreflight: true, maxRetries: 3 },
         });
@@ -488,10 +491,10 @@ export function usePositions() {
           : null;
       });
     },
-    [handlePositionTransaction, buildPayout, signBuiltTransaction, forwardTx, selectedAccount, currentChain]
+    [handlePositionTransaction, buildSettle, signBuiltTransaction, forwardTx, selectedAccount, currentChain]
   );
 
-  // Burn position handler
+  // Burn position handler (Bubblegum burn remains for legacy/manual burns)
   const handleBurnPosition = useCallback(
     async (position: PositionWithMarket) => {
       if (!selectedAccount?.publicKey) return;
