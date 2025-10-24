@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@endcorp/depredict": "^0.7.0",
+    "@endcorp/depredict": "^0.7.2",
     "@expo/vector-icons": "~14.0.4",
     "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
     "@metaplex-foundation/mpl-bubblegum": "^4.0.0",
