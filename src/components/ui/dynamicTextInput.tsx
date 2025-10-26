@@ -3,7 +3,7 @@ import { USDC_ICON } from "./svg/usdc";
 import { useState, useEffect, useRef } from "react";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import theme from '../../theme';
-import { CurrencyType } from "src/types/currency";
+import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "src/types/currency";
 
 export const DynamicTextInput = ({
     value,
@@ -141,15 +141,17 @@ export const DynamicTextInput = ({
           {selectedToken === CurrencyType.SOL_9 && (
             <MaterialCommunityIcons name="currency-sign" size={20} color={theme.colors.onSurfaceVariant} />
           )}
-          <Text style={{ 
-            color: theme.colors.onSurfaceVariant, 
-            fontSize: 16, 
-            fontWeight: '600', 
-            marginLeft: 6, 
-            fontFamily: 'Poppins-SemiBold',
-            opacity: disabled ? 0.5 : 1,
-          }}>
-            {selectedToken}
+          <Text
+            style={{
+              color: theme.colors.onSurfaceVariant,
+              fontSize: 16,
+              fontWeight: '600',
+              marginLeft: 6,
+              fontFamily: 'Poppins-SemiBold',
+              opacity: disabled ? 0.5 : 1,
+            }}
+          >
+            {CURRENCY_DISPLAY_NAMES[selectedToken] ?? selectedToken}
           </Text>
         </TouchableOpacity>
       </View>

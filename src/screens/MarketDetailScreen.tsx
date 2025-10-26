@@ -541,6 +541,11 @@ export default function SlotMachineScreen() {
     selectedMarket?.marketId != null ? marketEvents.some((event: any) => event.marketId.toString() === String(selectedMarket.marketId)) : false
   ), [marketEvents, selectedMarket?.marketId]);
 
+  const selectedTokenLabel = useMemo(
+    () => CURRENCY_DISPLAY_NAMES[selectedToken] ?? selectedToken,
+    [selectedToken]
+  );
+
   // Immediately overlay the market with real-time data if available
   useEffect(() => {
     if (realTimeMarket && selectedMarket) {
@@ -887,10 +892,11 @@ export default function SlotMachineScreen() {
             uiBalance += Number(amount || 0);
           }
           if (uiBalance < parsedAmount) {
+            const tokenLabel = CURRENCY_DISPLAY_NAMES[selectedToken] ?? selectedToken;
             toast.update(loadingToastId, {
               type: "error",
-              title: `Insufficient ${selectedToken}`,
-              message: `You have ${uiBalance.toFixed(2)} ${selectedToken}, need ${parsedAmount.toFixed(2)} ${selectedToken}`,
+              title: `Insufficient ${tokenLabel}`,
+              message: `You have ${uiBalance.toFixed(2)} ${tokenLabel}, need ${parsedAmount.toFixed(2)} ${tokenLabel}`,
               duration: 5000,
             });
             setBetStatus("idle");
@@ -1388,42 +1394,8 @@ export default function SlotMachineScreen() {
                   ))}
                 </View>
 
-                {/* Spend preview */}
-                <View style={{ marginTop: 8, marginBottom: 8 }}>
-                  <Text style={{ color: "#111827", fontFamily: "Poppins-SemiBold", fontSize: 14 }}>
-                    Spend preview
-                  </Text>
-                  <Text style={{ color: "#374151", fontFamily: "Poppins-Regular", fontSize: 13, marginTop: 4 }}>
-                    {selectedToken === CurrencyType.BONK_5
-                      ? `${formatBonkAmount(parseBonkAmount(betAmount || "0"))} BONK`
-                      : `${(parseFloat(betAmount || "0") || 0).toFixed(2)} USDC`} + ~{(solFeeEstimate ?? 0.00002).toFixed(6)} SOL fees
-                  </Text>
-                  <Text style={{ color: "#6B7280", fontFamily: "Poppins-Regular", fontSize: 12, marginTop: 2 }}>
-                    Balance: {selectedToken === CurrencyType.SOL_9 ? `${(solBalance ?? 0).toFixed(5)} SOL` : selectedToken === CurrencyType.BONK_5 ? "—" : `${(tokenBalance ?? 0).toFixed(2)} ${selectedToken}`} · SOL: {(solBalance ?? 0).toFixed(5)}
-                  </Text>
-                  {!hasSufficientFunds && (
-                    <Text style={{ color: "#dc2626", fontFamily: "Poppins-SemiBold", fontSize: 12, marginTop: 4 }}>
-                      Insufficient balance for this bet.
-                    </Text>
-                  )}
-                </View>
+                
 
-                {/* Manual success/failure toggle */}
-                {/* <View style={styles.manualToggleRow}>
-                  <Text style={styles.manualToggleLabel}>Bet NO</Text>
-                  <Switch
-                    value={selectedDirection === "yes"}
-                    onValueChange={(value) =>
-                      setSelectedDirection(value ? "yes" : "no")
-                    }
-                    thumbColor={
-                      selectedDirection === "yes" ? "#8b5cf6" : "#8b5cf6"
-                    }
-                    trackColor={{ true: "#8b5cf655", false: "#8b5cf655" }}
-                    disabled={betStatus === "loading"}
-                  />
-                  <Text style={styles.manualToggleLabel}>Bet YES</Text>
-                </View> */}
                 <SwipeButton
                   disabled={
                     betStatus !== "idle" ||

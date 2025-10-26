@@ -10,7 +10,7 @@ export interface BackendMarket {
   marketStart?: string | number | null;
   marketEnd?: string | number | null;
   marketType?: 'live' | 'future' | 'LIVE' | 'FUTURE' | string;
-  currency?: string; // e.g. 'USDC_6'
+  currency?: string; // e.g. 'USDC'
   winningDirection?: WinningDirection | string | null;
   yesLiquidity?: string | number | null;
   noLiquidity?: string | number | null;
@@ -20,5 +20,4 @@ export interface BackendMarket {
   decimals?: number | null;
   updatedAt?: string | number | null;
 }
-
 
