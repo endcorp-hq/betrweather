@@ -6,6 +6,7 @@ import { PublicKey } from "@solana/web3.js";
 import { Account } from "src/types/solana-types";
 import { v4 as uuidv4 } from "uuid";
 
+export const WALLET_ALREADY_REGISTERED_ERROR = "WalletAlreadyRegisteredError";
 
 const DEVICE_ID_KEY = "DEVICE_ID";
 
@@ -201,7 +202,40 @@ export async function signUp(
     );
 
     if (!response.ok) {
-      throw new Error(`Authentication failed: ${response.status}`);
+      let errorMessage = `Authentication failed: ${response.status}`;
+      let serverMessage: string | undefined;
+      try {
+        const body = await response.json();
+        serverMessage = body?.message || body?.error || body?.detail;
+        if (serverMessage) {
+          errorMessage = serverMessage;
+        }
+      } catch {
+        try {
+          const text = await response.text();
+          if (text) {
+            errorMessage = text;
+          }
+        } catch {
+          // ignore, keep default message
+        }
+      }
+
+      if (
+        response.status === 409 ||
+        (serverMessage && serverMessage.toLowerCase().includes("already")) ||
+        errorMessage.toLowerCase().includes("already")
+      ) {
+        const conflictError = new Error(
+          serverMessage ||
+            errorMessage ||
+            "This wallet is already registered. Please sign in instead."
+        );
+        conflictError.name = WALLET_ALREADY_REGISTERED_ERROR;
+        throw conflictError;
+      }
+
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
@@ -219,5 +253,4 @@ export async function signUp(
     throw error;
   }
 }
-
 

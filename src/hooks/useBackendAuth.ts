@@ -6,7 +6,7 @@ import {
   storeJWTTokens,
 } from "../utils/authUtils";
 import { tokenManager } from "../utils/tokenManager";
-import { checkUserStatus, signInUser, signUp } from "../utils/signInUtils";
+import { checkUserStatus, signInUser, signUp, WALLET_ALREADY_REGISTERED_ERROR } from "../utils/signInUtils";
 import { Account } from "../types/solana-types";
 import { STORAGE_KEYS } from "../utils/constants";
 import { toast } from "../utils/toastUtils";
@@ -63,7 +63,13 @@ export function useBackendAuth() {
     },
     onError: (error) => {
       console.error("Backend signup failed:", error);
-      if (!error.message.includes("already in progress")) {
+      const errorName = (error as any)?.name;
+      const message = (error as any)?.message || "";
+      if (errorName === WALLET_ALREADY_REGISTERED_ERROR) {
+        setIsBackendAuthenticated(false);
+        return;
+      }
+      if (!message.includes("already in progress")) {
         toast.error("Backend authentication failed");
       }
       setIsBackendAuthenticated(false);

@@ -42,7 +42,10 @@ export {
 } from './weatherUtils'; 
 
 // Sign In Utilities
-export { generateSecureSignInPayload } from './signInUtils';
+export {
+  generateSecureSignInPayload,
+  WALLET_ALREADY_REGISTERED_ERROR,
+} from './signInUtils';
 
 // Toast Utilities
 export { toast, setToastHandler } from './toastUtils';

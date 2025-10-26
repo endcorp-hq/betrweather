@@ -16,7 +16,7 @@ import {
 } from "../../hooks/useMobileWallet";
 import { useToast } from "@/contexts";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
-import { generateSecureSignInPayload } from "@/utils";
+import { generateSecureSignInPayload, WALLET_ALREADY_REGISTERED_ERROR } from "@/utils";
 import { useBackendAuth } from "src/hooks/useBackendAuth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEYS } from "src/utils/constants";
@@ -40,16 +40,25 @@ export function SignupDrawer({
   const [nameError, setNameError] = useState("");
   const [slideAnim] = useState(new Animated.Value(screenHeight));
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const { selectedAccount } = useAuthorization();
+  const { selectedAccount, clearAuthorization } = useAuthorization();
   const { isBackendAuthenticated } = useBackendAuth();
 
   // Close drawer only after backend authentication (JWT issued),
   // not merely when a wallet is connected
+  const handleClose = useCallback(() => {
+    Keyboard.dismiss();
+    setName("");
+    setEmail("");
+    setNameTouched(false);
+    setNameError("");
+    onClose();
+  }, [onClose]);
+
   useEffect(() => {
     if (isBackendAuthenticated && !isSigningIn) {
       handleClose();
     }
-  }, [isBackendAuthenticated, isSigningIn]);
+  }, [isBackendAuthenticated, isSigningIn, handleClose]);
 
   useEffect(() => {
     if (isVisible) {
@@ -69,15 +78,14 @@ export function SignupDrawer({
     }
   }, [isVisible, slideAnim]);
 
-  const handleClose = () => {
-    Keyboard.dismiss();
-    // Reset form state
-    setName("");
-    setEmail("");
-    setNameTouched(false);
-    setNameError("");
-    onClose();
-  };
+  const handleSignupConflict = useCallback(async () => {
+    try {
+      await clearAuthorization();
+    } catch (err) {
+      console.warn("Failed to clear authorization after signup conflict", err);
+    }
+    handleClose();
+  }, [clearAuthorization, handleClose]);
 
   const validateName = (value: string) => {
     if (!value.trim()) {
@@ -190,6 +198,7 @@ export function SignupDrawer({
             selectedChain={selectedChain}
             disabled={!isFormValid}
             userData={{ name: name.trim(), email: email.trim() }}
+            onSignupConflict={handleSignupConflict}
           />
         </View>
       </Animated.View>
@@ -202,10 +211,12 @@ function DrawerSignUpButton({
   selectedChain,
   disabled,
   userData,
+  onSignupConflict,
 }: {
   selectedChain: Chain;
   disabled: boolean;
   userData: { name: string; email: string };
+  onSignupConflict?: () => void;
 }) {
   const { signMessage } = useMobileWallet();
   const { signupWithBackend } = useBackendAuth();
@@ -243,6 +254,14 @@ function DrawerSignUpButton({
         toast.info("Wallet request cancelled");
         return;
       }
+      if (err instanceof Error && err.name === WALLET_ALREADY_REGISTERED_ERROR) {
+        toast.info(
+          "Wallet already registered",
+          "Looks like this wallet already has an account. Please sign in instead."
+        );
+        onSignupConflict?.();
+        return;
+      }
       const message =
         err instanceof Error ? err.message : "Signup failed. Please try again.";
       toast.error("Error during signup", message);
@@ -256,6 +275,7 @@ function DrawerSignUpButton({
     signupWithBackend,
     disabled,
     userData,
+    onSignupConflict,
     toast,
   ]);
 
