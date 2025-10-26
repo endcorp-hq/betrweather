@@ -18,7 +18,15 @@ import { calculatePayout } from "@/utils";
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { selectedAccount } = useAuthorization();
-  const { positions, loading, loadingMarkets, refreshPositions, handleClaimPayout, handleBurnPosition, lastError, retryCount } = usePositionsContext();
+  const {
+    positions,
+    loading,
+    loadingMarkets,
+    refreshPositions,
+    settlePosition,
+    lastError,
+    retryCount,
+  } = usePositionsContext();
   const [refreshing, setRefreshing] = useState(false);
   const [hasAttemptedInitialLoad, setHasAttemptedInitialLoad] = useState(false);
   const pageSize = 5;
@@ -171,7 +179,7 @@ export default function ProfileScreen() {
                 $
                 {positions
                   .reduce((sum: number, position: any) => sum + position.amount, 0)
-                  .toFixed(0)}
+                  .toFixed(2)}
               </Text>
               <Text style={styles.statLabel} className="!text-white">Total Wagered</Text>
             </View>
@@ -210,7 +218,7 @@ export default function ProfileScreen() {
                     const payout = calculatePayout(position);
                     return sum + (payout || 0);
                   }, 0)
-                  .toFixed(0)}
+                  .toFixed(2)}
               </Text>
               <Text style={styles.statLabel} className="!text-white">Unclaimed</Text>
             </View>
@@ -296,10 +304,10 @@ export default function ProfileScreen() {
               <SwipeablePositionCard
                 position={position}
                 onClaim={async () => {
-                  await handleClaimPayout(position);
+                  await settlePosition(position);
                 }}
                 onBurn={async () => {
-                  await handleBurnPosition(position);
+                  await settlePosition(position);
                 }}
                 onPress={() => handleCardPress(position.marketId)}
                 isClaiming={position.isClaiming || false}

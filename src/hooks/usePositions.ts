@@ -474,23 +474,21 @@ export function usePositions() {
     ]
   );
 
-  // Claim payout handler → unified settle builder
-  const handleClaimPayout = useCallback(
+  // Unified settle handler (claims when user won, burns when user lost)
+  const settlePosition = useCallback(
     async (position: PositionWithMarket) => {
       if (!selectedAccount?.publicKey) return;
 
-      await handlePositionTransaction(position, 'claim', async () => {
+      const payout = calculatePayout(position) ?? 0;
+      const operation: 'claim' | 'burn' = payout > 0 ? 'claim' : 'burn';
+
+      await handlePositionTransaction(position, operation, async () => {
         const build = await buildSettle({
           marketId: position.marketId,
           payerPubkey: selectedAccount.publicKey.toBase58(),
           assetId: new Web3PublicKey(position.assetId).toBase58(),
           network: currentChain,
         });
-        // If backend indicates burn (no payout), fall back to burn handler
-        if (build && build.isPayoutPositive === false) {
-          // Return a special signature to reuse success removal + toast flow in handler
-          return { relaySubmitted: true, signature: 'SETTLE_BURNED' } as any;
-        }
         const messageBase64 = (build as any).message || (build as any).messageBase64;
         if (!messageBase64) throw new Error('Builder did not return base64 message');
         const { signedTx } = await signBuiltTransaction(messageBase64);
@@ -539,7 +537,7 @@ export function usePositions() {
     loading,
     loadingMarkets,
     refreshPositions,
-    handleClaimPayout,
+    settlePosition,
     lastError,
     retryCount,
   };

@@ -39,6 +39,9 @@ import type { ParsedAccountData } from "@solana/web3.js";
 import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "src/types/currency";
 import { getJWTTokens } from "../utils/authUtils";
 
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 const SUGGESTED_BETS_USDC = [1, 3, 5, 20];
 const SUGGESTED_BETS_BONK = ["30k", "60k", "100k", "200k"];
 const SUGGESTED_BETS_SOL = [0.01, 0.05, 0.1, 0.25];
@@ -478,6 +481,43 @@ export default function SlotMachineScreen() {
   const [isEnsuring, setIsEnsuring] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  const waitForMarketReady = useCallback(
+    async (marketId: number) => {
+      const timeoutAt = Date.now() + 20000;
+      let attempts = 0;
+      while (Date.now() < timeoutAt) {
+        attempts += 1;
+        try {
+          const onchainMarket = await getMarketById(marketId);
+          if (onchainMarket) {
+            setSelectedMarket((prev: any) => ({
+              ...(prev || {}),
+              ...onchainMarket,
+              marketId,
+            }));
+            setIsOnChain(true);
+            return onchainMarket;
+          }
+        } catch (err) {
+          console.warn("[MarketReady] attempt failed", { attempt: attempts, err });
+        }
+
+        if (refresh) {
+          try {
+            refresh();
+          } catch (refreshErr) {
+            console.warn("[MarketReady] refresh error", refreshErr);
+          }
+        }
+
+        await sleep(1000);
+      }
+
+      throw new Error("Market is still syncing on-chain. Please try again.");
+    },
+    [getMarketById, refresh]
+  );
+
   const realTimeMarket = useMemo(() => {
     if (selectedMarket?.marketId == null) return undefined;
     const id = String(selectedMarket.marketId);
@@ -712,7 +752,6 @@ export default function SlotMachineScreen() {
         // If backend didn't immediately return a marketId, poll DB for a short window
         if (!ensuredId) {
           const maxTries = 8;
-          const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
           for (let i = 0; i < maxTries && !ensuredId; i++) {
             try {
               // Poll for ensured market id
@@ -728,7 +767,7 @@ export default function SlotMachineScreen() {
             } catch (pollErr) {
               // Ignore transient poll errors
             }
-            await delay(1000);
+            await sleep(1000);
           }
         }
 
@@ -783,6 +822,23 @@ export default function SlotMachineScreen() {
     }
 
     // Show loading toast and get the ID
+    if (isInitialized && finalMarketId != null) {
+      try {
+        await waitForMarketReady(Number(finalMarketId));
+      } catch (syncErr) {
+        toast.error(
+          "Market Syncing",
+          extractErrorMessage(
+            syncErr,
+            "Market is still syncing on-chain. Please try again in a moment."
+          ),
+          { position: "top" }
+        );
+        setBetStatus("idle");
+        return;
+      }
+    }
+
     const loadingToastId = toast.loading(
       "Placing Bet",
       "Processing your bet on the blockchain...",
@@ -957,6 +1013,37 @@ export default function SlotMachineScreen() {
         });
         console.log('[Forward After]', { signature: forwarded?.signature, status: forwarded?.status });
         signature = forwarded.signature;
+      }
+
+      if (signature && connection) {
+        const confirmDeadline = Date.now() + 30000;
+        let confirmed = false;
+        while (Date.now() < confirmDeadline) {
+          try {
+            const status = await connection.getSignatureStatuses([signature]);
+            const result = status.value?.[0];
+            if (result) {
+              if (result.err) {
+                throw new Error('Bet transaction failed to confirm');
+              }
+              if (
+                result.confirmationStatus === 'confirmed' ||
+                result.confirmationStatus === 'finalized' ||
+                (typeof result.confirmations === 'number' && result.confirmations > 0)
+              ) {
+                confirmed = true;
+                break;
+              }
+            }
+          } catch (statusErr) {
+            console.warn('[Bet Confirm] status error', statusErr);
+          }
+          await sleep(1500);
+        }
+
+        if (!confirmed) {
+          throw new Error('Timed out waiting for bet confirmation');
+        }
       }
 
         // Success! Update loading toast to success

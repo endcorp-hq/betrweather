@@ -18,7 +18,6 @@ import {
 } from "../../utils/authUtils";
 import { Account, WalletAuthorization } from "src/types/solana-types";
 import { STORAGE_KEYS } from "../../utils/constants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clearUserData } from "src/utils/userStorage";
 import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 
@@ -59,7 +58,7 @@ export function useAuthorization(): {
     wallet: Web3MobileWallet,
     chainIdentifier?: Chain
   ) => Promise<Account>;
-  deauthorizeSession: (wallet: DeauthorizeAPI) => Promise<void>;
+  deauthorizeSession: (wallet?: DeauthorizeAPI) => Promise<void>;
   authorizeSessionWithSignIn: (
     wallet: Web3MobileWallet,
     signInPayload: SolanaSignInInput,
@@ -68,6 +67,7 @@ export function useAuthorization(): {
   selectedAccount: Account | null;
   userSession: WalletAuthorization["userSession"] | null;
   isLoading: boolean;
+  clearAuthorization: () => Promise<void>;
 } {
   const queryClient = useQueryClient();
   const { data: authorization, isLoading } = useQuery({
@@ -75,7 +75,7 @@ export function useAuthorization(): {
     queryFn: () => fetchAuthorization(),
   });
 
-  const { mutate: setAuthorization } = useMutation({
+  const { mutate: setAuthorization, mutateAsync: setAuthorizationAsync } = useMutation({
     mutationFn: persistAuthorization,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [STORAGE_KEYS.AUTHORIZATION] });
@@ -116,6 +116,12 @@ export function useAuthorization(): {
     [authorization, setAuthorization]
   );
 
+  const clearAuthorization = useCallback(async () => {
+    await clearJWTTokens();
+    await clearUserData();
+    await setAuthorizationAsync(null);
+  }, [setAuthorizationAsync]);
+
   const authorizeSession = useCallback(
     async (wallet: Web3MobileWallet, chainIdentifier?: Chain): Promise<Account> => {
       const authorizationResult = await wallet.authorize({
@@ -155,19 +161,18 @@ export function useAuthorization(): {
   );
 
   const deauthorizeSession = useCallback(
-    async (wallet: DeauthorizeAPI): Promise<void> => {
-      if (authorization?.authToken == null) {
-        return;
+    async (wallet?: DeauthorizeAPI): Promise<void> => {
+      const authToken = authorization?.authToken;
+      if (wallet && authToken) {
+        try {
+          await wallet.deauthorize({ auth_token: authToken });
+        } catch (err) {
+          console.warn("Wallet deauthorize failed", err);
+        }
       }
-      await wallet.deauthorize({ auth_token: authorization.authToken });
-      await clearJWTTokens();
-      await clearUserData();
-      await AsyncStorage.removeItem(STORAGE_KEYS.AUTHORIZATION);
-      setAuthorization(null);
-
-      console.log("Authorization cleared");
+      await clearAuthorization();
     },
-    [authorization, setAuthorization]
+    [authorization?.authToken, clearAuthorization]
   );
 
   return useMemo(
@@ -179,6 +184,7 @@ export function useAuthorization(): {
       selectedAccount: authorization?.selectedAccount ?? null,
       userSession: authorization?.userSession ?? null,
       isLoading,
+      clearAuthorization,
     }),
     [
       authorization,
@@ -186,6 +192,7 @@ export function useAuthorization(): {
       deauthorizeSession,
       authorizeSessionWithSignIn,
       isLoading,
+      clearAuthorization,
     ]
   );
 }

@@ -10,7 +10,10 @@ import {
   Keyboard,
 } from "react-native";
 import { useAuthorization } from "../../hooks/solana/useAuthorization";
-import { useMobileWallet } from "../../hooks/useMobileWallet";
+import {
+  useMobileWallet,
+  WALLET_CANCELLED_ERROR,
+} from "../../hooks/useMobileWallet";
 import { useToast } from "@/contexts";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import { generateSecureSignInPayload } from "@/utils";
@@ -207,6 +210,7 @@ function DrawerSignUpButton({
   const { signMessage } = useMobileWallet();
   const { signupWithBackend } = useBackendAuth();
   const [signInInProgress, setSignInInProgress] = useState(false);
+  const { toast } = useToast();
 
   const handleSignUp = useCallback(async () => {
     try {
@@ -235,7 +239,13 @@ function DrawerSignUpButton({
         userData
       );
     } catch (err: any) {
-      throw new Error(err instanceof Error ? err.message : err);
+      if (err instanceof Error && err.name === WALLET_CANCELLED_ERROR) {
+        toast.info("Wallet request cancelled");
+        return;
+      }
+      const message =
+        err instanceof Error ? err.message : "Signup failed. Please try again.";
+      toast.error("Error during signup", message);
     } finally {
       setSignInInProgress(false);
     }
@@ -246,6 +256,7 @@ function DrawerSignUpButton({
     signupWithBackend,
     disabled,
     userData,
+    toast,
   ]);
 
   return (
@@ -287,7 +298,7 @@ export function LoginButton({ selectedChain }: { selectedChain: Chain }) {
 
       if (selectedAccount) {
         console.log("disconnecting", selectedAccount);
-        disconnect();
+        await disconnect();
       }
 
       const securePayload = await generateSecureSignInPayload();
@@ -308,14 +319,25 @@ export function LoginButton({ selectedChain }: { selectedChain: Chain }) {
         JSON.stringify(securePayload)
       );
     } catch (err: any) {
-      toast.error(
-        "Error during login",
-        err instanceof Error ? err.message : err
-      );
+      if (err instanceof Error && err.name === WALLET_CANCELLED_ERROR) {
+        toast.info("Wallet request cancelled");
+      } else {
+        const message =
+          err instanceof Error ? err.message : "Login failed. Please try again.";
+        toast.error("Error during login", message);
+      }
     } finally {
       setAuthorizationInProgress(false);
     }
-  }, [authorizationInProgress, selectedChain, toast, signMessage]);
+  }, [
+    authorizationInProgress,
+    selectedChain,
+    toast,
+    signMessage,
+    disconnect,
+    selectedAccount,
+    signinWithBackend,
+  ]);
 
   return (
     <TouchableOpacity

@@ -1,6 +1,4 @@
-import {
-  useAuthorization,
-} from "./solana/useAuthorization";
+import { useAuthorization } from "./solana/useAuthorization";
 import {
   Transaction,
   TransactionSignature,
@@ -9,8 +7,30 @@ import {
 import { useCallback, useMemo } from "react";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import { type SolanaSignInInput } from "@solana/wallet-standard-features";
-import { Web3MobileWallet, transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
+import {
+  Web3MobileWallet,
+  transact,
+} from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { Account } from "src/types/solana-types";
+export const WALLET_CANCELLED_ERROR = "WalletCancelledError";
+
+const isCancellationError = (error: unknown) => {
+  if (!error) return false;
+  const message =
+    typeof error === "string"
+      ? error
+      : typeof error === "object" && error !== null && "message" in error
+      ? String((error as any).message ?? "")
+      : "";
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("cancel") ||
+    normalized.includes("user dismissed") ||
+    normalized.includes("aborted")
+  );
+};
+
 export function useMobileWallet() {
   const { authorizeSessionWithSignIn, authorizeSession, deauthorizeSession } =
     useAuthorization();
@@ -41,10 +61,13 @@ export function useMobileWallet() {
   );
 
   const disconnect = useCallback(async (): Promise<void> => {
-    // Deauthorize with wallet (also clears local auth + JWT via hook)
-    await transact(async (wallet) => {
-      try { await deauthorizeSession(wallet as any); } catch {}
-    });
+    try {
+      await transact(async (wallet) => {
+        await deauthorizeSession(wallet as any);
+      });
+    } catch {
+      await deauthorizeSession();
+    }
   }, [deauthorizeSession]);
 
   const signAndSendTransaction = useCallback(
@@ -121,23 +144,32 @@ export function useMobileWallet() {
   const signMessage = useCallback(
     async (message: Uint8Array, chainIdentifier?: Chain): Promise<{ signature: Uint8Array; publicKey: string }> => {
       return await transact(async (wallet) => {
-        try{
-        const authResult = await authorizeSession(wallet, chainIdentifier);
-        const signedMessages = await wallet.signMessages({
-          addresses: [authResult.address],
-          payloads: [message],
-        });
-        return {
-          signature: signedMessages[0],
-          publicKey: authResult.publicKey.toBase58(),
-        }
+        try {
+          const authResult = await authorizeSession(wallet, chainIdentifier);
+          const signedMessages = await wallet.signMessages({
+            addresses: [authResult.address],
+            payloads: [message],
+          });
+          return {
+            signature: signedMessages[0],
+            publicKey: authResult.publicKey.toBase58(),
+          };
         } catch (e) {
-          console.log("this is error signing message", e);
+          if (isCancellationError(e)) {
+            try {
+              await deauthorizeSession(wallet as any);
+            } catch {
+              await deauthorizeSession();
+            }
+            const cancelError = new Error("Wallet request cancelled");
+            cancelError.name = WALLET_CANCELLED_ERROR;
+            throw cancelError;
+          }
           throw e;
         }
       });
     },
-    [authorizeSession]
+    [authorizeSession, deauthorizeSession]
   );
 
   return useMemo(

@@ -253,7 +253,7 @@ function PersonalStatsView({ user }: { user: any }) {
               <Text className="text-gray-300 font-better-regular text-base">USDC</Text>
             </View>
             <Text className="text-white font-better-semi-bold text-lg">
-              ${formatNumber((user.totalWonAmountUSDC || 0) / 1000000, 2)}
+              ${formatNumber((user.totalWonAmountUSDC || 0) / 1000000, 4)}
             </Text>
           </View>
           
@@ -270,7 +270,7 @@ function PersonalStatsView({ user }: { user: any }) {
               <Text className="text-gray-300 font-better-regular text-base">BONK</Text>
             </View>
             <Text className="text-white font-better-semi-bold text-lg">
-              {formatNumber((user.totalWonAmountBonk || 0) / 1000000, 2)}
+              {formatNumber((user.totalWonAmountBonk || 0) / 1000000, 4)}
             </Text>
           </View>
 
@@ -287,7 +287,7 @@ function PersonalStatsView({ user }: { user: any }) {
               <Text className="text-gray-300 font-better-regular text-base">SOL</Text>
             </View>
             <Text className="text-white font-better-semi-bold text-lg">
-              {formatNumber((user.totalWonAmountSol || 0) / LAMPORTS_PER_SOL, 2)}
+              {formatNumber((user.totalWonAmountSol || 0) / LAMPORTS_PER_SOL, 6)}
             </Text>
           </View>
         </View>

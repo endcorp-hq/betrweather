@@ -100,8 +100,7 @@ export default function GuardedScreen({
 }: {
   children: React.ReactNode;
 }) {
-  const { selectedAccount } = useAuthorization();
-  const { disconnect } = useMobileWallet();
+  const { selectedAccount, clearAuthorization } = useAuthorization();
   const { jwtTokens } = useBackendAuth();
   const { selectedChain, toggleChain } = useChainToggle();
   const effectiveSelectedChain: Chain = ENABLE_NETWORK_TOGGLE ? selectedChain : 'solana:mainnet-beta';
@@ -117,7 +116,7 @@ export default function GuardedScreen({
       const refreshTokenValid = tokenManager.isRefreshTokenValid(jwtTokens);
       if (!refreshTokenValid) {
         console.log("Refresh token invalid, logging out user");
-        await disconnect();
+        await clearAuthorization();
         setHasValidAuth(false);
         return;
       }
@@ -137,7 +136,7 @@ export default function GuardedScreen({
     };
 
     checkAuth();
-  }, [selectedAccount, jwtTokens, disconnect]);
+  }, [selectedAccount, jwtTokens, clearAuthorization]);
 
   if (hasValidAuth) {
     return <DefaultBg>{children}</DefaultBg>;
@@ -196,5 +195,4 @@ function SignupButton({ selectedChain }: { selectedChain: Chain }) {
 
 // Import the LoginDrawer component
 import { SignupDrawer } from "./sign-in-ui";
-import { useBackendAuth } from "src/hooks/useBackendAuth";import { useMobileWallet } from "@/hooks";
-
+import { useBackendAuth } from "src/hooks/useBackendAuth";

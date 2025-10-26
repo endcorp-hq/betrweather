@@ -100,5 +100,9 @@ export async function fetchAuthorization(): Promise<WalletAuthorization | null> 
 export async function persistAuthorization(
   auth: WalletAuthorization | null
 ): Promise<void> {
+  if (auth == null) {
+    await AsyncStorage.removeItem(AUTHORIZATION_STORAGE_KEY);
+    return;
+  }
   await AsyncStorage.setItem(AUTHORIZATION_STORAGE_KEY, JSON.stringify(auth));
 }
