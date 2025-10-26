@@ -180,48 +180,43 @@ export function useBackendRelay() {
       amount: string | number; // base units (prefer string)
       direction: { yes: object } | { no: object };
       payerPubkey: string; // base58
-      token: string; // mint address or symbol
       network?: string;
       metadataUri?: string;
     }): Promise<BuildTxResponse> => {
-      const token = await ensureAuthToken();
       const headersBase = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
         "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
       } as Record<string, string>;
 
       const openUrl = `${API_BASE}/tx/build/shortx/open-position`;
       log('Relay', 'debug', 'build open-position', { url: openUrl });
+      const body = { ...args, network: resolveNet(args.network) } as any;
+      // Explicitly ensure no token/mint field is included
+      delete body.token;
+      delete body.mint;
       let res = await fetch(openUrl, {
         method: "POST",
         headers: headersBase,
-        body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
+        body: JSON.stringify(body),
       });
-      if (res.status === 401) {
-        // Force re-auth and retry once
-        const fresh = await ensureAuthToken(true);
-        log('Relay', 'warn', 'Retry build open-position with fresh token');
-        res = await fetch(openUrl, {
-          method: "POST",
-          headers: {
-            ...headersBase,
-            Authorization: `Bearer ${fresh}`,
-          },
-          body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
-        });
-      }
       if (!res.ok) {
         let text = "";
         try {
           text = await res.text();
         } catch {}
+        // Handle wallet mismatch explicitly and force re-auth
+        if (text && /PAYER_WALLET_MISMATCH/i.test(text)) {
+          try { clearTokenCache(); } catch {}
+          try { await clearJWTTokens(); } catch {}
+          log('Relay', 'error', 'build open-position failed', { status: res.status, body: text });
+          throw new Error('PAYER_WALLET_MISMATCH');
+        }
         log('Relay', 'error', 'build open-position failed', { status: res.status, body: text });
         throw new Error(`Build open-position failed: ${res.status}`);
       }
       return res.json();
     },
-    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
+    [API_BASE, currentChain, selectedAccount]
   );
 
 
@@ -430,7 +425,9 @@ export function useBackendRelay() {
         log('Relay', 'error', 'forward tx failed', { status: res.status, body: text });
         throw new Error(text || `Submit failed: ${res.status}`);
       }
-      return res.json();
+      const json = await res.json();
+      try { console.log('[Forward Success]', { signature: json?.signature, status: json?.status }); } catch {}
+      return json;
     },
     [API_BASE, ensureAuthToken, selectedAccount]
   );

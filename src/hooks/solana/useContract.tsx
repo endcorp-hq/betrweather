@@ -23,6 +23,7 @@ import { Position } from "@endcorp/depredict";
   import BN from "bn.js";
   import { useCallback } from 'react';
   import { useChain } from "../../contexts/ChainProvider";
+  import { ENABLE_ONCHAIN_CLIENT } from "src/config/featureFlags";
 import { useAuthorization } from "./useAuthorization";
   import { useBackendRelay } from "../useBackendRelay";
   
@@ -92,65 +93,25 @@ import { useAuthorization } from "./useAuthorization";
       | undefined
       | null
     >;
-    getAllPositionPagesForMarket: (
-      marketId: number
-    ) => Promise<PositionPageInfo[] | null>;
+
     payoutPosition: (args: {
       marketId: number;
       payer: PublicKey;
       assetId: PublicKey;
     }) => Promise<any | null>;
-    createConfig: (
-      feeAmount: number,
-      payer: PublicKey
-    ) => Promise<TransactionInstruction[] | null>;
-    closeConfig: (payer: PublicKey) => Promise<TransactionInstruction[] | null>;
+
     getConfig: () => Promise<ConfigAccount | null>;
-    createMarket: (
-      args: CreateMarketArgs
-    ) => Promise<{ tx: VersionedTransaction; marketId: number } | null>;
-    updateMarket: (
-      marketId: number,
-      payer: PublicKey,
-      marketEnd?: number,
-      marketState?: MarketStates
-    ) => Promise<VersionedTransaction | null>;
-    resolveMarket: (args: {
-      marketId: number;
-      winningDirection:
-        | { yes: object }
-        | { no: object }
-        | { draw: object }
-        | { none: object };
-      state: MarketStates;
-      oraclePubkey: PublicKey;
-      payer: PublicKey;
-    }) => Promise<VersionedTransaction | null>;
+    
     loadingConfig: boolean;
     getMarketById: (id: number) => Promise<Market | null | undefined>;
-    closeMarket: (
-      marketId: number,
-      payer: PublicKey
-    ) => Promise<TransactionInstruction[] | null>;
-    // getUserPositions: (user: PublicKey) => Promise<Position[]>;
-  }
 
-  type PositionPageInfo = {
-    pageIndex: number;
-    totalSlots: number;
-    usedSlots: number;
-    availableSlots: number;
-    isFull: boolean;
-    prewarmNext: boolean;
-    exists: boolean;
-  };
+  }
   
   const ShortxContext = createContext<ShortxContextType | undefined>(undefined);
   
   export const ShortxProvider = ({ children }: { children: ReactNode }) => {
     const { connection, currentChain } = useChain(); // Get dynamic RPC URL
     const {selectedAccount} = useAuthorization();
-    const { getMarkets: backendGetMarkets } = useBackendRelay();
     const [client, setClient] = useState<ShortXClient | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const [markets, setMarkets] = useState<Market[]>([]);
@@ -193,10 +154,7 @@ import { useAuthorization } from "./useAuthorization";
             throw createShortxError(ShortxErrorType.INITIALIZATION, "Missing EXPO_PUBLIC_ADMIN_KEY");
           }
           const shortxClient = new ShortXClient(
-            connection,
-            new PublicKey(process.env.EXPO_PUBLIC_ADMIN_KEY || ""),
-            new PublicKey(process.env.EXPO_PUBLIC_FEE_VAULT || "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"),
-          );
+            connection);
 
         setClient(shortxClient);
         setIsInitialized(true);
@@ -212,7 +170,8 @@ import { useAuthorization } from "./useAuthorization";
         setIsInitialized(false);
       }
     };
-    if (currentChain && connection && selectedAccount) initializeSDK();
+    // Only initialize SDK when explicitly allowed; otherwise skip to avoid RPCs on client
+    if (ENABLE_ONCHAIN_CLIENT && currentChain && connection && selectedAccount) initializeSDK();
   }, [connection, currentChain, selectedAccount]); // Re-initialize when chain changes
 
   const fetchAllMarkets = async () => {
@@ -369,7 +328,7 @@ import { useAuthorization } from "./useAuthorization";
     }, [marketEvents, client]);
   
     useEffect(() => {
-      if (!isInitialized || !client) return;
+      if (!ENABLE_ONCHAIN_CLIENT || !isInitialized || !client) return;
   
       const subscribeToEvents = async () => {
         try {
@@ -400,14 +359,6 @@ import { useAuthorization } from "./useAuthorization";
             "marketEvent",
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (event: any) => {
-              // console.log("=== MARKET EVENT RECEIVED ===");
-              // console.log("Raw event:", event);
-              // console.log("Event type:", typeof event);
-              // console.log("Event keys:", Object.keys(event));
-              // console.log("Market ID:", event.marketId?.toNumber());
-              // console.log("Volume:", event.volume?.toNumber());
-              // console.log("State:", event.marketState?.toString());
-              // console.log("================================");
               
               setMarketEvents((prev) => {
                 // Temporarily remove duplicate checking to debug
@@ -491,36 +442,6 @@ import { useAuthorization } from "./useAuthorization";
       }
     };
   
-    const createConfig: ShortxContextType["createConfig"] = async (
-      feeAmount,
-      payer
-    ) => {
-      if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-      setLoadingConfig(true);
-      try {
-        const ixs = await client.config.createConfig(feeAmount, payer);
-        return ixs;
-      } catch (err) {
-        setError(createShortxError(ShortxErrorType.CONFIG_CREATION, "Unknown error", err));
-        throw err;
-      } finally {
-        setLoadingConfig(false);
-      }
-    };
-  
-    const closeConfig: ShortxContextType["closeConfig"] = async (
-      payer: PublicKey
-    ) => {
-      if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-      try {
-        const ixs = await client.config.closeConfig(payer);
-        return ixs;
-      } catch (err) {
-        setError(createShortxError(ShortxErrorType.CONFIG_CLOSURE, "Unknown error", err));
-        throw err;
-      }
-    };
-  
     const getConfig: ShortxContextType["getConfig"] = async () => {
       if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
       setLoadingConfig(true);
@@ -535,73 +456,7 @@ import { useAuthorization } from "./useAuthorization";
         setLoadingConfig(false);
       }
     };
-  
-    const createMarket: ShortxContextType["createMarket"] = async (args) => {
-      if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-      try {
-        const result = await client.trade.createMarket(args);
-        return result;
-      } catch (err) {
-        setError(createShortxError(ShortxErrorType.MARKET_CREATION, "Failed to create market", err));
-        return null;
-      }
-    };
-  
-    const updateMarket: ShortxContextType["updateMarket"] = async (
-        marketId,
-        payer,
-        marketEnd,
-        marketState
-    ) => {
-      if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-      try {
-        const ixs = await client.trade.updateMarket(marketId, payer, marketEnd, marketState);
-        return ixs || null;
-      } catch (err) {
-        setError(createShortxError(ShortxErrorType.MARKET_UPDATE, "Failed to update market", err));
-        return null;
-      }
-    };
-  
-    const closeMarket: ShortxContextType["closeMarket"] = async (
-      marketId,
-      payer
-    ) => {
-      if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-      try {
-        const ixs = await client.trade.closeMarket(marketId, payer);
-        return ixs;
-      } catch (err) {
-        setError(createShortxError(ShortxErrorType.MARKET_CLOSURE, "Failed to close market", err));
-        return null;
-      }
-    };
-  
-    const resolveMarket: ShortxContextType["resolveMarket"] = async (args) => {
-      if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-      try {
-        const ixs = await client.trade.resolveMarket(args);
-        return ixs;
-      } catch (err) {
-        setError(createShortxError(ShortxErrorType.MARKET_RESOLUTION, "Failed to resolve market", err));
-        return null;
-      }
-    };
-  
-    const getAllPositionPagesForMarket: ShortxContextType["getAllPositionPagesForMarket"] =
-      async (marketId) => {
-        if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
-        try {
-          const accounts = await client.position.getAllPositionPagesForMarket(
-            marketId
-          );
-          return accounts;
-        } catch (err) {
-          setError(createShortxError(ShortxErrorType.POSITION_FETCH, "Failed to fetch positions", err));
-          return null;
-        }
-      };
-  
+
     const payoutPosition: ShortxContextType["payoutPosition"] = async (args) => {
       if (!client) throw createShortxError(ShortxErrorType.INITIALIZATION, "SDK not initialized");
       try {
@@ -632,17 +487,9 @@ import { useAuthorization } from "./useAuthorization";
           getMarketById,
           refresh,
           openPosition,
-          getAllPositionPagesForMarket,
           payoutPosition,
-          createConfig,
-          // updateConfig,
-          closeConfig,
           getConfig,
-          createMarket,
-          updateMarket,
-          resolveMarket,
           loadingConfig,
-          closeMarket,
         }}
       >
         {children}

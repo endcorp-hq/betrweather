@@ -37,6 +37,7 @@ import SwipeButton from "rn-swipe-button";
 import { useToast, useChain } from "@/contexts";
 import type { ParsedAccountData } from "@solana/web3.js";
 import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "src/types/currency";
+import { getJWTTokens } from "../utils/authUtils";
 
 const SUGGESTED_BETS_USDC = [1, 3, 5, 20];
 const SUGGESTED_BETS_BONK = ["30k", "60k", "100k", "200k"];
@@ -434,13 +435,13 @@ export default function SlotMachineScreen() {
   const { marketId: routeMarketId, dbId: routeDbId, id, market: routeMarket } = route.params || {};
   const effectiveId = routeDbId ?? id ?? routeMarketId;
 
-  const { getMarketById, openPosition, refresh } = useShortx();
-  const { forwardTx, ensureAuthToken } = useBackendRelay();
+  const { getMarketById, openPosition, refresh, isInitialized } = useShortx();
+  const { forwardTx, ensureAuthToken, buildOpenPosition, signBuiltTransaction } = useBackendRelay();
   const { buildVersionedTx } = useCreateAndSendTx();
   const { signTransaction } = useMobileWallet();
   const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
   const dbByDbIdUrl = routeDbId ? `${API_BASE}/markets/db/${routeDbId}` : '';
-  const dbByMarketIdUrl = routeMarketId ? `${API_BASE}/markets/${routeMarketId}` : '';
+  const dbByMarketIdUrl = routeMarketId != null ? `${API_BASE}/markets/${routeMarketId}` : '';
   const { data: dbMarketByDbId, isLoading: loadingByDbId } = useAPI<any>(
     dbByDbIdUrl,
     { method: 'GET' },
@@ -449,7 +450,7 @@ export default function SlotMachineScreen() {
   const { data: dbMarketByMarketId, isLoading: loadingByMarketId } = useAPI<any>(
     dbByMarketIdUrl,
     { method: 'GET' },
-    { enabled: Boolean(routeMarketId) && !routeMarket, staleTime: 2 * 60 * 1000, refetchInterval: false }
+    { enabled: routeMarketId != null && !routeMarket, staleTime: 2 * 60 * 1000, refetchInterval: false }
   );
 
   // UseShortx still exposes events; useMarkets integrates list overlay elsewhere
@@ -478,7 +479,7 @@ export default function SlotMachineScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
 
   const realTimeMarket = useMemo(() => {
-    if (!selectedMarket?.marketId) return undefined;
+    if (selectedMarket?.marketId == null) return undefined;
     const id = String(selectedMarket.marketId);
     const latest = marketEvents
       .filter((e: any) => String(e.marketId) === id)
@@ -497,7 +498,7 @@ export default function SlotMachineScreen() {
     } as any;
   }, [selectedMarket?.marketId, marketEvents]);
   const hasRecentEvent = useMemo(() => (
-    selectedMarket?.marketId ? marketEvents.some((event: any) => event.marketId.toString() === String(selectedMarket.marketId)) : false
+    selectedMarket?.marketId != null ? marketEvents.some((event: any) => event.marketId.toString() === String(selectedMarket.marketId)) : false
   ), [marketEvents, selectedMarket?.marketId]);
 
   // Immediately overlay the market with real-time data if available
@@ -624,7 +625,7 @@ export default function SlotMachineScreen() {
           marketEnd: toSeconds(routeMarket.marketEnd),
         } as any;
         setSelectedMarket(normalized);
-        setIsOnChain(Boolean(normalized?.marketId));
+        setIsOnChain(normalized?.marketId != null);
       } catch {}
     } else if (routeDbId || routeMarketId) {
       fetchMarket();
@@ -654,7 +655,7 @@ export default function SlotMachineScreen() {
         : null;
     const dbId = selectedMarket?.dbId || selectedMarket?.id || routeDbId || null;
     try {
-      if (!finalMarketId && dbId) {
+      if (finalMarketId == null && dbId) {
         const latest = await axios.get(`${API_BASE}/markets/db/${dbId}`);
         if (latest?.data?.marketId) {
           finalMarketId = Number(latest.data.marketId);
@@ -665,7 +666,7 @@ export default function SlotMachineScreen() {
     }
     let ensureToastId: string | null = null;
     try {
-      if (!finalMarketId) {
+      if (finalMarketId == null) {
         setIsEnsuring(true);
         ensureToastId = toast.loading(
           "Connecting…",
@@ -674,8 +675,8 @@ export default function SlotMachineScreen() {
         );
         const ensureDbId = dbId || selectedMarket?.dbId || selectedMarket?.id;
         // Prefer marketId if known; fallback to DB id
-        const ensureId = (selectedMarket?.marketId ?? (routeMarketId ? Number(routeMarketId) : null)) ?? ensureDbId;
-        if (!ensureId) {
+        const ensureId = (selectedMarket?.marketId ?? (routeMarketId != null ? Number(routeMarketId) : null)) ?? ensureDbId;
+        if (ensureId == null) {
           console.error("[Ensure] Missing ensureId (no marketId or dbId available)");
           toast.update(ensureToastId!, {
             type: "error",
@@ -888,38 +889,75 @@ export default function SlotMachineScreen() {
       // Debug log bet params prior to building instructions
       // Build bet params
 
-      // Build instructions locally via SDK (single tx including ATA init if needed)
-      const buyIxs = await openPosition({
-        marketId: Number(finalMarketId),
-        direction: anchorDirection,
-        amount: amountUi,
-        payer: selectedAccount.publicKey,
-        feeVaultAccount: new PublicKey(
-          process.env.EXPO_PUBLIC_FEE_VAULT ||
-            "DrBmuCCXHoug2K9dS2DCoBBwzj3Utoo9FcXbDcjgPRQx"
-        ),
-        metadataUri,
-      });
+      // Temp preflight logging to diagnose wallet mismatches
+      try {
+        const jwt = await getJWTTokens();
+        const selectedWallet58 = selectedAccount.publicKey.toBase58();
+        const jwtWallet58 = jwt?.walletAddress || '';
+        const headerWallet = selectedWallet58; // relay sets this header from selectedAccount
+        const payerPubkey = selectedWallet58; // we pass same value in body
+        console.log('[Bet Preflight]', {
+          selectedWallet58,
+          jwtWallet58,
+          headerWallet,
+          payerPubkey,
+          currentChain,
+          marketId: Number(finalMarketId),
+        });
+      } catch {}
 
-      if (!buyIxs || typeof buyIxs === 'string') {
-        throw new Error('Failed to build local instructions');
+      let signature: string | undefined;
+      if (isInitialized) {
+        // Build instructions locally via SDK (single tx including ATA init if needed)
+        const buyIxs = await openPosition({
+          marketId: Number(finalMarketId),
+          direction: anchorDirection,
+          amount: amountUi,
+          payer: selectedAccount.publicKey,
+          metadataUri,
+        });
+
+        if (!buyIxs || typeof buyIxs === 'string') {
+          throw new Error('Failed to build local instructions');
+        }
+
+        // Compile v0, sign once, forward
+        const tx = await buildVersionedTx(buyIxs.ixs, {
+          addressLookupTableAccounts: buyIxs.addressLookupTableAccounts,
+        });
+        const signedTx = await signTransaction(tx);
+        if (!signedTx) throw new Error('Wallet did not return a signed transaction');
+        const signedTxB64 = Buffer.from((signedTx as any).serialize()).toString('base64');
+        const forwardBody = {
+          signedTx: signedTxB64,
+          options: { skipPreflight: false, maxRetries: 3 },
+        };
+        console.log('[Forward Before]', { length: signedTxB64.length, path: '/tx/forward' });
+        const forwarded = await forwardTx(forwardBody);
+        console.log('[Forward After]', { signature: forwarded?.signature, status: forwarded?.status });
+        signature = forwarded.signature;
+      } else {
+        // Backend builder fallback: build base64 message, sign, and forward
+        const build = await buildOpenPosition({
+          marketId: Number(finalMarketId),
+          amount: amountUi,
+          direction: anchorDirection,
+          payerPubkey: selectedAccount.publicKey.toBase58(),
+          network: currentChain,
+          metadataUri,
+        });
+        const messageBase64 = (build as any).message || (build as any).messageBase64;
+        if (!messageBase64) throw new Error('Builder did not return base64 message');
+        const { signedTx } = await signBuiltTransaction(messageBase64);
+        const signedTxB64 = Buffer.from(signedTx.serialize()).toString('base64');
+        console.log('[Forward Before]', { length: signedTxB64.length, path: '/tx/forward' });
+        const forwarded = await forwardTx({
+          signedTx: signedTxB64,
+          options: { skipPreflight: false, maxRetries: 3 },
+        });
+        console.log('[Forward After]', { signature: forwarded?.signature, status: forwarded?.status });
+        signature = forwarded.signature;
       }
-
-      // Compile v0, sign once, forward
-      const tx = await buildVersionedTx(buyIxs.ixs, {
-        addressLookupTableAccounts: buyIxs.addressLookupTableAccounts,
-      });
-      const signedTx = await signTransaction(tx);
-      if (!signedTx) throw new Error('Wallet did not return a signed transaction');
-      const signedTxB64 = Buffer.from((signedTx as any).serialize()).toString('base64');
-      console.log("signedTxB64", signedTxB64);
-      const forwardBody = {
-        signedTx: signedTxB64,
-        options: { skipPreflight: false, maxRetries: 3 },
-      };
-      // Forward payload
-      const forwarded = await forwardTx(forwardBody);
-      const signature = forwarded.signature;
 
         // Success! Update loading toast to success
         const displayAmount =
@@ -952,14 +990,17 @@ export default function SlotMachineScreen() {
       
     } catch (error) {
       console.error("Bet error:", error);
-      // Update loading toast to error
+      const message = String((error as any)?.message || '')
+      const friendly = /PAYER_WALLET_MISMATCH/i.test(message)
+        ? 'Your session is tied to a different wallet. Please sign in again with this wallet and retry.'
+        : extractErrorMessage(
+            error,
+            'An error occurred while placing your bet. Please try again.'
+          );
       toast.update(loadingToastId, {
-        type: "error",
-        title: "Bet Failed",
-        message: extractErrorMessage(
-          error,
-          "An error occurred while placing your bet. Please try again."
-        ),
+        type: 'error',
+        title: 'Bet Failed',
+        message: friendly,
         duration: 5000,
       });
       setBetStatus("idle"); // Reset immediately so user can try again

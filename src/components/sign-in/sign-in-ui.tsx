@@ -38,14 +38,15 @@ export function SignupDrawer({
   const [slideAnim] = useState(new Animated.Value(screenHeight));
   const [isSigningIn, setIsSigningIn] = useState(false);
   const { selectedAccount } = useAuthorization();
-  // const { jwtTokens } = useBackendAuth();
+  const { isBackendAuthenticated } = useBackendAuth();
 
-  // Close drawer when user successfully signs in (only if actually authenticated)
+  // Close drawer only after backend authentication (JWT issued),
+  // not merely when a wallet is connected
   useEffect(() => {
-    if (selectedAccount && !isSigningIn) {
+    if (isBackendAuthenticated && !isSigningIn) {
       handleClose();
     }
-  }, [selectedAccount, isSigningIn]);
+  }, [isBackendAuthenticated, isSigningIn]);
 
   useEffect(() => {
     if (isVisible) {

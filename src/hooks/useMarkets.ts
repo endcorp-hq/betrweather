@@ -4,6 +4,7 @@ import { useBackendRelay } from "./useBackendRelay";
 import { useAuthorization } from "./solana/useAuthorization";
 import { useChain } from "../contexts/ChainProvider";
 import { useShortx } from "./solana/useContract";
+import { ENABLE_ONCHAIN_CLIENT } from "src/config/featureFlags";
 import { startSSE, log, timeStart } from "@/utils";
 
 // Global SSE coordination to prevent duplicate streams across multiple hook instances
@@ -679,6 +680,7 @@ export function useMarkets(
 
   // Apply on-chain real-time event deltas into the same map for a single source of truth
   useEffect(() => {
+    if (!ENABLE_ONCHAIN_CLIENT) return;
     if (!Array.isArray(marketEvents) || marketEvents.length === 0) return;
     try {
       const patches = marketEvents.map((evt: any) => {
