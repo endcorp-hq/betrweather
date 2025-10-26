@@ -164,6 +164,14 @@ export default function GuardedScreen({
             <SignupButton selectedChain={effectiveSelectedChain} />
           </View>
         </View>
+        <View className="bg-blue-900/20 border border-blue-500/50 rounded-lg p-4 mx-4 mt-4">
+          <Text className="text-white text-base font-better-regular text-center">
+            BetrWeather predictions are currently in beta with a limited number of markets.
+          </Text>
+          <Text className="text-white text-base font-better-regular text-center mt-2">
+            If this is your first time using the app, please click sign up to create an account. You must have a seeker or Superteam NFT to gain access. 
+          </Text>
+        </View>
       </View>
     </DefaultBg>
   );
