@@ -21,8 +21,11 @@ import { useBackendAuth } from "src/hooks/useBackendAuth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEYS } from "src/utils/constants";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 
 const { height: screenHeight } = Dimensions.get("window");
+const DEFAULT_CHAIN: Chain = (ENABLE_NETWORK_TOGGLE ? "solana:devnet" : "solana:mainnet-beta") as Chain;
+const resolveChain = (chain?: Chain) => chain ?? DEFAULT_CHAIN;
 
 // Login Drawer Component
 export function SignupDrawer({
@@ -370,6 +373,34 @@ export function LoginButton({ selectedChain }: { selectedChain: Chain }) {
         {authorizationInProgress ? "Connecting..." : "Login"}
       </Text>
     </TouchableOpacity>
+  );
+}
+
+export function ConnectButton({ selectedChain }: { selectedChain?: Chain }) {
+  return <LoginButton selectedChain={resolveChain(selectedChain)} />;
+}
+
+export function SignInButton({ selectedChain }: { selectedChain?: Chain }) {
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const resolvedChain = resolveChain(selectedChain);
+
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => setDrawerVisible(true)}
+        activeOpacity={0.8}
+        className="relative overflow-hidden w-[120px] flex items-center justify-center rounded-lg border border-white/30 bg-white/10 p-3 text-center"
+      >
+        <Text className="font-better-medium text-white text-base text-nowrap">
+          Sign up
+        </Text>
+      </TouchableOpacity>
+      <SignupDrawer
+        isVisible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        selectedChain={resolvedChain}
+      />
+    </>
   );
 }
 

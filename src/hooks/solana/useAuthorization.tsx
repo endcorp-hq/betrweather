@@ -22,6 +22,20 @@ import { clearUserData } from "src/utils/userStorage";
 import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 
 const DEVNET_CHAIN: Chain = "solana:devnet";
+const MAINNET_CHAIN: Chain = "solana:mainnet-beta";
+
+const resolveDefaultChain = (
+  override: Chain | undefined,
+  authorization: WalletAuthorization | null | undefined
+): Chain => {
+  if (override) return override;
+  if (!ENABLE_NETWORK_TOGGLE) {
+    return MAINNET_CHAIN;
+  }
+  const stored = authorization?.userSession?.chain;
+  if (stored?.includes("mainnet")) return MAINNET_CHAIN;
+  return DEVNET_CHAIN;
+};
 
 function getAuthorizationFromAuthorizationResult(
   authorizationResult: AuthorizationResult,
@@ -124,18 +138,38 @@ export function useAuthorization(): {
 
   const authorizeSession = useCallback(
     async (wallet: Web3MobileWallet, chainIdentifier?: Chain): Promise<Account> => {
-      const authorizationResult = await wallet.authorize({
-        identity: APP_IDENTITY,
-        chain: ENABLE_NETWORK_TOGGLE ? (chainIdentifier || DEVNET_CHAIN) : ("solana:mainnet-beta" as Chain),
-        auth_token: authorization?.authToken,
-      });
-      console.log("authorizationResult", authorizationResult);
+      const chainToUse = resolveDefaultChain(chainIdentifier, authorization);
+      let authorizationResult: AuthorizationResult | null = null;
+
+      if (authorization?.authToken) {
+        try {
+          authorizationResult = await wallet.reauthorize({
+            identity: APP_IDENTITY,
+            auth_token: authorization.authToken,
+          });
+          console.log("reauthorizationResult", authorizationResult);
+        } catch (reauthError) {
+          console.warn("Wallet reauthorize failed, falling back to authorize", reauthError);
+        }
+      }
+
+      if (!authorizationResult) {
+        authorizationResult = await wallet.authorize({
+          identity: APP_IDENTITY,
+          chain: chainToUse,
+          auth_token: authorization?.authToken,
+        });
+        console.log("authorizationResult", authorizationResult);
+      }
 
       return (
-        await handleAuthorizationResult(authorizationResult, chainIdentifier)
+        await handleAuthorizationResult(
+          authorizationResult,
+          chainIdentifier ?? chainToUse,
+        )
       ).selectedAccount;
     },
-    [ authorization, handleAuthorizationResult]
+    [authorization, handleAuthorizationResult]
   );
 
   const authorizeSessionWithSignIn = useCallback(
@@ -144,16 +178,17 @@ export function useAuthorization(): {
       signInPayload: SolanaSignInInput,
       chainIdentifier?: Chain
     ): Promise<Account> => {
+      const chainToUse = resolveDefaultChain(chainIdentifier, authorization);
       const authorizationResult = await wallet.authorize({
         identity: APP_IDENTITY,
-        chain: ENABLE_NETWORK_TOGGLE ? (chainIdentifier || DEVNET_CHAIN) : ("solana:mainnet-beta" as Chain),
+        chain: chainToUse,
         auth_token: authorization?.authToken,
         sign_in_payload: signInPayload,
       });
       return (
         await handleAuthorizationResult(
           authorizationResult,
-          chainIdentifier,
+          chainIdentifier ?? chainToUse,
         )
       ).selectedAccount;
     },

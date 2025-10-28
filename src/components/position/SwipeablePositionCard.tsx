@@ -70,6 +70,20 @@ export function SwipeablePositionCard({
       ? fallbackCurrency.split("_")[0]
       : fallbackCurrency;
   const amountDisplay = formatAmountDisplay(displayAmount);
+  const directionRaw =
+    typeof position.direction === "string"
+      ? position.direction.toUpperCase()
+      : "";
+  const hasDirection = directionRaw === "YES" || directionRaw === "NO";
+  const directionColor =
+    directionRaw === "YES" ? "#22c55e" : directionRaw === "NO" ? "#f97316" : "rgba(255,255,255,0.6)";
+  const directionLabel =
+    directionRaw === "YES"
+      ? "Bet YES"
+      : directionRaw === "NO"
+        ? "Bet NO"
+        : "";
+  const directionIcon = directionRaw === "YES" ? "arrow-up-bold" : "arrow-down-bold";
 
   const handleClaim = async () => {
     if (isClaimable && !isClaiming) {
@@ -114,6 +128,31 @@ export function SwipeablePositionCard({
                 {getStatusText(position)}
               </Text>
             </View>
+            {hasDirection ? (
+              <View
+                style={[
+                  styles.directionBadge,
+                  {
+                    borderColor: directionColor,
+                    backgroundColor: `${directionColor}20`,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={directionIcon as any}
+                  size={12}
+                  color={directionColor}
+                />
+                <Text
+                  style={[
+                    styles.directionText,
+                    { color: directionColor },
+                  ]}
+                >
+                  {directionLabel}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Market title */}
@@ -241,6 +280,21 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.3)",
   },
   statusText: {
+    fontSize: 10,
+    fontWeight: "600",
+    fontFamily: "Poppins-SemiBold",
+    marginLeft: 4,
+  },
+  directionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  directionText: {
     fontSize: 10,
     fontWeight: "600",
     fontFamily: "Poppins-SemiBold",

@@ -205,8 +205,7 @@ export function usePositions() {
       const isUserCancelled = (err: unknown): boolean => {
         const msg = String((err as any)?.message ?? err ?? '').toLowerCase();
         return (
-          msg.includes('cancellation') || // java.util.concurrent.CancellationException
-          msg.includes('canceled') ||
+          msg.includes('user canceled') ||
           msg.includes('cancelled') ||
           msg.includes('user rejected') ||
           msg.includes('user declined') ||
@@ -489,6 +488,20 @@ export function usePositions() {
           assetId: new Web3PublicKey(position.assetId).toBase58(),
           network: currentChain,
         });
+
+        if (Array.isArray(build.setupMessages) && build.setupMessages.length > 0) {
+          for (const setup of build.setupMessages) {
+            const setupMessage = setup.message || (setup as any).messageBase64;
+            if (!setupMessage) continue;
+            const { signedTx: setupSigned } = await signBuiltTransaction(setupMessage);
+            const setupB64 = Buffer.from(setupSigned.serialize()).toString('base64');
+            await forwardTx({
+              signedTx: setupB64,
+              options: { skipPreflight: false, maxRetries: 3 },
+            });
+          }
+        }
+
         const messageBase64 = (build as any).message || (build as any).messageBase64;
         if (!messageBase64) throw new Error('Builder did not return base64 message');
         const { signedTx } = await signBuiltTransaction(messageBase64);

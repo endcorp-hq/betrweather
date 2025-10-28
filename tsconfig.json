@@ -5,12 +5,19 @@
     "baseUrl": ".",
     "paths": {
       "@/components": ["src/components"],
+      "@/components/*": ["src/components/*"],
       "@/hooks": ["src/hooks"],
+      "@/hooks/*": ["src/hooks/*"],
       "@/screens": ["src/screens"],
+      "@/screens/*": ["src/screens/*"],
       "@/utils": ["src/utils"],
+      "@/utils/*": ["src/utils/*"],
       "@/contexts": ["src/contexts"],
+      "@/contexts/*": ["src/contexts/*"],
       "@/assets": ["src/assets"],
-      "@/types": ["src/types"]
+      "@/assets/*": ["src/assets/*"],
+      "@/types": ["src/types"],
+      "@/types/*": ["src/types/*"]
     }
   },
   "include": ["src/**/*", "App.tsx", "env.d.ts", "nativewind-env.d.ts"]

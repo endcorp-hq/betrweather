@@ -682,6 +682,16 @@ export default function SlotMachineScreen() {
   }, [selectedMarket]);
 
   const handleBet = async (bet: string) => {
+    if (bet !== "yes" && bet !== "no") {
+      toast.error(
+        "Select a direction",
+        "Please choose YES or NO before placing a bet.",
+        { position: "top" }
+      );
+      setBetStatus("idle");
+      return;
+    }
+
     if (!selectedAccount || !selectedAccount.publicKey) {
       toast.error("Wallet Error", "Please connect your wallet to place a bet", {
         position: "top",
@@ -908,13 +918,16 @@ export default function SlotMachineScreen() {
         }
       }
 
+      const directionEnum = bet === "yes" ? WinningDirection.YES : WinningDirection.NO;
+      const directionLabel = bet === "yes" ? "YES" : "NO";
       const metadata = {
         question: selectedMarket?.question,
         collection: false,
         startTime: selectedMarket?.marketStart,
         endTime: selectedMarket?.marketEnd,
         amount: parsedAmount,
-        direction: bet === "yes" ? WinningDirection.YES : WinningDirection.NO,
+        direction: directionEnum,
+        directionLabel,
       };
 
       // Fetch JWT token for authorization
@@ -1003,7 +1016,8 @@ export default function SlotMachineScreen() {
         const build = await buildOpenPosition({
           marketId: Number(finalMarketId),
           amount: amountUi,
-          direction: anchorDirection,
+          direction: directionLabel,
+          directionLabel,
           payerPubkey: selectedAccount.publicKey.toBase58(),
           network: currentChain,
           metadataUri,
@@ -1063,7 +1077,7 @@ export default function SlotMachineScreen() {
         toast.update(loadingToastId, {
           type: "success",
           title: "Bet Placed!",
-          message: `Successfully placed ${displayAmount} ${currencyDisplayName} bet on ${bet.toUpperCase()}`,
+          message: `Successfully placed ${displayAmount} ${currencyDisplayName} bet on ${directionLabel}`,
           duration: 4000,
         });
 
@@ -1400,6 +1414,7 @@ export default function SlotMachineScreen() {
                   disabled={
                     betStatus !== "idle" ||
                     !betAmount ||
+                    !selectedDirection ||
                     (selectedToken === CurrencyType.BONK_5
                       ? parseBonkAmount(betAmount) <= 0
                       : parseFloat(betAmount) <= 0) ||
@@ -1409,7 +1424,7 @@ export default function SlotMachineScreen() {
                     betStatus === "loading"
                       ? "Placing bet..."
                       : `Swipe to bet ${
-                          selectedDirection?.toUpperCase() || "YES"
+                          selectedDirection?.toUpperCase() || "SELECT"
                         }`
                   }
                   titleColor="#ffffff"
@@ -1419,10 +1434,18 @@ export default function SlotMachineScreen() {
                     fontWeight: "600",
                   }}
                   onSwipeSuccess={() => {
+                    if (!selectedDirection) {
+                      toast.error(
+                        "Pick a direction",
+                        "Select YES or NO before placing your bet.",
+                        { position: "top" }
+                      );
+                      return;
+                    }
                     // Don't close modal - keep it open during processing
                     setBetStatus("loading");
                     // Call the actual handleBet function
-                    handleBet(selectedDirection || "yes");
+                    handleBet(selectedDirection);
                   }}
                   onSwipeFail={() => {}}
                   railBackgroundColor={

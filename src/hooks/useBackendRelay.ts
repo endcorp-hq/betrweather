@@ -23,6 +23,13 @@ type BuildTxResponse = {
 
 type BuildSettleResponse = BuildTxResponse & {
   isPayoutPositive?: boolean;
+  setupMessages?: Array<{
+    message: string;
+    blockhash: string;
+    lastValidBlockHeight: number;
+  }>;
+  lookupTableAddress?: string;
+  requiresLookupSetup?: boolean;
 };
 
 type ForwardTxRequest = {
@@ -66,7 +73,7 @@ async function generateIdempotencyKey(): Promise<string> {
 
 export function useBackendRelay() {
   const { selectedAccount } = useAuthorization();
-  const { currentChain } = useChain();
+  const { currentChain, connection } = useChain();
   const { signMessage, signTransaction } = useMobileWallet();
   const tokenRef = useRef<string | null>(null);
   const inflightTokenPromiseRef = useRef<Promise<string> | null>(null);
@@ -178,7 +185,8 @@ export function useBackendRelay() {
     async (args: {
       marketId: number;
       amount: string | number; // base units (prefer string)
-      direction: { yes: object } | { no: object };
+      direction: ({ yes: object } | { no: object }) | string;
+      directionLabel?: string;
       payerPubkey: string; // base58
       network?: string;
       metadataUri?: string;
@@ -228,30 +236,48 @@ export function useBackendRelay() {
       assetId: string; // base58
       network: string;
     }): Promise<BuildSettleResponse> => {
-      const token = await ensureAuthToken();
       const headersBase = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
         "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
       } as Record<string, string>;
 
+      const payload = JSON.stringify({ ...args, network: resolveNet(args.network) });
       const settleUrl = `${API_BASE}/tx/build/shortx/settle`;
       log('Relay', 'debug', 'build settle', { url: settleUrl });
+
       let res = await fetch(settleUrl, {
         method: "POST",
         headers: headersBase,
-        body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
+        body: payload,
       });
+
       if (res.status === 401) {
-        const fresh = await ensureAuthToken(true);
-        log('Relay', 'warn', 'Retry build settle with fresh token');
-        res = await fetch(settleUrl, {
-          method: "POST",
-          headers: { ...headersBase, Authorization: `Bearer ${fresh}` },
-          body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
-        });
+        let token: string | null = null;
+        try {
+          token = await ensureAuthToken();
+        } catch (error) {
+          log('Relay', 'warn', 'Optional JWT fetch failed for build settle', { error: String(error) });
+        }
+        if (!token) {
+          try {
+            token = await ensureAuthToken(true);
+          } catch (error) {
+            log('Relay', 'warn', 'JWT refresh failed for build settle', { error: String(error) });
+          }
+        }
+        if (token) {
+          log('Relay', 'warn', 'Retry build settle with JWT');
+          res = await fetch(settleUrl, {
+            method: "POST",
+            headers: { ...headersBase, Authorization: `Bearer ${token}` },
+            body: payload,
+          });
+        }
       }
-      if (!res.ok) throw new Error(`Build settle failed: ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`Build settle failed: ${res.status}`);
+      }
       const data = await res.json();
       if (!data.message && data.messageBase64) {
         data.message = data.messageBase64;
@@ -377,11 +403,9 @@ export function useBackendRelay() {
 
   const forwardTx = useCallback(
     async (payload: ForwardTxRequest): Promise<ForwardTxResponse> => {
-      const token = await ensureAuthToken();
       const idKey = await generateIdempotencyKey();
       const headersBase = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
         "Idempotency-Key": idKey,
         "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
       } as Record<string, string>;
@@ -395,17 +419,30 @@ export function useBackendRelay() {
       });
 
       if (res.status === 401) {
-        // refresh JWT and retry once
-        const fresh = await ensureAuthToken(true);
-        log('Relay', 'warn', 'Retry forward tx with fresh token');
-        res = await fetch(forwardUrl, {
-          method: "POST",
-          headers: {
-            ...headersBase,
-            Authorization: `Bearer ${fresh}`,
-          },
-          body: JSON.stringify(payload),
-        });
+        let token: string | null = null;
+        try {
+          token = await ensureAuthToken();
+        } catch (error) {
+          log('Relay', 'warn', 'Optional JWT fetch failed for forward tx', { error: String(error) });
+        }
+        if (!token) {
+          try {
+            token = await ensureAuthToken(true);
+          } catch (error) {
+            log('Relay', 'warn', 'JWT refresh failed for forward tx', { error: String(error) });
+          }
+        }
+        if (token) {
+          log('Relay', 'warn', 'Retry forward tx with JWT');
+          res = await fetch(forwardUrl, {
+            method: "POST",
+            headers: {
+              ...headersBase,
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+        }
       }
 
       if (!res.ok) {
@@ -608,10 +645,47 @@ export function useBackendRelay() {
       signedTx: VersionedTransaction;
       signaturesB64: string[];
     }> => {
-      // Reconstruct VersionedTransaction from serialized TransactionMessage (v0)
-      const messageBytes = base64ToBytes(messageBase64);
-      const v0 = MessageV0.deserialize(Buffer.from(messageBytes));
-      const unsignedTx = new VersionedTransaction(v0);
+      const rawBytes = Buffer.from(messageBase64, "base64");
+
+      let unsignedTx: VersionedTransaction | null = null;
+      // Attempt to interpret payload as a full serialized VersionedTransaction first.
+      try {
+        unsignedTx = VersionedTransaction.deserialize(rawBytes);
+      } catch {
+        // Fallback: treat payload as a serialized v0 message.
+        try {
+          const v0 = MessageV0.deserialize(rawBytes);
+          unsignedTx = new VersionedTransaction(v0);
+        } catch (parseErr) {
+          console.error("[Relay] Failed to parse settle payload", parseErr);
+          throw new Error("Unable to deserialize settle transaction payload");
+        }
+      }
+
+      if (!unsignedTx) {
+        throw new Error("Failed to reconstruct settle transaction");
+      }
+
+      // Run a client-side simulation so we can surface token balance deltas before prompting the wallet.
+      if (connection) {
+        try {
+          const sim = await connection.simulateTransaction(unsignedTx, {
+            sigVerify: false,
+            commitment: "processed",
+            replaceRecentBlockhash: true,
+          } as any);
+          log("Relay", "debug", "settle simulate", {
+            err: sim?.value?.err ?? null,
+            logs: sim?.value?.logs?.slice?.(-10) ?? null,
+            unitsConsumed: sim?.value?.unitsConsumed ?? null
+          });
+          if (sim?.value?.err) {
+            console.error("[Relay] settle simulation error", sim.value.err, sim.value.logs);
+          }
+        } catch (simErr) {
+          console.warn("[Relay] settle simulation failed", simErr);
+        }
+      }
 
       // Sign with wallet
       if (!signTransaction) throw new Error("Wallet does not support transaction signing");
@@ -656,5 +730,3 @@ export function useBackendRelay() {
     [ensureAuthToken, clearTokenCache, buildOpenPosition, buildSettle, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, getMarkets, getUserBetsSummary, getUserBetsPaginated, getTxStreamUrl, signBuiltTransaction]
   );
 }
-
-
