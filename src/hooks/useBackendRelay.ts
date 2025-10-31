@@ -236,46 +236,57 @@ export function useBackendRelay() {
       assetId: string; // base58
       network: string;
     }): Promise<BuildSettleResponse> => {
+      const token = await ensureAuthToken();
       const headersBase = {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
         "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
       } as Record<string, string>;
 
-      const payload = JSON.stringify({ ...args, network: resolveNet(args.network) });
       const settleUrl = `${API_BASE}/tx/build/shortx/settle`;
       log('Relay', 'debug', 'build settle', { url: settleUrl });
 
+      const payload = { ...args, network: resolveNet(args.network) };
+      log('Relay', 'debug', 'build settle payload', payload);
       let res = await fetch(settleUrl, {
         method: "POST",
         headers: headersBase,
-        body: payload,
+        body: JSON.stringify(payload),
       });
 
       if (res.status === 401) {
-        let token: string | null = null;
-        try {
-          token = await ensureAuthToken();
-        } catch (error) {
-          log('Relay', 'warn', 'Optional JWT fetch failed for build settle', { error: String(error) });
-        }
-        if (!token) {
-          try {
-            token = await ensureAuthToken(true);
-          } catch (error) {
-            log('Relay', 'warn', 'JWT refresh failed for build settle', { error: String(error) });
-          }
-        }
-        if (token) {
-          log('Relay', 'warn', 'Retry build settle with JWT');
-          res = await fetch(settleUrl, {
-            method: "POST",
-            headers: { ...headersBase, Authorization: `Bearer ${token}` },
-            body: payload,
-          });
-        }
+        const fresh = await ensureAuthToken(true);
+        log('Relay', 'warn', 'Retry build settle with fresh token');
+        res = await fetch(settleUrl, {
+          method: "POST",
+          headers: { ...headersBase, Authorization: `Bearer ${fresh}` },
+          body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
+        });
       }
 
       if (!res.ok) {
+        let text = "";
+        try {
+          text = await res.text();
+        } catch {}
+        log('Relay', 'error', 'build settle failed', { status: res.status, body: text });
+        // Try to surface backend error message when available
+        if (text) {
+          try {
+            const parsed = JSON.parse(text);
+            const message =
+              parsed?.message ||
+              parsed?.error?.message ||
+              parsed?.error ||
+              parsed?.detail;
+            if (message) {
+              throw new Error(message);
+            }
+          } catch {
+            // Not JSON, fall through to raw text
+          }
+          throw new Error(text);
+        }
         throw new Error(`Build settle failed: ${res.status}`);
       }
       const data = await res.json();
@@ -403,9 +414,11 @@ export function useBackendRelay() {
 
   const forwardTx = useCallback(
     async (payload: ForwardTxRequest): Promise<ForwardTxResponse> => {
+      const token = await ensureAuthToken();
       const idKey = await generateIdempotencyKey();
       const headersBase = {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
         "Idempotency-Key": idKey,
         "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
       } as Record<string, string>;
@@ -419,30 +432,16 @@ export function useBackendRelay() {
       });
 
       if (res.status === 401) {
-        let token: string | null = null;
-        try {
-          token = await ensureAuthToken();
-        } catch (error) {
-          log('Relay', 'warn', 'Optional JWT fetch failed for forward tx', { error: String(error) });
-        }
-        if (!token) {
-          try {
-            token = await ensureAuthToken(true);
-          } catch (error) {
-            log('Relay', 'warn', 'JWT refresh failed for forward tx', { error: String(error) });
-          }
-        }
-        if (token) {
-          log('Relay', 'warn', 'Retry forward tx with JWT');
-          res = await fetch(forwardUrl, {
-            method: "POST",
-            headers: {
-              ...headersBase,
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload),
-          });
-        }
+        const fresh = await ensureAuthToken(true);
+        log('Relay', 'warn', 'Retry forward tx with fresh token');
+        res = await fetch(forwardUrl, {
+          method: "POST",
+          headers: {
+            ...headersBase,
+            Authorization: `Bearer ${fresh}`,
+          },
+          body: JSON.stringify(payload),
+        });
       }
 
       if (!res.ok) {

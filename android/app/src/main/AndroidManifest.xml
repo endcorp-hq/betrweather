@@ -34,7 +34,6 @@
         <data android:scheme="exp+betrweather"/>
       </intent-filter>
     </activity>
-    <!-- Weather Widget -->
     <receiver android:name=".widget.WeatherWidgetProvider" android:exported="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
