@@ -31,7 +31,7 @@ keytool -genkey -v -keystore release-key.keystore -alias betrweather -keyalg RSA
     --ks-key-alias betrweather \
     --out ./dapp-store-build/betrweather-v1.0.0-signed.apk \
     ./dapp-store-build/betrweather-v1.0.0-unsigned.apk
-```
+``` 
 
 ### 5. Generate Solana Keypair
 ```bash

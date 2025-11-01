@@ -2747,14 +2747,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana-mobile/dapp-store-cli@npm:^0.13.1":
-  version: 0.13.1
-  resolution: "@solana-mobile/dapp-store-cli@npm:0.13.1"
+"@solana-mobile/dapp-store-cli@npm:^0.14.0":
+  version: 0.14.0
+  resolution: "@solana-mobile/dapp-store-cli@npm:0.14.0"
   dependencies:
     "@ardrive/turbo-sdk": "npm:^1.31.1"
     "@aws-sdk/client-s3": "npm:^3.321.1"
     "@metaplex-foundation/js-plugin-aws": "npm:^0.20.0"
-    "@solana-mobile/dapp-store-publishing-tools": "npm:0.13.1"
+    "@solana-mobile/dapp-store-publishing-tools": "npm:0.14.0"
     "@solana/web3.js": "npm:1.92.1"
     "@types/semver": "npm:^7.3.13"
     ajv: "npm:^8.11.0"
@@ -2775,13 +2775,13 @@ __metadata:
     update-notifier: "npm:^6.0.2"
   bin:
     dapp-store: bin/dapp-store.js
-  checksum: 10c0/e78e3028d508e007db09c3849b7bd934bbb20125f8f99cb47efb5566e5bdb9a2ac9f539256c381bb50db7ec10585c6d69f1492a387b053b89a8a12c8891e1055
+  checksum: 10c0/8d72855d391e12824488dfc4668e546bdd03fce45e2190f3c60045f4f8d62f6bb350b11d3eae620d809443cfef62f962543601fb4fcb71d06dc3be01080b4153
   languageName: node
   linkType: hard
 
-"@solana-mobile/dapp-store-publishing-tools@npm:0.13.1":
-  version: 0.13.1
-  resolution: "@solana-mobile/dapp-store-publishing-tools@npm:0.13.1"
+"@solana-mobile/dapp-store-publishing-tools@npm:0.14.0":
+  version: 0.14.0
+  resolution: "@solana-mobile/dapp-store-publishing-tools@npm:0.14.0"
   dependencies:
     "@metaplex-foundation/js": "npm:0.20.0"
     "@solana/web3.js": "npm:1.68.0"
@@ -2791,7 +2791,7 @@ __metadata:
     debug: "npm:^4.3.4"
     image-size: "npm:^1.0.2"
     mime: "npm:^3.0.0"
-  checksum: 10c0/3f68b6e88f843277e176eb48f0f096b1ee8cd4a10b75c3f46dc90951adf46e4a2f2a23d5ac1dc034f21bb240383f345c8474c0af75da853f2f47eb86415b944d
+  checksum: 10c0/6593d7576f97fe1566c5a56da129d53f4d3f50f277394cdc637a397ee9765dd337b093434e8a2c09710f2e5e0da904b55af069455965f9045e52fc818b7bec59
   languageName: node
   linkType: hard
 
@@ -6537,7 +6537,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "publishing@workspace:."
   dependencies:
-    "@solana-mobile/dapp-store-cli": "npm:^0.13.1"
+    "@solana-mobile/dapp-store-cli": "npm:^0.14.0"
   languageName: unknown
   linkType: soft
 
