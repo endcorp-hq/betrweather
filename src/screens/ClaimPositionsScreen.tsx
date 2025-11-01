@@ -149,7 +149,7 @@ export default function ProfileScreen() {
               ]}
             >
               <Text style={styles.statNumber} className="!text-black">{positions.length}</Text>
-              <Text style={styles.statLabel} className="!text-black">Total Positions</Text>
+              <Text style={styles.statLabel} className="!text-black">Held Positions</Text>
             </View>
           </MotiView>
 
@@ -169,7 +169,7 @@ export default function ProfileScreen() {
             }}
             style={{ flex: 1 }}
           >
-            <View
+            {/* <View
               style={[
                 styles.statCard,
                 { borderColor: "rgba(139, 92, 246, 0.85)", backgroundColor: "rgba(139, 92, 246, 0.85)" },
@@ -182,7 +182,7 @@ export default function ProfileScreen() {
                   .toFixed(2)}
               </Text>
               <Text style={styles.statLabel} className="!text-white">Total Wagered</Text>
-            </View>
+            </View> */}
           </MotiView>
 
           <MotiView

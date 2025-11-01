@@ -67,7 +67,28 @@
           "supportsPictureInPicture": false
         }
       ],
-      "expo-asset"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "useLegacyPackaging": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableR8InReleaseBuilds": true
+          },
+          "ios": {},
+          "dapp": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "useLegacyPackaging": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableR8InReleaseBuilds": true
+          }
+        }
+      ],
+      "expo-asset",
+      "expo-build-properties"
     ],
     "jsEngine": "hermes",
     "updates": {

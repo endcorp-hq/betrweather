@@ -67,6 +67,63 @@ export const toUi = (raw: string | number | null | undefined, decimals = 6): num
   return n / Math.pow(10, decimals);
 };
 
+const stringIncludes = (value: string, target: string) =>
+  value.indexOf(target) !== -1;
+
+export type NormalizedWinningDirection = 'Yes' | 'No' | null;
+
+export const normalizeWinningDirection = (value: any): NormalizedWinningDirection => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const upper = trimmed.toUpperCase();
+    if (stringIncludes(upper, "YES")) {
+      return "Yes";
+    }
+    if (stringIncludes(upper, "NO")) {
+      return "No";
+    }
+    // Treat all other labels (draw/none/pending/etc.) as unresolved
+    return null;
+  }
+
+  if (typeof value === "object") {
+    const keys = Object.keys(value).map((k) => k.toUpperCase());
+    if (keys.some((k) => stringIncludes(k, "YES"))) return "Yes";
+    if (keys.some((k) => stringIncludes(k, "NO"))) return "No";
+    return null;
+  }
+
+  if (typeof value === "number") {
+    if (value > 0) return "Yes";
+    if (value < 0) return "No";
+    return null;
+  }
+
+  return null;
+};
+
+export const isBackendResolvedState = (state: any): boolean => {
+  if (state === undefined || state === null) return false;
+  const raw =
+    typeof state === "string"
+      ? state
+      : typeof state === "object"
+      ? JSON.stringify(state)
+      : String(state);
+  const upper = raw.toUpperCase();
+  return (
+    stringIncludes(upper, "RESOLV") ||
+    stringIncludes(upper, "SETTL") ||
+    stringIncludes(upper, "CLOSED") ||
+    stringIncludes(upper, "FINAL")
+  );
+};
+
 export const computeDerived = (m: any) => {
   const decimals = Number(m?.decimals ?? 6);
   const yes = Number(m?.yesLiquidity || 0);

@@ -1,9 +1,10 @@
 import React, { useCallback } from "react";
 import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Market, MarketType, WinningDirection } from "@endcorp/depredict";
+import { Market, MarketType } from "@endcorp/depredict";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { DarkCard } from "../ui";
+import { normalizeWinningDirection, isBackendResolvedState } from "@/utils";
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
   if (!endTimestamp) return "market ended";
@@ -68,43 +69,45 @@ export function MarketCard({ market, index = 0, animatedValue }: {
 
   // Determine if this is a live or future market
   const isLive = isLiveMarket(market);
-  // Check if market is resolved
-  const isResolved = market.winningDirection !== WinningDirection.NONE;
+  const winningDirection = normalizeWinningDirection(market.winningDirection);
+  const backendResolved = isBackendResolvedState(market.marketState);
+  const hasOutcome = winningDirection !== null;
 
   // Get market status and styling - matching StatusFilterBar colors
   const getMarketStatus = () => {
-    if (isResolved) {
-      // Check the actual WinningDirection enum values
-      if (market.winningDirection === WinningDirection.YES) {
+    if (hasOutcome) {
+      if (winningDirection === "Yes") {
         return {
           text: "YES",
           color: "#8b5cf6",
           bgColor: "rgba(139, 92, 246, 0.1)",
           icon: "check-circle",
         };
-      } else if (market.winningDirection === WinningDirection.NO) {
+      }
+      if (winningDirection === "No") {
         return {
           text: "NO",
           color: "#8b5cf6",
           bgColor: "rgba(139, 92, 246, 0.1)",
           icon: "close-circle",
         };
-      } else if (market.winningDirection === WinningDirection.DRAW) {
-        return {
-          text: "DRAW",
-          color: "#8b5cf6",
-          bgColor: "rgba(139, 92, 246, 0.1)",
-          icon: "minus-circle",
-        };
-      } else {
-        // Fallback for any other resolved state
-        return {
-          text: "RESOLVED",
-          color: "#8b5cf6",
-          bgColor: "rgba(139, 92, 246, 0.1)",
-          icon: "check-circle",
-        };
       }
+
+      return {
+        text: "RESOLVED",
+        color: "#8b5cf6",
+        bgColor: "rgba(139, 92, 246, 0.1)",
+        icon: "check-circle",
+      };
+    }
+
+    if (backendResolved) {
+      return {
+        text: "RESOLVING",
+        color: "#f59e0b",
+        bgColor: "rgba(245, 158, 11, 0.12)",
+        icon: "progress-clock",
+      };
     } else {
       // Check if this is an active market (future market that has completed betting but not resolved)
       const now = Date.now();

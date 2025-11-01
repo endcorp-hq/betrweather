@@ -29,7 +29,7 @@ import {
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import axios from "axios";
 import { useAPI } from "../hooks/useAPI";
-import { formatDate, extractErrorMessage } from "@/utils";
+import { formatDate, extractErrorMessage, normalizeWinningDirection } from "@/utils";
 import theme from "../theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -84,21 +84,27 @@ function SwipeableBetCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const insets = useSafeAreaInsets ? useSafeAreaInsets() : { bottom: 24 };
 
+  const winningDirection = useMemo(
+    () => normalizeWinningDirection(market.winningDirection),
+    [market.winningDirection]
+  );
+
   const marketStatus = useMemo(() => {
     const now = Date.now();
     const marketStart = Number(market.marketStart) * 1000;
     const marketEnd = Number(market.marketEnd) * 1000;
 
-    if (market.winningDirection !== WinningDirection.NONE) {
+    if (winningDirection) {
       return { text: "RESOLVED", color: "#8b5cf6", icon: "check-circle" };
-    } else if (now < marketStart) {
-      return { text: "BETTING", color: "#10b981", icon: "gavel" };
-    } else if (now > marketEnd) {
-      return { text: "RESOLVING", color: "#f59e0b", icon: "loading" };
-    } else {
-      return { text: "OBSERVING", color: "#3b82f6", icon: "play-circle" };
     }
-  }, [market.winningDirection, market.marketStart, market.marketEnd]);
+    if (now < marketStart) {
+      return { text: "BETTING", color: "#10b981", icon: "gavel" };
+    }
+    if (now > marketEnd) {
+      return { text: "RESOLVING", color: "#f59e0b", icon: "loading" };
+    }
+    return { text: "OBSERVING", color: "#3b82f6", icon: "play-circle" };
+  }, [winningDirection, market.marketStart, market.marketEnd]);
 
   const handleExpand = useCallback(() => {
     setIsExpanded(!isExpanded);
@@ -146,21 +152,17 @@ function SwipeableBetCard({
             </View>
 
             {/* Winning Direction Display (only show if resolved) */}
-            {market.winningDirection !== WinningDirection.NONE && (
+            {winningDirection && (
               <Text style={styles.swipeInstruction}>
                 Winning Direction:{" "}
                 <Text
                   style={{
                     color:
-                      market.winningDirection === WinningDirection.YES
-                        ? "#059669"
-                        : "#dc2626",
+                      winningDirection === "Yes" ? "#059669" : "#dc2626",
                     fontWeight: "bold",
                   }}
                 >
-                  {market.winningDirection === WinningDirection.YES
-                    ? "YES"
-                    : "NO"}
+                  {winningDirection.toUpperCase()}
                 </Text>
               </Text>
             )}
@@ -172,7 +174,7 @@ function SwipeableBetCard({
             {(() => {
               const now = Date.now();
               const marketStart = Number(market.marketStart) * 1000;
-              const isPredict = market.winningDirection === WinningDirection.NONE && now < marketStart;
+              const isPredict = !winningDirection && now < marketStart;
               return isPredict;
             })() && (
               <View style={styles.buttonRow}>
@@ -220,7 +222,7 @@ function SwipeableBetCard({
                     const marketEnd = Number(market.marketEnd) * 1000;
 
                     // Show "Betting Ends" for betting state or active live markets
-                    if (market.winningDirection !== WinningDirection.NONE) {
+                    if (winningDirection) {
                       return "Betting period ended";
                     } else if (now < marketStart) {
                       return "Betting Ends:";
@@ -245,7 +247,7 @@ function SwipeableBetCard({
 
                       // Apply orange color for ended betting periods
                       if (
-                        market.winningDirection !== WinningDirection.NONE ||
+                        winningDirection ||
                         (now > marketEnd &&
                           market.marketType !== MarketType.LIVE)
                       ) {
@@ -532,7 +534,7 @@ export default function SlotMachineScreen() {
       volume: String(latest.volume ?? "0"),
       marketStart: String(latest.marketStart ?? "0"),
       marketEnd: String(latest.marketEnd ?? "0"),
-      winningDirection: latest.winningDirection,
+      winningDirection: normalizeWinningDirection(latest.winningDirection),
       marketState: latest.state,
       nextPositionId: String(latest.nextPositionId ?? "0"),
     } as any;
@@ -640,7 +642,7 @@ export default function SlotMachineScreen() {
             marketStart: toSeconds(dbMarketRaw.marketStart),
             marketEnd: toSeconds(dbMarketRaw.marketEnd),
             marketType: dbMarketRaw.marketType ?? 'FUTURE',
-            winningDirection: WinningDirection.NONE,
+            winningDirection: null,
             yesLiquidity: 0,
             noLiquidity: 0,
             volume: 0,

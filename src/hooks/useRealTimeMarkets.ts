@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useShortx } from './solana';
-import { WinningDirection, MarketType } from '@endcorp/depredict';
+import { normalizeWinningDirection } from '@/utils';
 
 // Helper function to determine duration type based on market start and end times
 function getDurationType(marketStart: string | number, marketEnd: string | number): 'hourly' | 'daily' | 'long-term' {
@@ -46,23 +46,7 @@ export function useRealTimeMarkets() {
     return markets.map(market => {
       const latestEvent = latestEvents.get(market.marketId);
       if (latestEvent) {
-        // Convert winningDirection from object format to enum
-        let winningDirection: WinningDirection;
-        if (latestEvent.winningDirection && typeof latestEvent.winningDirection === 'object') {
-          if ('yes' in latestEvent.winningDirection) {
-            winningDirection = WinningDirection.YES;
-          } else if ('no' in latestEvent.winningDirection) {
-            winningDirection = WinningDirection.NO;
-          } else if ('draw' in latestEvent.winningDirection) {
-            winningDirection = WinningDirection.DRAW;
-          } else if ('none' in latestEvent.winningDirection) {
-            winningDirection = WinningDirection.NONE;
-          } else {
-            winningDirection = WinningDirection.NONE;
-          }
-        } else {
-          winningDirection = latestEvent.winningDirection as WinningDirection;
-        }
+        const winningDirection = normalizeWinningDirection(latestEvent.winningDirection);
 
         return {
           ...market,
@@ -71,7 +55,7 @@ export function useRealTimeMarkets() {
           volume: latestEvent.volume.toString(),
           marketStart: latestEvent.marketStart.toString(),
           marketEnd: latestEvent.marketEnd.toString(),
-          winningDirection: winningDirection,
+          winningDirection,
           marketState: latestEvent.state as any,
           nextPositionId: latestEvent.nextPositionId.toString(),
           durationType: getDurationType(latestEvent.marketStart, latestEvent.marketEnd)

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuthorization } from "./useAuthorization";
 import { useChain } from "../../contexts/ChainProvider";
 import { getJWTTokens } from "../../utils/authUtils";
+import { normalizeWinningDirection } from "@/utils";
 
 // Simple exponential backoff for rate-limited requests (HTTP 429)
 async function withBackoff<T>(fn: () => Promise<T>, retries = 4) {
@@ -43,7 +44,7 @@ export interface NftMetadata {
     marketStart: string;
     marketEnd: string;
     question: string;
-    winningDirection: string;
+    winningDirection: 'Yes' | 'No' | null;
     marketType: string;
     bettingStartTime: string;
   };
@@ -111,15 +112,23 @@ export function useNftMetadata() {
       
       // Handle the actual response format with 'data' array
       if (result.success && result.data && Array.isArray(result.data)) {
-        const metadata = result.data.map((position: any) => ({
-          assetId: position.assetId,
-          positionId: position.positionId,
-          positionNonce: position.positionNonce,
-          amount: position.amount,
-          direction: position.direction,
-          marketId: position.marketId,
-          market: position.market, // Include the full market data
-        }));
+        const metadata = result.data.map((position: any) => {
+          const normalizedMarket = position.market
+            ? {
+                ...position.market,
+                winningDirection: normalizeWinningDirection(position.market?.winningDirection),
+              }
+            : undefined;
+          return {
+            assetId: position.assetId,
+            positionId: position.positionId,
+            positionNonce: position.positionNonce,
+            amount: position.amount,
+            direction: position.direction,
+            marketId: position.marketId,
+            market: normalizedMarket,
+          };
+        });
         
         // console.log(`useNftMetadata: Processed ${metadata.length} positions`);
         setRetryCount(0); // Reset retry count on success

@@ -17,7 +17,6 @@ import React, {
     OpenOrderArgs,
     CreateMarketArgs,
     MarketStates,
-    WinningDirection,
   } from "@endcorp/depredict";
 import { Position } from "@endcorp/depredict";
   import BN from "bn.js";
@@ -26,6 +25,7 @@ import { Position } from "@endcorp/depredict";
   import { ENABLE_ONCHAIN_CLIENT } from "src/config/featureFlags";
 import { useAuthorization } from "./useAuthorization";
   import { useBackendRelay } from "../useBackendRelay";
+import { normalizeWinningDirection, type NormalizedWinningDirection } from "@/utils";
   
   export enum ShortxErrorType {
     MARKET_CREATION = 'MARKET_CREATION',
@@ -77,7 +77,7 @@ import { useAuthorization } from "./useAuthorization";
       nextPositionId: number;
       marketStart: number;
       marketEnd: number;
-      winningDirection: WinningDirection;
+      winningDirection: NormalizedWinningDirection;
     }[];
     refresh: () => void;
     openPosition: (
@@ -131,7 +131,7 @@ import { useAuthorization } from "./useAuthorization";
       nextPositionId: number;
       marketStart: number;
       marketEnd: number;
-      winningDirection: WinningDirection;
+      winningDirection: NormalizedWinningDirection;
     }[]>([]);
     const [eventSubscriptions, setEventSubscriptions] = useState<number[]>([]);
     const refresh = () => setRefreshCount((c) => c + 1);
@@ -263,23 +263,11 @@ import { useAuthorization } from "./useAuthorization";
           const updatedMarkets = [...prevMarkets];
           const existingMarket = updatedMarkets[existingMarketIndex];
           
-          // Convert winningDirection from object format to enum
-          let winningDirection: WinningDirection;
-          if (latestEvent.winningDirection && typeof latestEvent.winningDirection === 'object') {
-            if ('yes' in latestEvent.winningDirection) {
-              winningDirection = WinningDirection.YES;
-            } else if ('no' in latestEvent.winningDirection) {
-              winningDirection = WinningDirection.NO;
-            } else if ('draw' in latestEvent.winningDirection) {
-              winningDirection = WinningDirection.DRAW;
-            } else if ('none' in latestEvent.winningDirection) {
-              winningDirection = WinningDirection.NONE;
-            } else {
-              winningDirection = WinningDirection.NONE;
-            }
-          } else {
-            winningDirection = latestEvent.winningDirection as WinningDirection;
-          }
+          const normalizedWinningDirection = normalizeWinningDirection(
+            latestEvent.winningDirection
+          );
+          const nextWinningDirection =
+            normalizedWinningDirection ?? existingMarket.winningDirection;
           
           updatedMarkets[existingMarketIndex] = {
             ...existingMarket,
@@ -289,7 +277,7 @@ import { useAuthorization } from "./useAuthorization";
             marketStart: latestEvent.marketStart.toString(),
             marketEnd: latestEvent.marketEnd.toString(),
             // Preserve the original winningDirection unless the event indicates a resolution
-            winningDirection: winningDirection,
+            winningDirection: nextWinningDirection as typeof existingMarket.winningDirection,
             marketState: latestEvent.state as any,
             nextPositionId: latestEvent.nextPositionId.toString(),
           };
@@ -363,24 +351,7 @@ import { useAuthorization } from "./useAuthorization";
               setMarketEvents((prev) => {
                 // Temporarily remove duplicate checking to debug
                 // console.log(`Processing market event for market ${event.marketId.toNumber()} with volume ${event.volume.toNumber()}`);
-                
-                // Convert winningDirection from object format to enum
-                let winningDirection: WinningDirection;
-                if (event.winningDirection && typeof event.winningDirection === 'object') {
-                  if ('yes' in event.winningDirection) {
-                    winningDirection = WinningDirection.YES;
-                  } else if ('no' in event.winningDirection) {
-                    winningDirection = WinningDirection.NO;
-                  } else if ('draw' in event.winningDirection) {
-                    winningDirection = WinningDirection.DRAW;
-                  } else if ('none' in event.winningDirection) {
-                    winningDirection = WinningDirection.NONE;
-                  } else {
-                    winningDirection = WinningDirection.NONE;
-                  }
-                } else {
-                  winningDirection = event.winningDirection as WinningDirection;
-                }
+                const winningDirection = normalizeWinningDirection(event.winningDirection);
                 
                 // console.log(`Adding market event for market ${event.marketId.toNumber()} with volume ${event.volume.toNumber()}`);
                 
@@ -395,7 +366,7 @@ import { useAuthorization } from "./useAuthorization";
                     nextPositionId: event.nextPositionId.toNumber(),
                     marketStart: event.marketStart.toNumber(),
                     marketEnd: event.marketEnd.toNumber(),
-                    winningDirection: winningDirection,
+                    winningDirection,
                   },
                   ...prev,
                 ];

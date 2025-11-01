@@ -3,6 +3,7 @@ import { CurrencyType } from "src/types/currency";
 import { apiClient } from "./apiClient";
 import { getJWTTokens } from "./authUtils";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { normalizeWinningDirection } from "./marketUtils";
 
 export interface PositionWithMarket {
   assetId: PublicKey; 
@@ -34,11 +35,11 @@ export const getWeatherBackground = (position: PositionWithMarket) => {
 
   // Determine position status
   if (position.market && isMarketResolvedAndEnded(position.market)) {
-    // Check if user won
+    const outcome = normalizeWinningDirection(position.market.winningDirection);
     const userWon =
-      position.direction === "Yes"
-        ? position.market.winningDirection === 'YES'
-        : position.market.winningDirection === 'NO';
+      outcome != null &&
+      ((position.direction === "Yes" && outcome === "Yes") ||
+        (position.direction === "No" && outcome === "No"));
 
     return userWon ? backgrounds.won : backgrounds.lost;
   }
@@ -49,24 +50,24 @@ export const getWeatherBackground = (position: PositionWithMarket) => {
 export const getStatusColor = (position: PositionWithMarket) => {
   if (!position.market) return "#3b82f6";
   if (!isMarketResolvedAndEnded(position.market)) return "#3b82f6";
-  const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
+  const outcome = normalizeWinningDirection(position.market?.winningDirection);
   const userWon =
-    position.direction === "Yes"
-      ? wd === 'YES'
-      : wd === 'NO';
+    outcome != null &&
+    ((position.direction === "Yes" && outcome === "Yes") ||
+      (position.direction === "No" && outcome === "No"));
 
   return userWon ? "#10b981" : "#ef4444";
 };
 
 export const getStatusText = (position: PositionWithMarket) => {
   if (position.market && isMarketResolvedAndEnded(position.market)) {
-    const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
-    const userWon =
-      position.direction === "Yes"
-        ? wd === 'YES'
-        : wd === 'NO';
-
-    return userWon ? "WON" : "LOST";
+    const outcome = normalizeWinningDirection(position.market?.winningDirection);
+    if (outcome) {
+      const userWon =
+        (position.direction === "Yes" && outcome === "Yes") ||
+        (position.direction === "No" && outcome === "No");
+      return userWon ? "WON" : "LOST";
+    }
   }
   // Unresolved: differentiate between betting window and live observing
   try {
@@ -96,9 +97,8 @@ export const isMarketResolvedAndEnded = (market: any): boolean => {
     stateRaw.includes("FINAL");
   if (!backendResolved) return false;
 
-  const wd = String(market?.winningDirection ?? "NONE").toUpperCase();
-  const outcomeResolved = wd === "YES" || wd === "NO";
-  if (!outcomeResolved) return false;
+  const outcome = normalizeWinningDirection(market?.winningDirection);
+  if (!outcome) return false;
 
   // If we have an end time, ensure it has passed; otherwise trust outcome flag
   const endMs = Number(market?.marketEnd) * 1000;
@@ -109,11 +109,11 @@ export const isMarketResolvedAndEnded = (market: any): boolean => {
 export const getStatusIcon = (position: PositionWithMarket) => {
   if (!position.market) return "clock-outline";
   if (isMarketResolvedAndEnded(position.market)) {
-    const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
+    const outcome = normalizeWinningDirection(position.market?.winningDirection);
     const userWon =
-      position.direction === "Yes"
-        ? wd === 'YES'
-        : wd === 'NO';
+      outcome != null &&
+      ((position.direction === "Yes" && outcome === "Yes") ||
+        (position.direction === "No" && outcome === "No"));
 
     return userWon ? "trophy" : "close-circle";
   }
@@ -123,11 +123,11 @@ export const getStatusIcon = (position: PositionWithMarket) => {
 export const calculatePayout = (position: PositionWithMarket): number | null => {
   if (!position.market) return null;
   if (!isMarketResolvedAndEnded(position.market)) return null;
-  const wd = String(position.market?.winningDirection ?? "NONE").toUpperCase();
+  const outcome = normalizeWinningDirection(position.market?.winningDirection);
   const userWon =
-    position.direction === "Yes"
-      ? wd === "YES"
-      : wd === "NO";
+    outcome != null &&
+    ((position.direction === "Yes" && outcome === "Yes") ||
+      (position.direction === "No" && outcome === "No"));
 
   if (!userWon) {
     return formatPositionAmount(0, position.currency as CurrencyType); // Lost the bet
@@ -142,11 +142,11 @@ export const calculatePayout = (position: PositionWithMarket): number | null => 
 
   // Determine winning and losing side liquidity
   const winningLiquidity =
-    position.market.winningDirection === "YES"
+    outcome === "Yes"
       ? yesLiquidity
       : noLiquidity;
   const losingLiquidity =
-    position.market.winningDirection === "YES"
+    outcome === "Yes"
       ? noLiquidity
       : yesLiquidity;
 
@@ -173,10 +173,11 @@ export const calculatePayout = (position: PositionWithMarket): number | null => 
 export const isPositionClaimable = (position: PositionWithMarket) => {
   if (!position.market) return false;
   if (!isMarketResolvedAndEnded(position.market)) return false;
-  const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
+  const outcome = normalizeWinningDirection(position.market?.winningDirection);
   return (
-    (position.direction === "Yes" && wd === 'YES') ||
-    (position.direction === "No" && wd === 'NO')
+    outcome != null &&
+    ((position.direction === "Yes" && outcome === "Yes") ||
+      (position.direction === "No" && outcome === "No"))
   );
 };
 
@@ -184,10 +185,11 @@ export const isPositionClaimable = (position: PositionWithMarket) => {
 export const isPositionLost = (position: PositionWithMarket) => {
   if (!position.market) return false;
   if (!isMarketResolvedAndEnded(position.market)) return false;
-  const wd = String(position.market?.winningDirection ?? 'NONE').toUpperCase();
+  const outcome = normalizeWinningDirection(position.market?.winningDirection);
   return (
-    (position.direction === "Yes" && wd === 'NO') ||
-    (position.direction === "No" && wd === 'YES')
+    outcome != null &&
+    ((position.direction === "Yes" && outcome === "No") ||
+      (position.direction === "No" && outcome === "Yes"))
   );
 };
 

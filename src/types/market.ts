@@ -1,4 +1,4 @@
-export type WinningDirection = 'Yes' | 'No' | 'Draw' | 'None';
+export type WinningDirection = 'Yes' | 'No';
 
 export interface BackendMarket {
   id?: string;
@@ -11,7 +11,7 @@ export interface BackendMarket {
   marketEnd?: string | number | null;
   marketType?: 'live' | 'future' | 'LIVE' | 'FUTURE' | string;
   currency?: string; // e.g. 'USDC'
-  winningDirection?: WinningDirection | string | null;
+  winningDirection?: WinningDirection | null;
   yesLiquidity?: string | number | null;
   noLiquidity?: string | number | null;
   volume?: string | number | null;
@@ -20,4 +20,3 @@ export interface BackendMarket {
   decimals?: number | null;
   updatedAt?: string | number | null;
 }
-

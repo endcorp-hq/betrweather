@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { Text, StyleSheet, View, FlatList, TouchableOpacity } from "react-native";
 import { MarketCard, StatusFilterBar } from "@/components";
-import { computeDerived } from "@/utils";
+import { computeDerived, normalizeWinningDirection, isBackendResolvedState } from "@/utils";
 import { useFilters } from "@/components";
 import theme from "../theme";
-import { WinningDirection, MarketType } from "@endcorp/depredict";
+import { MarketType } from "@endcorp/depredict";
 import { MotiView } from "moti";
 
 import { useShortx } from "../hooks/solana";
@@ -54,6 +54,13 @@ export default function MarketScreen() {
       const maybeMarketId = m.marketId === null || m.marketId === undefined ? null : Number(m.marketId);
       const mt = String(m.marketType || '').toUpperCase();
       const normalizedMarketType = mt === 'LIVE' ? MarketType.LIVE : MarketType.FUTURE;
+      const rawDirection =
+        m?.winningDirection ??
+        m?.resolution?.winningDirection ??
+        m?.resolution?.direction ??
+        m?.outcome ??
+        m?.result;
+      const normalizedWinner = normalizeWinningDirection(rawDirection);
       return {
         // Keep UUID id explicitly for navigation and stable keys
         id: m.id ?? m.uuid ?? m.dbId ?? m._id ?? undefined,
@@ -65,10 +72,11 @@ export default function MarketScreen() {
         marketEnd: toSeconds(m.marketEnd),
         marketType: normalizedMarketType,
         currency: m.currency,
-        winningDirection: m.winningDirection ?? WinningDirection.NONE,
+        winningDirection: normalizedWinner,
         yesLiquidity: m.yesLiquidity ?? "0",
         noLiquidity: m.noLiquidity ?? "0",
         volume: m.volume ?? "0",
+        marketState: m.marketState ?? m.state ?? null,
       };
     });
   }, [progressive?.markets]);
@@ -117,33 +125,43 @@ export default function MarketScreen() {
       const now = Date.now();
       const marketStart = Number(market.marketStart) * 1000;
       const marketEnd = Number(market.marketEnd) * 1000;
+      const hasStart = Number.isFinite(marketStart);
+      const hasEnd = Number.isFinite(marketEnd);
+      const backendResolved = isBackendResolvedState(market.marketState);
+      const hasWinner = market.winningDirection != null;
 
       let matchesStatus = false;
       switch (statusFilter) {
         case "betting":
           // Betting period: for future markets, current time is before market start
-          if (market.marketType === MarketType.LIVE) {
-            // Live markets don't have a betting period
+          if (
+            market.marketType === MarketType.LIVE ||
+            !hasStart ||
+            hasWinner ||
+            backendResolved
+          ) {
             matchesStatus = false;
           } else {
-            // Future markets: betting period is before market start
             matchesStatus = now < marketStart;
           }
           break;
         case "resolved":
-          // Resolved: market has a winningDirection
-          matchesStatus = market.winningDirection !== WinningDirection.NONE;
+          // Resolved only when a winning side has been set
+          matchesStatus = hasWinner;
           break;
         case "active":
           // Active: future markets that have completed betting but not resolved
-          if (market.marketType === MarketType.LIVE) {
+          if (hasWinner || backendResolved) {
+            matchesStatus = false;
+          } else if (market.marketType === MarketType.LIVE) {
             // Live markets are always active during their interval
-            matchesStatus = now >= marketStart && now <= marketEnd;
+            const hasStarted = hasStart ? now >= marketStart : false;
+            const notEnded = !hasEnd || now <= marketEnd;
+            matchesStatus = hasStarted && notEnded;
           } else {
-            // Future markets: active when betting is done but not resolved
-            matchesStatus =
-              now >= marketStart &&
-              market.winningDirection === WinningDirection.NONE;
+            // Future markets: active once betting ends but until resolved
+            const hasBegun = hasStart ? now >= marketStart : false;
+            matchesStatus = hasBegun;
           }
           break;
         default:

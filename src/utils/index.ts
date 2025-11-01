@@ -51,7 +51,14 @@ export {
 export { toast, setToastHandler } from './toastUtils';
 
 // Market utilities
-export { getMarketToken, computeDerived, toUi } from './marketUtils';
+export {
+  getMarketToken,
+  computeDerived,
+  toUi,
+  normalizeWinningDirection,
+  isBackendResolvedState,
+} from './marketUtils';
+export type { NormalizedWinningDirection } from './marketUtils';
 
 // SSE Utilities
 export { startSSE } from './sse';
