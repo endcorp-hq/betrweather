@@ -15,7 +15,7 @@ app:
     - purpose: icon
       uri: ./media/icon.png
 release:
-  address: 6ytTfyumLbk6mq8NeMF5dzvPMGHeQ1aHxnp2j1W1WTdU
+  address: 6f16HxwhizonwSuE7rZog58hy6spewZvRooKLR6J76BC
   media:
     - purpose: icon
       uri: ./media/icon.png
@@ -33,7 +33,7 @@ release:
       uri: ./media/screenshots/4.png
   files:
     - purpose: install
-      uri: ../dapp-store-build/BetrWeather-v1.0.5-signed.apk
+      uri: ../dapp-store-build/BetrWeather-v1.0.6-signed.apk
   catalog:
     en-US:
       name: BetrWeather
@@ -42,17 +42,17 @@ release:
       new_in_version: BetrWeather brings state of the art weather forecasts you can bet on to Solana Mobile.
   android_details:
     cert_fingerprint: bcebaebb5a09c2d193981a9bf80d4326f9c89fbb00600dbb2422db94f3b7108f
-    min_sdk: 24
-    version: 1.0.2
-    version_code: 39
+    min_sdk: 25
+    version: 1.0.6
+    version_code: 43
     locales:
       - en-US
 solana_mobile_dapp_publisher_portal:
   google_store_package: com.betrweather.app
   testing_instructions: Connect your Solana wallet and start betting on weather outcomes! Whitelisted for Seeker Genesis Token holders and Superteam members.
 lastSubmittedVersionOnChain:
-  address: 6ytTfyumLbk6mq8NeMF5dzvPMGHeQ1aHxnp2j1W1WTdU
-  version_code: 39
-  apk_hash: qNrUoQIVoNiazcryOkqAVOTR2WrVF3Y6ofwZxwKga/w=
+  address: 6f16HxwhizonwSuE7rZog58hy6spewZvRooKLR6J76BC
+  version_code: 43
+  apk_hash: tZlE17xmer6t2cCvCSk9tFzZOoQvHt225WC3nC/43oA=
 lastUpdatedVersionOnStore:
-  address: 6ytTfyumLbk6mq8NeMF5dzvPMGHeQ1aHxnp2j1W1WTdU
+  address: 6f16HxwhizonwSuE7rZog58hy6spewZvRooKLR6J76BC

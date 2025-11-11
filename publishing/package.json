@@ -1,6 +1,6 @@
 {
   "name": "publishing",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@solana-mobile/dapp-store-cli": "^0.14.0"
+    "@solana-mobile/dapp-store-cli": "0.15.0"
   }
 }
