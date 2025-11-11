@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Alert, ScrollView, Image, Linking } from "react-native";
+import { View, Text, TouchableOpacity, Alert, ScrollView, Image } from "react-native";
 import { DefaultBg } from "../components/ui";
 import { useUser } from "../hooks/useUser";
 import { useAuthorization } from "../hooks/solana/useAuthorization";
@@ -35,18 +35,6 @@ export default function ProfileScreen() {
   const truncateAddress = (address: string) => {
     if (!address) return "";
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const handleTwitterPress = () => {
-    Linking.openURL("https://x.com/betrweather");
-  };
-
-  const handleEmailPress = () => {
-    Linking.openURL("mailto:betrweather@endcorp.co");
-  };
-
-  const handleWebsitePress = () => {
-    Linking.openURL("https://betrweather.xyz/");
   };
 
   return (
@@ -108,61 +96,6 @@ export default function ProfileScreen() {
             <Text className="text-green-400 text-[15px] font-better-semi-bold ml-1 mt-1">
               {user?.streak || 0}
             </Text>
-          </View>
-        </View>
-
-        {/* Social Links Section */}
-        <View className="mb-8">
-          <View className="flex-row justify-evenly w-full">
-            {/* X (Twitter) */}
-            <TouchableOpacity
-              onPress={handleTwitterPress}
-              className="items-center justify-center bg-white rounded-full w-12 h-12"
-              activeOpacity={0.7}
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 4,
-                elevation: 3,
-              }}
-            >
-              <Text className="text-black text-xl font-better-bold">
-                𝕏
-              </Text>
-            </TouchableOpacity>
-
-            {/* Email */}
-            <TouchableOpacity
-              onPress={handleEmailPress}
-              className="items-center justify-center bg-white rounded-full w-12 h-12"
-              activeOpacity={0.7}
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 4,
-                elevation: 3,
-              }}
-            >
-              <MaterialCommunityIcons name="gmail" size={20} color="#000000" />
-            </TouchableOpacity>
-
-            {/* Website */}
-            <TouchableOpacity
-              onPress={handleWebsitePress}
-              className="items-center justify-center bg-white rounded-full w-12 h-12"
-              activeOpacity={0.7}
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 4,
-                elevation: 3,
-              }}
-            >
-              <MaterialCommunityIcons name="web" size={20} color="#000000" />
-            </TouchableOpacity>
           </View>
         </View>
 

@@ -150,6 +150,10 @@ export function CustomTabBar({
               iconName = "face-man";
               activeColor = "#f59e0b"; // Amber for profile
             }
+            if (route.name === "Info") {
+              iconName = "information-variant";
+              activeColor = "#6366f1"; // Indigo for info
+            }
 
             // Animate icon scale on focus
             const scale = isFocused ? ACTIVE_ICON_SCALE : 1;

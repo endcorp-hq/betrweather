@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Image, Animated } from "react-native";
+import { View, Text, TouchableOpacity, Image, Animated, Linking } from "react-native";
 import { useAuthorization } from "../../hooks/solana/useAuthorization";
 import { DefaultBg } from "../ui";
 import { LoginButton } from "./sign-in-ui";
@@ -8,6 +8,7 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { tokenManager } from "../../utils/tokenManager";
 import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 // Chain Toggle Component
 function ChainToggle({
@@ -105,6 +106,12 @@ export default function GuardedScreen({
   const { selectedChain, toggleChain } = useChainToggle();
   const effectiveSelectedChain: Chain = ENABLE_NETWORK_TOGGLE ? selectedChain : 'solana:mainnet-beta';
   const [hasValidAuth, setHasValidAuth] = useState(true);
+  const handleDiscordPress = React.useCallback(() => {
+    Linking.openURL("https://discord.gg/p4QBXFeJFx");
+  }, []);
+  const handleTwitterPress = React.useCallback(() => {
+    Linking.openURL("https://x.com/betrweather");
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -171,6 +178,28 @@ export default function GuardedScreen({
           <Text className="text-white text-base font-better-regular text-center mt-2">
             If this is your first time using the app, please click sign up to create an account. You must have a seeker or Superteam NFT to gain access. 
           </Text>
+          <View className="flex-row justify-center gap-3 mt-4 flex-wrap">
+            <TouchableOpacity
+              onPress={handleDiscordPress}
+              activeOpacity={0.8}
+              className="flex-row items-center px-4 py-2 rounded-full border border-white/25 bg-white/10"
+            >
+              <MaterialCommunityIcons name="discord" size={20} color="#7289da" />
+              <Text className="text-white text-sm font-better-medium ml-2">
+                Join our Discord
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleTwitterPress}
+              activeOpacity={0.8}
+              className="flex-row items-center px-4 py-2 rounded-full border border-white/25 bg-white/10"
+            >
+              <MaterialCommunityIcons name="alpha-x-circle-outline" size={20} color="#38bdf8" />
+              <Text className="text-white text-sm font-better-medium ml-2">
+                Follow us on X
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </DefaultBg>

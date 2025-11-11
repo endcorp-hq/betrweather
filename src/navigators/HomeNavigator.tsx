@@ -6,6 +6,7 @@ import ProfileScreen from "../screens/ProfileScreen";
 import MarketScreen from "../screens/MarketScreen";
 import { CustomTabBar } from "../components/ui/CustomTabBar";
 import GuardedScreen from "../components/sign-in/guarded-screen";
+import InfoScreen from "../screens/InfoScreen";
 
 const Tab = createBottomTabNavigator();
 function MarketsGuarded() {
@@ -44,6 +45,7 @@ export function HomeNavigator() {
       <Tab.Screen name="Weather" component={HomeScreen} />
       <Tab.Screen name="Markets" component={MarketsGuarded} />
       <Tab.Screen name="Profile" component={ProfileGuarded} />
+      <Tab.Screen name="Info" component={InfoScreen} />
     </Tab.Navigator>
   );
 }
