@@ -92,7 +92,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0.2"
+        versionName "1.0.5"
         resConfigs "en", "en_US"
     }
     signingConfigs {
@@ -163,7 +163,8 @@ dependencies {
           // Kotlin coroutines
           implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1"
           implementation "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.1"
-      
+    implementation "com.logrocket:logrocket:[1.0, 2.0)"
+
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

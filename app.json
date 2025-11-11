@@ -87,8 +87,8 @@
           }
         }
       ],
-      "expo-asset",
-      "expo-build-properties"
+      "@logrocket/react-native",
+      "expo-asset"
     ],
     "jsEngine": "hermes",
     "updates": {

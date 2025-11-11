@@ -20,8 +20,12 @@ import { useEffect, useState } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import { Asset } from "expo-asset";
 
+
 import "./global.css";
 import "react-native-reanimated";
+import LogRocket from "@logrocket/react-native";
+import * as Updates from "expo-updates";
+
 
 // Keep the splash screen visible while we preload resources
 SplashScreen.preventAutoHideAsync();
@@ -32,6 +36,10 @@ export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
 
   useEffect(() => {
+    LogRocket.init("rgqpme/betrweather", {
+      updateId: Updates.isEmbeddedLaunch ? null : Updates.updateId,
+      expoChannel: Updates.channel,
+    });
     async function prepare() {
       try {
         // Preload frequently used image assets

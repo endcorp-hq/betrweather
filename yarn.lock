@@ -1846,6 +1846,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@logrocket/react-native@npm:^1.57.5":
+  version: 1.57.5
+  resolution: "@logrocket/react-native@npm:1.57.5"
+  peerDependencies:
+    expo: ">=45.0.0"
+    expo-build-properties: "*"
+    react: "*"
+    react-native: ">=0.60.0-rc.0 <1.0.x"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+  checksum: 10c0/055ff91477a6f1895b579a3e9773a009922e45de8d2b6b6ee27f0fd3e1522b0351a8e61bb4d7150ed6a27004c6e27766372f2b2096ee31a9febb946b2c650883
+  languageName: node
+  linkType: hard
+
 "@metaplex-foundation/digital-asset-standard-api@npm:^1.0.5":
   version: 1.0.6
   resolution: "@metaplex-foundation/digital-asset-standard-api@npm:1.0.6"
@@ -4380,6 +4395,7 @@ __metadata:
     "@coral-xyz/anchor": "npm:^0.31.1"
     "@endcorp/depredict": "npm:^0.7.2"
     "@expo/vector-icons": "npm:~14.0.4"
+    "@logrocket/react-native": "npm:^1.57.5"
     "@metaplex-foundation/digital-asset-standard-api": "npm:^2.0.0"
     "@metaplex-foundation/mpl-bubblegum": "npm:^4.0.0"
     "@metaplex-foundation/mpl-core": "npm:^1.4.1"
