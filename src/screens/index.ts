@@ -3,3 +3,4 @@ export * from "./DailyDetailScreen";
 export * from "./MarketScreen";
 export * from "./MarketDetailScreen";
 export * from "./ClaimPositionsScreen";
+export { default as InfoScreen } from "./InfoScreen";
