@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { Text, StyleSheet, View, FlatList, TouchableOpacity } from "react-native";
 import { MarketCard, StatusFilterBar } from "@/components";
-import { computeDerived, normalizeWinningDirection, isBackendResolvedState } from "@/utils";
+import { computeDerived, normalizeWinningDirection, isBackendResolvedState, isPositionClaimable } from "@/utils";
 import { useFilters } from "@/components";
 import theme from "../theme";
 import { MarketType } from "@endcorp/depredict";
@@ -11,6 +11,7 @@ import { useShortx } from "../hooks/solana";
 import { useMarketsContext } from "../contexts/MarketsProvider";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { usePositionsContext } from "../contexts/PositionsProvider";
 
 // Memoized MarketCard component to prevent unnecessary re-renders
 const MemoizedMarketCard = React.memo(({ market, index }: { market: any; index: number }) => (
@@ -42,7 +43,15 @@ export default function MarketScreen() {
 
   const progressive = useMarketsContext();
   const navigation = useNavigation();
+  const { positions } = usePositionsContext();
   const [refreshing, setRefreshing] = useState(false);
+
+  const claimableCount = useMemo(
+    () => positions.filter((position) => isPositionClaimable(position)).length,
+    [positions]
+  );
+  const hasClaimable = claimableCount > 0;
+  const claimableBadgeLabel = claimableCount > 9 ? "9+" : String(claimableCount);
 
   // Normalize backend markets to the UI shape used here
   const dbMarkets = useMemo(() => {
@@ -261,8 +270,28 @@ export default function MarketScreen() {
           <TouchableOpacity
             onPress={handlePortfolioPress}
             activeOpacity={0.8}
-            className="flex-row items-center gap-4 bg-white/90 rounded-xl border-2 border-white/20 p-4 py-2"
+            className="relative flex-row items-center gap-4 bg-white/90 rounded-xl border-2 border-white/20 p-4 py-2"
           >
+            {hasClaimable && (
+              <View
+                className="absolute items-center justify-center"
+                style={{
+                  top: -8,
+                  right: -8,
+                  backgroundColor: "#ef4444",
+                  borderRadius: 9999,
+                  minWidth: 24,
+                  height: 24,
+                  paddingHorizontal: 6,
+                  borderWidth: 2,
+                  borderColor: "rgba(255,255,255,0.85)",
+                }}
+              >
+                <Text className="text-white text-xs font-better-semi-bold">
+                  {claimableBadgeLabel}
+                </Text>
+              </View>
+            )}
             <MaterialCommunityIcons
               name="chart-line"
               size={16}

@@ -1482,6 +1482,29 @@ export default function SlotMachineScreen() {
                     marginTop: 18,
                   }}
                 />
+                <View
+                  style={{
+                    backgroundColor: "rgba(37, 99, 235, 0.12)",
+                    borderColor: "rgba(59, 130, 246, 0.35)",
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    marginTop: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      textAlign: "center",
+                      color: "#1d4ed8",
+                      fontSize: 13,
+                      fontFamily: "Poppins-Medium",
+                    }}
+                  >
+                    You&apos;ll need a small amount of SOL in your wallet to
+                    cover the network fee.
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
           </Animated.View>

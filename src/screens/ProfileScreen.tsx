@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, Alert, ScrollView, Image } from "react-native";
 import { DefaultBg } from "../components/ui";
 import { useUser } from "../hooks/useUser";
@@ -9,20 +9,36 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LeaderboardEntry, useLeaderboard } from "../hooks/useLeaderboard";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { USDC_ICON } from "../components/ui/svg/usdc";
+import { usePositionsContext } from "../contexts/PositionsProvider";
+import { isPositionClaimable } from "../utils/positionUtils";
+import { useNavigation } from "@react-navigation/native";
 
 export default function ProfileScreen() {
   const { user } = useUser();
   const { selectedAccount } = useAuthorization();
   const { disconnect } = useMobileWallet();
+  const { positions } = usePositionsContext();
+  const navigation = useNavigation<any>();
   const [selectedSegment, setSelectedSegment] = useState<
     "personal" | "leaderboard"
   >("personal");
+
+  const claimablePositions = useMemo(
+    () => positions.filter((position) => isPositionClaimable(position)),
+    [positions]
+  );
+  const claimableCount = claimablePositions.length;
+  const hasClaimable = claimableCount > 0;
 
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
       { text: "Logout", style: "destructive", onPress: disconnect },
     ]);
+  };
+
+  const handleGoToPortfolio = () => {
+    navigation.navigate("ClaimPositions");
   };
 
   const copyWalletAddress = () => {
@@ -52,10 +68,24 @@ export default function ProfileScreen() {
             </View>
 
             {/* Name and Email */}
-            <View className="flex-1">
+          <View className="flex-1">
+            <View className="flex-row items-center flex-wrap">
               <Text className="text-white text-lg font-better-semi-bold">
                 {user?.name || "User"}
               </Text>
+              {selectedAccount?.publicKey && (
+                <TouchableOpacity
+                  onPress={copyWalletAddress}
+                  activeOpacity={0.7}
+                  className="ml-2 px-2 py-1 rounded-lg bg-white/10 border border-white/10"
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Text className="text-gray-200 text-xs font-better-medium tracking-wide">
+                    {truncateAddress(selectedAccount.publicKey.toBase58())}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
               {user?.email && (
                 <Text className="text-gray-300 text-sm font-better-regular">
                   {user.email}
@@ -73,21 +103,47 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Wallet Address Section */}
-        <TouchableOpacity
-          onPress={copyWalletAddress}
-          className="flex-row items-center mb-4"
-        >
-          {/* Wallet Icon */}
-          <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center mr-3">
-            <MaterialCommunityIcons name="wallet" size={16} color="white" />
-          </View>
-
-          {/* Wallet Address */}
-          <Text className="text-white text-base font-better-medium">
-            {truncateAddress(selectedAccount?.publicKey?.toBase58() || "")}
-          </Text>
-        </TouchableOpacity>
+        {hasClaimable ? (
+          <TouchableOpacity
+            onPress={handleGoToPortfolio}
+            activeOpacity={0.85}
+            className="flex-row items-start bg-yellow-500/20 border border-yellow-500/40 rounded-2xl px-4 py-4 mt-4 mb-6"
+          >
+            <View className="w-10 h-10 bg-yellow-500/30 rounded-full items-center justify-center mr-3 mt-1">
+              <MaterialCommunityIcons name="bell-alert" size={22} color="#facc15" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-yellow-200 text-base font-better-semi-bold">
+                Bets Unclaimed!
+              </Text>
+              <Text className="text-yellow-100 text-sm font-better-regular mt-1">
+                {claimableCount === 1
+                  ? "You have 1 bet ready to claim. Tap to open your portfolio."
+                  : `You have ${claimableCount} bets ready to claim. Tap to open your portfolio.`}
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#facc15" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={handleGoToPortfolio}
+            activeOpacity={0.85}
+            className="flex-row items-center bg-white/10 border border-white/10 rounded-2xl px-4 py-4 mt-4 mb-6"
+          >
+            <View className="w-10 h-10 bg-white/15 rounded-full items-center justify-center mr-3">
+              <MaterialCommunityIcons name="wallet-outline" size={22} color="#ffffff" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-white text-base font-better-semi-bold">
+                Check your positions
+              </Text>
+              <Text className="text-gray-200 text-sm font-better-regular mt-1">
+                Open your portfolio to review claims and active bets.
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#ffffff" />
+          </TouchableOpacity>
+        )}
 
         {/* Streak Badge */}
         <View className="mb-6">
