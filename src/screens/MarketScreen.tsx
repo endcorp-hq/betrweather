@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { Text, StyleSheet, View, FlatList, TouchableOpacity } from "react-native";
-import { MarketCard, StatusFilterBar } from "@/components";
+import { Text, StyleSheet, View, FlatList, TouchableOpacity, ScrollView, TextInput } from "react-native";
+import { MarketCard, CompactMarketCard, StatusFilterBar } from "@/components";
 import { computeDerived, normalizeWinningDirection, isBackendResolvedState, isPositionClaimable } from "@/utils";
 import { useFilters } from "@/components";
 import theme from "../theme";
@@ -45,6 +45,7 @@ export default function MarketScreen() {
   const navigation = useNavigation();
   const { positions } = usePositionsContext();
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const claimableCount = useMemo(
     () => positions.filter((position) => isPositionClaimable(position)).length,
@@ -115,7 +116,7 @@ export default function MarketScreen() {
     "longterm",
   ]);
 
-  //status filter (default to Predict tab)
+  //status filter (default to Betting tab)
   const [statusFilter, setStatusFilter] = useState("betting");
 
   // Memoize the status filter handler to prevent unnecessary re-renders
@@ -130,6 +131,13 @@ export default function MarketScreen() {
   // Memoize filtered markets to prevent recalculation on every render
   const filteredMarkets = useMemo(() => {
     return mergedMarkets.filter((market) => {
+      // Search filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = market.question?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+
       // Do not strictly filter out inactive; rely on status filter/time windows
       const now = Date.now();
       const marketStart = Number(market.marketStart) * 1000;
@@ -194,7 +202,7 @@ export default function MarketScreen() {
           // Within the current week (Monday to Sunday)
           const startOfWeek = new Date(today);
           const dayOfWeek = today.getDay();
-          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
           startOfWeek.setDate(today.getDate() - daysToMonday);
 
           const endOfWeek = new Date(startOfWeek);
@@ -244,7 +252,7 @@ export default function MarketScreen() {
 
       return matchesTime;
     });
-  }, [mergedMarkets, statusFilter, timeFilter]);
+  }, [mergedMarkets, statusFilter, timeFilter, searchQuery]);
 
   // FlatList render item
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
@@ -259,14 +267,138 @@ export default function MarketScreen() {
     return String(id);
   }, []);
 
+  // Dummy quick markets for demo
+  const quickMarkets = useMemo(() => {
+    const now = Math.floor(Date.now() / 1000);
+    return [
+      {
+        id: "quick-1",
+        question: "Will it rain in London between 5:00 - 6:00 on 15th November 2025?",
+        marketStart: now + 1740, // 29 mins from now
+        marketEnd: now + 5340, // 89 mins from now
+        winningDirection: null,
+        marketType: MarketType.FUTURE,
+        volume: 0,
+        yesOdds: 50,
+        marketId: undefined,
+      },
+      {
+        id: "quick-2",
+        question: "Will temperature exceed 30°C in Miami between 2:00 - 3:00 PM today?",
+        marketStart: now + 2400, // 40 mins from now
+        marketEnd: now + 6000, // 100 mins from now
+        winningDirection: null,
+        marketType: MarketType.FUTURE,
+        volume: 5.50,
+        yesOdds: 60,
+        marketId: 42,
+      },
+      {
+        id: "quick-3",
+        question: "Will there be snow in Denver between 8:00 AM - 10:00 AM tomorrow?",
+        marketStart: now + 3000, // 50 mins from now
+        marketEnd: now + 6600, // 110 mins from now
+        winningDirection: null,
+        marketType: MarketType.FUTURE,
+        volume: 12.00,
+        yesOdds: 35,
+        marketId: 128,
+      },
+    ];
+  }, []);
+
+  // Rainfall markets
+  const rainfallMarkets = useMemo(() => {
+    const now = Math.floor(Date.now() / 1000);
+    return [
+      {
+        id: "rain-1",
+        question: "Will it rain more than 2mm in Seattle today?",
+        marketStart: now + 1200,
+        marketEnd: now + 4800,
+        winningDirection: null,
+        marketType: MarketType.FUTURE,
+        volume: 8.20,
+        yesOdds: 70,
+        marketId: 201,
+      },
+      {
+        id: "rain-2",
+        question: "Will London experience rainfall between 3-4 PM?",
+        marketStart: now + 1800,
+        marketEnd: now + 5400,
+        winningDirection: null,
+        marketType: MarketType.FUTURE,
+        volume: 15.00,
+        yesOdds: 45,
+        marketId: 202,
+      },
+      {
+        id: "rain-3",
+        question: "Will Mumbai get heavy rainfall (>10mm) tonight?",
+        marketStart: now + 2100,
+        marketEnd: now + 5700,
+        winningDirection: null,
+        marketType: MarketType.FUTURE,
+        volume: 22.50,
+        yesOdds: 80,
+        marketId: 203,
+      },
+    ];
+  }, []);
+
+  // Temperature markets
+  const temperatureMarkets = useMemo(() => {
+    const now = Math.floor(Date.now() / 1000);
+    return [
+      {
+        id: "temp-1",
+        question: "Will NYC temperature drop below 0°C tonight?",
+        marketStart: now + 900,
+        marketEnd: now + 4500,
+        winningDirection: null,
+        marketType: MarketType.FUTURE,
+        volume: 18.75,
+        yesOdds: 25,
+        marketId: 301,
+      },
+      {
+        id: "temp-2",
+        question: "Will Dubai reach 45°C between 12-2 PM today?",
+        marketStart: now + 1500,
+        marketEnd: now + 5100,
+        winningDirection: null,
+        marketType: MarketType.FUTURE,
+        volume: 30.00,
+        yesOdds: 65,
+        marketId: 302,
+      },
+      {
+        id: "temp-3",
+        question: "Will Tokyo temperature stay between 20-25°C all day?",
+        marketStart: now + 2700,
+        marketEnd: now + 6300,
+        winningDirection: null,
+        marketType: MarketType.FUTURE,
+        volume: 12.90,
+        yesOdds: 55,
+        marketId: 303,
+      },
+    ];
+  }, []);
+
   return (
-    <View className="flex-1">
+    <ScrollView 
+      className="flex-1"
+      showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
+    >
       {/* Fixed Header Section */}
-      <View className="px-4 pt-10">
-        <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-white text-2xl font-better-semi-bold">
+      <View className="px-4 pt-10 pb-4">
+        <View className="flex-row justify-end items-center mb-4">
+          {/* <Text className="text-white text-2xl font-better-semi-bold">
             Climate Markets
-          </Text>
+          </Text> */}
           <TouchableOpacity
             onPress={handlePortfolioPress}
             activeOpacity={0.8}
@@ -302,39 +434,122 @@ export default function MarketScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-        <TimeFilterBar />
-        <StatusFilterBar
-          selected={statusFilter}
-          onSelect={handleStatusFilterChange}
-        />
+        {/* Search Bar and Filter */}
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1 flex-row items-center bg-white/10 border border-white/20 rounded-xl px-4 py-3">
+            <MaterialCommunityIcons
+              name="magnify"
+              size={20}
+              color="rgba(255, 255, 255, 0.6)"
+            />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search markets..."
+              placeholderTextColor="rgba(255, 255, 255, 0.4)"
+              className="flex-1 ml-2 text-white font-better-regular"
+              style={{ fontSize: 14 }}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <MaterialCommunityIcons
+                  name="close-circle"
+                  size={18}
+                  color="rgba(255, 255, 255, 0.6)"
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            className="bg-white/10 border border-white/20 rounded-xl p-3"
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="tune"
+              size={22}
+              color="white"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Virtualized Market Cards Section */}
-      <FlatList
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
-        data={filteredMarkets}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-    getItemLayout={(_, index) => {
-      // Approximate item height from MarketCard styles.height (320) + margins (~24)
-      const ITEM_HEIGHT = 344;
-      return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index };
-    }}
-        showsVerticalScrollIndicator={false}
-        refreshing={refreshing || Boolean(progressive?.loading)}
-        onRefresh={onRefresh}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={7}
-        removeClippedSubviews
-        ListEmptyComponent={!progressive?.loading ? (
-          <View className="flex-1 justify-center items-center py-20">
-            <Text className="text-white text-lg font-better-regular pt-10">No markets found for the selected filters.</Text>
-          </View>
-        ) : null}
-      />
-    </View>
+      {/* Quick Markets Section */}
+      <View className="mb-6">
+        <Text className="text-white text-lg font-better-semi-bold text-left mb-4 pl-4">
+          Quick Markets
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+          nestedScrollEnabled={true}
+        >
+          {quickMarkets.map((market, index) => (
+            <CompactMarketCard key={`quick-${index}`} market={market} type="quick" />
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Rainfall Markets Section */}
+      <View className="mb-6">
+        <Text className="text-white text-lg font-better-semi-bold text-left mb-4 pl-4">
+          Rainfall Markets
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+          nestedScrollEnabled={true}
+        >
+          {rainfallMarkets.map((market, index) => (
+            <CompactMarketCard key={`rain-${index}`} market={market} type="rainfall" />
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Temperature Markets Section */}
+      <View className="mb-6">
+        <Text className="text-white text-lg font-better-semi-bold text-left mb-4 pl-4">
+          Temperature Markets
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+          nestedScrollEnabled={true}
+        >
+          {temperatureMarkets.map((market, index) => (
+            <CompactMarketCard key={`temp-${index}`} market={market} type="temperature" />
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Climate Markets Section */}
+      <View className="px-4 mb-4">
+        <Text className="text-white text-xl font-better-semi-bold mb-3">
+          Climate Markets
+        </Text>
+      </View>
+
+      {/* Market Cards Section */}
+      <View className="px-4 pb-24">
+        {filteredMarkets.length > 0 ? (
+          filteredMarkets.map((market, index) => (
+            <View key={keyExtractor(market, index)} className="mb-6">
+              {renderItem({ item: market, index })}
+            </View>
+          ))
+        ) : (
+          !progressive?.loading && (
+            <View className="flex-1 justify-center items-center py-20">
+              <Text className="text-white text-lg font-better-regular pt-10">
+                No markets found for the selected filters.
+              </Text>
+            </View>
+          )
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
