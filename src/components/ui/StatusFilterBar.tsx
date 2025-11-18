@@ -10,14 +10,14 @@ interface StatusFilterBarProps {
 
 const statusOptions = [
   {
-    key: 'betting',
-    label: 'Predict',
+    key: 'active',
+    label: 'Active',
     icon: 'gavel',
     description: 'Betting open',
     color: '#10b981', // Green
   },
   {
-    key: 'active',
+    key: 'observing',
     label: 'Observing',
     icon: 'play-circle',
     description: 'In progress',

@@ -63,18 +63,18 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
           if (parsedSession?.userSession?.chain) {
             // Normalize chain to 'mainnet' | 'devnet'
             const raw: string = parsedSession.userSession.chain;
-            const normalized: NetworkEnvironment = raw.includes('mainnet') ? 'mainnet' : 'devnet';
-            setCurrentChain(ENABLE_NETWORK_TOGGLE ? normalized : 'mainnet');
+            const normalized: NetworkEnvironment = raw.includes('mainnet') ? 'devnet' : 'devnet';
+            setCurrentChain(ENABLE_NETWORK_TOGGLE ? normalized : 'devnet');
             setIsLoading(false);
             return;
           }
           // No chain stored; default depends on feature flag
-          setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'mainnet');
+          setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'devnet');
           setIsLoading(false);
           return;
         }
         // No session found; default depends on feature flag
-        setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'mainnet');
+        setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'devnet');
       } catch (error) {
         console.error("Error loading chain from storage:", error);
         // Remove user session using React Query
@@ -94,8 +94,8 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
   useEffect(() => {
     const chain = userSession?.chain;
     if (!chain) return;
-    const normalized: NetworkEnvironment = chain.includes('mainnet') ? 'mainnet' : 'devnet';
-    setCurrentChain((prev) => (prev !== (ENABLE_NETWORK_TOGGLE ? normalized : 'mainnet') ? (ENABLE_NETWORK_TOGGLE ? normalized : 'mainnet') : prev));
+    const normalized: NetworkEnvironment = chain.includes('mainnet') ? 'devnet' : 'devnet';
+    setCurrentChain((prev) => (prev !== (ENABLE_NETWORK_TOGGLE ? normalized : 'devnet') ? (ENABLE_NETWORK_TOGGLE ? normalized : 'devnet') : prev));
   }, [userSession?.chain]);
 
   // Cleanup connection when component unmounts
@@ -110,9 +110,9 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       return null;
     }
     
-    const effectiveChain: NetworkEnvironment = ENABLE_NETWORK_TOGGLE ? currentChain : 'mainnet';
+    const effectiveChain: NetworkEnvironment = ENABLE_NETWORK_TOGGLE ? currentChain : 'devnet';
     const chainString = effectiveChain === 'mainnet' 
-      ? 'https://api.mainnet-beta.solana.com'
+      ? 'https://api.devnet.solana.com'
       : `https://api.${effectiveChain}.solana.com`;
     const rpcUrl = chainString;
 
@@ -129,7 +129,7 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
   }, [currentChain, config]);
 
   return (
-    <ChainContext.Provider value={{ currentChain: (ENABLE_NETWORK_TOGGLE ? (currentChain ?? 'devnet') : 'mainnet'), connection, isLoading }}>
+    <ChainContext.Provider value={{ currentChain: (ENABLE_NETWORK_TOGGLE ? (currentChain ?? 'devnet') : 'devnet'), connection, isLoading }}>
       {children}
     </ChainContext.Provider>
   );

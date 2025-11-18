@@ -68,12 +68,17 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
     ? "Predicting" 
     : "Observing";
 
-  // Calculate odds (default 50/50 for now)
-  const yesOdds = market.yesOdds || 50;
+  // Calculate odds from liquidity
+  const yesLiq = Number(market.yesLiquidity || 0);
+  const noLiq = Number(market.noLiquidity || 0);
+  let yesOdds = 50;
+  if (yesLiq + noLiq > 0) {
+    yesOdds = Math.round((yesLiq / (yesLiq + noLiq)) * 100);
+  }
   const noOdds = 100 - yesOdds;
 
   // Volume
-  const volume = market.volume || 0;
+  const volume = Number(market.volume || 0);
 
   // Determine bar color based on type
   const getBarColor = () => {
@@ -103,7 +108,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
           <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20` }]}>
             <MaterialCommunityIcons
               name="clock-fast"
-              size={10}
+              size={11}
               color={statusColor}
             />
             <Text style={[styles.statusText, { color: statusColor }]}>
@@ -122,7 +127,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
         <View style={styles.timeRange}>
           <MaterialCommunityIcons
             name="clock-outline"
-            size={11}
+            size={12}
             color="rgba(255, 255, 255, 0.5)"
           />
           <Text style={styles.timeRangeText}>
@@ -144,19 +149,39 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
 
         {/* Bottom Row */}
         <View style={styles.bottomRow}>
-          <View style={styles.timeInfo}>
-            <MaterialCommunityIcons
-              name="clock-outline"
-              size={11}
-              color="rgba(255, 255, 255, 0.5)"
-            />
-            <Text style={styles.timeText}>
-              betting ends in {getTimeLeft(market.marketStart)}
-            </Text>
-          </View>
-          <Text style={styles.countdownHighlight}>
-            {getTimeLeft(market.marketStart)} left
-          </Text>
+          {isBettingOpen ? (
+            <>
+              <View style={styles.timeInfo}>
+                <MaterialCommunityIcons
+                  name="clock-outline"
+                  size={12}
+                  color="rgba(255, 255, 255, 0.5)"
+                />
+                <Text style={styles.timeText}>
+                  betting ends in {getTimeLeft(market.marketStart)}
+                </Text>
+              </View>
+              <Text style={styles.countdownHighlight}>
+                {getTimeLeft(market.marketStart)} left
+              </Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.timeInfo}>
+                <MaterialCommunityIcons
+                  name="timer-sand"
+                  size={12}
+                  color="rgba(255, 255, 255, 0.5)"
+                />
+                <Text style={styles.timeText}>
+                  resolves in {getTimeLeft(market.marketEnd)}
+                </Text>
+              </View>
+              <Text style={styles.countdownHighlight}>
+                {getTimeLeft(market.marketEnd)} left
+              </Text>
+            </>
+          )}
         </View>
 
         {/* Market ID */}
@@ -200,7 +225,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   statusText: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "600",
     fontFamily: "Poppins-SemiBold",
     textTransform: "uppercase",
@@ -208,18 +233,18 @@ const styles = StyleSheet.create({
   },
   volume: {
     color: "#ffffff",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "700",
     fontFamily: "Poppins-Bold",
   },
   question: {
     color: "#ffffff",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
     fontFamily: "Poppins-SemiBold",
-    lineHeight: 15,
+    lineHeight: 16,
     marginBottom: 6,
-    height: 30,
+    height: 32,
   },
   timeRange: {
     flexDirection: "row",
@@ -229,7 +254,7 @@ const styles = StyleSheet.create({
   },
   timeRangeText: {
     color: "rgba(255, 255, 255, 0.6)",
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: "Poppins-Regular",
   },
   oddsContainer: {
@@ -237,7 +262,7 @@ const styles = StyleSheet.create({
   },
   oddsText: {
     color: "#ffffff",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
     fontFamily: "Poppins-Bold",
     marginBottom: 4,
@@ -259,12 +284,12 @@ const styles = StyleSheet.create({
   },
   noLabel: {
     color: "rgba(255, 255, 255, 0.6)",
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: "Poppins-Regular",
   },
   yesLabel: {
     color: "rgba(255, 255, 255, 0.6)",
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: "Poppins-Regular",
   },
   bottomRow: {
@@ -280,13 +305,13 @@ const styles = StyleSheet.create({
   },
   timeText: {
     color: "rgba(255, 255, 255, 0.5)",
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: "Poppins-Regular",
     flexShrink: 1,
   },
   countdownHighlight: {
     color: "#f59e0b",
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "600",
     fontFamily: "Poppins-SemiBold",
   },

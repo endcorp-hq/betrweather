@@ -119,7 +119,7 @@ export default function GuardedScreen({
         setHasValidAuth(false);
         return;
       }
-      console.log("jwtTokens", !!jwtTokens.refreshToken, jwtTokens.refreshTokenExpiresAt);
+      // console.log("jwtTokens", !!jwtTokens.refreshToken, jwtTokens.refreshTokenExpiresAt);
       const refreshTokenValid = tokenManager.isRefreshTokenValid(jwtTokens);
       if (!refreshTokenValid) {
         console.log("Refresh token invalid, logging out user");
