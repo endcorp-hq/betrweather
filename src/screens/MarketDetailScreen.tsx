@@ -29,7 +29,7 @@ import {
 import { WinningDirection, MarketType } from "@endcorp/depredict";
 import axios from "axios";
 import { useAPI } from "../hooks/useAPI";
-import { formatDate, extractErrorMessage, normalizeWinningDirection } from "@/utils";
+import { formatDate, extractErrorMessage, normalizeWinningDirection, toUi } from "@/utils";
 import theme from "../theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -269,7 +269,15 @@ function SwipeableBetCard({
                 />
                 <Text style={styles.detailLabel}>Volume:</Text>
                 <Text style={styles.detailValue}>
-                  ${(parseFloat(market.volume || "0") / 10 ** 6).toFixed(2)}
+                  ${(() => {
+                    // Use derived UI volume if available (already converted)
+                    if (market._derived?.ui?.volume !== undefined) {
+                      return Number(market._derived.ui.volume).toFixed(2);
+                    }
+                    // Otherwise convert using market decimals
+                    const decimals = Number(market?.decimals ?? 6);
+                    return toUi(market.volume || "0", decimals).toFixed(2);
+                  })()}
                   {hasRecentEvent && (
                     <Text style={{ color: "#10b981", fontSize: 12 }}> ●</Text>
                   )}
@@ -1014,6 +1022,7 @@ export default function SlotMachineScreen() {
         console.log('[Forward After]', { signature: forwarded?.signature, status: forwarded?.status });
         signature = forwarded.signature;
       } else {
+        console.log('[Build Open Position]', finalMarketId);
         // Backend builder fallback: build base64 message, sign, and forward
         const build = await buildOpenPosition({
           marketId: Number(finalMarketId),

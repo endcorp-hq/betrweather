@@ -78,7 +78,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
   const noOdds = 100 - yesOdds;
 
   // Volume
-  const volume = Number(market.volume || 0);
+  const volume = Number(market.volume/10**6 || 0);
 
   // Determine bar color based on type
   const getBarColor = () => {
@@ -115,7 +115,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
               {statusText}
             </Text>
           </View>
-          <Text style={styles.volume}>${volume.toFixed(2)}</Text>
+          <Text style={styles.volume}>${volume.toFixed(1)}</Text>
         </View>
 
         {/* Question */}
