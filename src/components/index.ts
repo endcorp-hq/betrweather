@@ -16,4 +16,7 @@ export * from './sign-in';
 export * from './top-bar';
 
 // Weather Components
-export * from './weather'; 
+export * from './weather';
+
+// Previous Positions Table
+export { PreviousPositionsTable } from './PreviousPositionsTable'; 

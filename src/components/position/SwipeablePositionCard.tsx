@@ -16,8 +16,11 @@ import {
   isPositionClaimable,
   isPositionLost,
   calculatePayout,
+  resolveCurrency,
+  getCurrencyLabel,
+  formatAmountDisplay,
 } from "../../utils/positionUtils";
-import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "../../types/currency";
+import { CURRENCY_DISPLAY_NAMES } from "../../types/currency";
 
 interface SwipeablePositionCardProps {
   position: PositionWithMarket;
@@ -28,19 +31,6 @@ interface SwipeablePositionCardProps {
 }
 
 // Minimal card design for portfolio positions
-
-const currencySet = new Set<string>(Object.values(CurrencyType));
-
-const resolveCurrency = (value?: string | null): CurrencyType | undefined => {
-  if (!value) return undefined;
-  const normalized = value.toUpperCase();
-  return currencySet.has(normalized) ? (normalized as CurrencyType) : undefined;
-};
-
-const formatAmountDisplay = (value: number) =>
-  Number.isFinite(value)
-    ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "0.00";
 
 export function SwipeablePositionCard({
   position,
@@ -53,22 +43,13 @@ export function SwipeablePositionCard({
   const isClaimable = isPositionClaimable(position);
   const isLost = isPositionLost(position);
 
-  const resolvedCurrency =
-    resolveCurrency(position.currency) ??
-    resolveCurrency(position.market?.currency);
-
   const baseAmount = Number.isFinite(Number(position.amount))
     ? Number(position.amount)
     : 0;
   const payoutAmount = isClaimable ? calculatePayout(position) : null;
   const displayAmount = isClaimable && payoutAmount !== null ? payoutAmount : baseAmount;
   const amountLabel = isClaimable ? "Payout" : "Stake";
-  const fallbackCurrency = position.market?.currency || position.currency || "";
-  const currencyLabel = resolvedCurrency
-    ? CURRENCY_DISPLAY_NAMES[resolvedCurrency]
-    : fallbackCurrency.includes("_")
-      ? fallbackCurrency.split("_")[0]
-      : fallbackCurrency;
+  const currencyLabel = getCurrencyLabel(position.currency, position.market?.currency);
   const amountDisplay = formatAmountDisplay(displayAmount);
   const directionRaw =
     typeof position.direction === "string"

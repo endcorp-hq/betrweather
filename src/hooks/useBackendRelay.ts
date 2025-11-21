@@ -462,7 +462,6 @@ export function useBackendRelay() {
         throw new Error(text || `Submit failed: ${res.status}`);
       }
       const json = await res.json();
-      try { console.log('[Forward Success]', { signature: json?.signature, status: json?.status }); } catch {}
       return json;
     },
     [API_BASE, ensureAuthToken, selectedAccount]
@@ -610,7 +609,7 @@ export function useBackendRelay() {
   }, [API_BASE, ensureAuthToken, selectedAccount]);
 
   // Fetch user bets paginated list (fallback/pagination view)
-  const getUserBetsPaginated = useCallback(async (walletAddress: string | undefined, limit = 25, offset = 0): Promise<any[]> => {
+  const getUserBetsPaginated = useCallback(async (walletAddress: string | undefined, limit = 25, offset = 0, includeClaimed = false): Promise<any[]> => {
     const token = await ensureAuthToken();
     const headersBase = {
       'Content-Type': 'application/json',
@@ -621,7 +620,8 @@ export function useBackendRelay() {
     const wallet = walletAddress || selectedAccount?.publicKey?.toBase58?.();
     if (!wallet) throw new Error('Wallet not connected');
     const base = API_BASE.replace(/\/$/, '');
-    const url = `${base}/bets/user/${encodeURIComponent(wallet)}?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`;
+    const includeClaimedParam = includeClaimed ? '&includeClaimed=true' : '';
+    const url = `${base}/bets/user/${encodeURIComponent(wallet)}?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}${includeClaimedParam}`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
     if (res.status === 401) {
       const fresh = await ensureAuthToken(true);
@@ -636,7 +636,14 @@ export function useBackendRelay() {
       throw new Error(text || `GET /bets/user/:wallet failed: ${res.status}`);
     }
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    // Backend returns { bets, total, hasMore } or array directly
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data && Array.isArray(data.bets)) {
+      return data.bets;
+    }
+    return [];
   }, [API_BASE, ensureAuthToken, selectedAccount]);
 
   const signBuiltTransaction = useCallback(
@@ -656,7 +663,7 @@ export function useBackendRelay() {
           const v0 = MessageV0.deserialize(rawBytes);
           unsignedTx = new VersionedTransaction(v0);
         } catch (parseErr) {
-          console.error("[Relay] Failed to parse settle payload", parseErr);
+          log('Relay', 'error', 'Failed to parse settle payload', parseErr);
           throw new Error("Unable to deserialize settle transaction payload");
         }
       }
@@ -679,10 +686,10 @@ export function useBackendRelay() {
             unitsConsumed: sim?.value?.unitsConsumed ?? null
           });
           if (sim?.value?.err) {
-            console.error("[Relay] settle simulation error", sim.value.err, sim.value.logs);
+            log('Relay', 'error', 'settle simulation error', { err: sim.value.err, logs: sim.value.logs });
           }
         } catch (simErr) {
-          console.warn("[Relay] settle simulation failed", simErr);
+          log('Relay', 'warn', 'settle simulation failed', simErr);
         }
       }
 

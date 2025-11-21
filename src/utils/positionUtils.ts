@@ -1,9 +1,45 @@
 import type { PublicKey } from "@metaplex-foundation/umi";
-import { CurrencyType } from "src/types/currency";
+import { CurrencyType, CURRENCY_DISPLAY_NAMES } from "src/types/currency";
 import { apiClient } from "./apiClient";
 import { getJWTTokens } from "./authUtils";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { normalizeWinningDirection } from "./marketUtils";
+
+// Shared currency utilities
+const currencySet = new Set<string>(Object.values(CurrencyType));
+
+export const resolveCurrency = (value?: string | null): CurrencyType | undefined => {
+  if (!value) return undefined;
+  const normalized = value.toUpperCase();
+  return currencySet.has(normalized) ? (normalized as CurrencyType) : undefined;
+};
+
+export const getCurrencyLabel = (currency?: string | null, fallbackCurrency?: string | null): string => {
+  const resolved = resolveCurrency(currency) ?? resolveCurrency(fallbackCurrency);
+  if (resolved) {
+    return CURRENCY_DISPLAY_NAMES[resolved];
+  }
+  const fallback = fallbackCurrency || currency || "";
+  return fallback.includes("_") ? fallback.split("_")[0] : fallback;
+};
+
+export const formatAmountDisplay = (value: number): string =>
+  Number.isFinite(value)
+    ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "0.00";
+
+export const formatPositionDate = (date?: string | Date | number): string => {
+  if (!date) return "—";
+  try {
+    const d = typeof date === 'number' 
+      ? new Date(date * 1000) 
+      : new Date(date);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "—";
+  }
+};
 
 export interface PositionWithMarket {
   assetId: PublicKey; 
@@ -250,7 +286,7 @@ export async function getUserBetsRefreshed(walletAddress: string) {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error("Error refreshing user bets:", error);
+    // Error is re-thrown for caller to handle
     throw error;
   }
 }

@@ -115,7 +115,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
               {statusText}
             </Text>
           </View>
-          <Text style={styles.volume}>${volume.toFixed(1)}</Text>
+          <Text style={styles.volume}>${volume.toFixed(2)}</Text>
         </View>
 
         {/* Question */}
