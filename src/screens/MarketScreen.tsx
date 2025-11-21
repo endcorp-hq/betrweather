@@ -290,8 +290,11 @@ export default function MarketScreen() {
             <TouchableOpacity
               onPress={() => setShowFilterModal(true)}
               activeOpacity={0.7}
-              className="bg-white/10 border border-white/20 rounded-xl p-2.5"
+              className="bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 flex-row items-center gap-2"
             >
+              <Text className="text-white text-xs font-better-regular">
+                {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
+              </Text>
               <MaterialCommunityIcons
                 name="tune"
                 size={16}
