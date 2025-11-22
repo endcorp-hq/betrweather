@@ -73,7 +73,7 @@ This project is submitted to the [Solana Mobile Hackathon](https://solanamobile.
 - Android Studio (for native development)
 - Expo CLI
 - Java 17+ (for Android builds)
-- Android SDK 34+
+- Android SDK 35+
 
 ### Quick Start
 ```bash
