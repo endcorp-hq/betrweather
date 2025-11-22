@@ -19,7 +19,7 @@ export default function InfoScreen() {
   return (
     <DefaultBg>
       <ScrollView
-        className="flex-1 px-6 pt-10"
+        className="flex-1 px-6 pt-6"
         contentContainerStyle={{ paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >

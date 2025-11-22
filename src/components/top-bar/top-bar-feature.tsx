@@ -16,7 +16,7 @@ export function TopBar() {
     <View className="flex-row justify-between items-center px-4 py-2 pt-20 bg-black">
       <View className="flex-row items-center flex-1 justify-between">
         <Text className="text-white text-[24px] font-better-bold">BetrWeather</Text>
-        <TouchableOpacity
+        {/* <TouchableOpacity
           onPress={handleInfoPress}
           className="ml-3 p-1"
           activeOpacity={0.7}
@@ -26,7 +26,7 @@ export function TopBar() {
             size={24} 
             color="white" 
           />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
       {selectedAccount && <TopBarWalletMenu />}
     </View>

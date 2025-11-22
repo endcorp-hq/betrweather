@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { DarkCard } from "../ui";
 import { normalizeWinningDirection } from "@/utils";
+import { formatMarketDuration } from "./format-market-duration";
 
 function getTimeLeft(endTimestamp: string | number | undefined) {
   if (!endTimestamp) return "ended";
@@ -131,7 +132,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
             color="rgba(255, 255, 255, 0.5)"
           />
           <Text style={styles.timeRangeText}>
-            {formatTime(market.marketStart)} to {formatTime(market.marketEnd)}
+            {formatMarketDuration(market.marketStart, market.marketEnd)}
           </Text>
         </View>
 

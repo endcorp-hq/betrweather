@@ -87,7 +87,27 @@ export async function signInUser(publicKey: string, signature: string, payload: 
   );
 
   if (!response.ok) {
-    throw new Error(`Sign in user failed: ${response.status}`);
+    // Create error with status code for proper error handling
+    const error: any = new Error(`Sign in user failed: ${response.status}`);
+    error.status = response.status;
+    error.statusText = response.statusText;
+    
+    // Try to get error message from response
+    try {
+      const errorBody = await response.json();
+      error.message = errorBody?.message || errorBody?.error || errorBody?.detail || error.message;
+    } catch {
+      try {
+        const errorText = await response.text();
+        if (errorText) {
+          error.message = errorText;
+        }
+      } catch {
+        // Keep default message
+      }
+    }
+    
+    throw error;
   }
 
   const data = await response.json();

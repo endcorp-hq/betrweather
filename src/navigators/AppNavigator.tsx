@@ -86,11 +86,11 @@ const AppStack = () => {
         component={GuardedClaimPositionsScreen}
         options={{ headerShown: true, header: () => <TopBar /> }}
       />
-      <Stack.Screen
+      {/* <Stack.Screen
         name="Info"
         component={InfoScreen}
         options={{ headerShown: true, header: () => <TopBar /> }}
-      />
+      /> */}
     </Stack.Navigator>
   );
 };

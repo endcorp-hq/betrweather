@@ -7,6 +7,28 @@ export function formatMarketDuration(startTs: string | number | undefined, endTs
     const endDate = new Date(Number(endTs) * 1000);
     const currentDate = new Date();
     
+    // Check if this is a daily market (duration between 1-24 hours)
+    const durationMs = Number(endTs) * 1000 - Number(startTs) * 1000;
+    const durationHours = durationMs / (1000 * 60 * 60);
+    const isDaily = durationHours > 1 && durationHours <= 24;
+    
+    // For daily markets, show just the date range (e.g., "17th to 18th Feb")
+    if (isDaily) {
+      const startDay = startDate.getDate();
+      const startMonth = startDate.toLocaleDateString('en-US', { month: 'short' });
+      const endDay = endDate.getDate();
+      const endMonth = endDate.toLocaleDateString('en-US', { month: 'short' });
+      
+      // If same month, show "17th to 18th Feb"
+      if (startMonth === endMonth) {
+        return `${startDay}${getDaySuffix(startDay)} to ${endDay}${getDaySuffix(endDay)} ${startMonth}`;
+      } else {
+        // Different months: "31st Jan to 1st Feb"
+        return `${startDay}${getDaySuffix(startDay)} ${startMonth} to ${endDay}${getDaySuffix(endDay)} ${endMonth}`;
+      }
+    }
+    
+    // For non-daily markets, use the existing time-based format
     // Check if market time is today
     const isToday = startDate.toDateString() === currentDate.toDateString();
     

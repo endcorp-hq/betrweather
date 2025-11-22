@@ -8,6 +8,7 @@ import {
   Animated,
   Dimensions,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import { useAuthorization } from "../../hooks/solana/useAuthorization";
 import {
@@ -32,10 +33,16 @@ export function SignupDrawer({
   isVisible,
   onClose,
   selectedChain,
+  preSignedData,
 }: {
   isVisible: boolean;
   onClose: () => void;
   selectedChain: Chain;
+  preSignedData?: {
+    publicKey: string;
+    signature: string;
+    payload: string;
+  };
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -202,6 +209,7 @@ export function SignupDrawer({
             disabled={!isFormValid}
             userData={{ name: name.trim(), email: email.trim() }}
             onSignupConflict={handleSignupConflict}
+            preSignedData={preSignedData}
           />
         </View>
       </Animated.View>
@@ -215,11 +223,17 @@ function DrawerSignUpButton({
   disabled,
   userData,
   onSignupConflict,
+  preSignedData,
 }: {
   selectedChain: Chain;
   disabled: boolean;
   userData: { name: string; email: string };
   onSignupConflict?: () => void;
+  preSignedData?: {
+    publicKey: string;
+    signature: string;
+    payload: string;
+  };
 }) {
   const { signMessage } = useMobileWallet();
   const { signupWithBackend } = useBackendAuth();
@@ -233,23 +247,36 @@ function DrawerSignUpButton({
       }
       setSignInInProgress(true);
 
-      // Generate secure sign-in payload
-      const securePayload = await generateSecureSignInPayload();
+      let publicKey: string;
+      let signature: string;
+      let payload: string;
 
-      if (!securePayload) {
-        throw new Error("Failed to get sign in payload from server");
+      // Use pre-signed data if available, otherwise sign new message
+      if (preSignedData) {
+        publicKey = preSignedData.publicKey;
+        signature = preSignedData.signature;
+        payload = preSignedData.payload;
+      } else {
+        // Generate secure sign-in payload
+        const securePayload = await generateSecureSignInPayload();
+
+        if (!securePayload) {
+          throw new Error("Failed to get sign in payload from server");
+        }
+
+        const signed = await signMessage(
+          Buffer.from(JSON.stringify(securePayload)),
+          selectedChain
+        );
+        signature = bs58.encode(signed.signature);
+        publicKey = signed.publicKey;
+        payload = JSON.stringify(securePayload);
       }
-
-      const { signature, publicKey } = await signMessage(
-        Buffer.from(JSON.stringify(securePayload)),
-        selectedChain
-      );
-      const signEndcoded = bs58.encode(signature);
 
       await signupWithBackend(
         publicKey,
-        signEndcoded,
-        JSON.stringify(securePayload),
+        signature,
+        payload,
         userData
       );
     } catch (err: any) {
@@ -280,6 +307,7 @@ function DrawerSignUpButton({
     userData,
     onSignupConflict,
     toast,
+    preSignedData,
   ]);
 
   return (
@@ -400,6 +428,221 @@ export function SignInButton({ selectedChain }: { selectedChain?: Chain }) {
         onClose={() => setDrawerVisible(false)}
         selectedChain={resolvedChain}
       />
+    </>
+  );
+}
+
+// Unified Login Button - tries signin first, shows form if user doesn't exist
+export function UnifiedLoginButton({ selectedChain }: { selectedChain: Chain }) {
+  const { signMessage, disconnect } = useMobileWallet();
+  const { selectedAccount } = useAuthorization();
+  const { signinWithBackend, isBackendAuthenticated } = useBackendAuth();
+  const { toast } = useToast();
+  
+  const [authState, setAuthState] = useState<
+    "idle" | "signing" | "authenticating" | "signingUp"
+  >("idle");
+  const [showSignupForm, setShowSignupForm] = useState(false);
+  const [preSignedData, setPreSignedData] = useState<{
+    publicKey: string;
+    signature: string;
+    payload: string;
+  } | null>(null);
+  const [signupDrawerVisible, setSignupDrawerVisible] = useState(false);
+
+  // Close signup drawer and reset state when authenticated
+  useEffect(() => {
+    if (isBackendAuthenticated && authState !== "idle") {
+      setShowSignupForm(false);
+      setSignupDrawerVisible(false);
+      setPreSignedData(null);
+      setAuthState("idle");
+    }
+  }, [isBackendAuthenticated, authState]);
+
+  const handleUnifiedLogin = useCallback(async () => {
+    try {
+      // Prevent multiple simultaneous attempts
+      if (authState !== "idle") {
+        return;
+      }
+
+      setAuthState("signing");
+
+      // Step 1: Generate secure payload and get wallet signature
+      // Note: We don't disconnect here because signMessage will handle
+      // the wallet connection/authorization flow properly
+      const securePayload = await generateSecureSignInPayload();
+      if (!securePayload) {
+        throw new Error("Failed to get sign in payload from server");
+      }
+
+      const { signature, publicKey } = await signMessage(
+        Buffer.from(JSON.stringify(securePayload)),
+        selectedChain
+      );
+      const signEncoded = bs58.encode(signature);
+      const payloadString = JSON.stringify(securePayload);
+
+      // Store signed data in case we need it for signup
+      const signedData = {
+        publicKey,
+        signature: signEncoded,
+        payload: payloadString,
+      };
+      setPreSignedData(signedData);
+
+      // Step 2: Try signin first (show loader)
+      setAuthState("authenticating");
+
+      try {
+        await signinWithBackend(publicKey, signEncoded, payloadString);
+        // Success - user exists and is now logged in
+        // isBackendAuthenticated will be set by the hook
+        return;
+      } catch (signinError: any) {
+        // Check if this is a network error (no status code)
+        const isNetworkError =
+          !signinError?.status &&
+          (signinError?.message?.toLowerCase().includes("network") ||
+            signinError?.message?.toLowerCase().includes("fetch") ||
+            signinError?.message?.toLowerCase().includes("connection") ||
+            signinError?.name === "TypeError");
+
+        if (isNetworkError) {
+          const errorMessage =
+            signinError instanceof Error
+              ? signinError.message
+              : "Network error. Please check your connection and try again.";
+          toast.error("Connection error", errorMessage);
+          setAuthState("idle");
+          setPreSignedData(null);
+          return;
+        }
+
+        // Check if error indicates user doesn't exist
+        const status = signinError?.status;
+        const message = signinError?.message || "";
+        const isUserNotFound =
+          status === 404 ||
+          status === 401 ||
+          (typeof message === "string" &&
+            (message.toLowerCase().includes("not found") ||
+              message.toLowerCase().includes("does not exist") ||
+              message.toLowerCase().includes("user not found")));
+
+        if (isUserNotFound) {
+          // User doesn't exist - show signup form with pre-signed data
+          setShowSignupForm(true);
+          setSignupDrawerVisible(true);
+          setAuthState("idle"); // Reset to idle so form can be used
+          return;
+        }
+
+        // Handle 409 conflict (user created between signin attempt and now)
+        if (status === 409 || message.toLowerCase().includes("already")) {
+          // User was created - retry signin once
+          try {
+            await signinWithBackend(publicKey, signEncoded, payloadString);
+            return;
+          } catch (retryError) {
+            // If retry also fails, show error
+            const retryMessage =
+              retryError instanceof Error
+                ? retryError.message
+                : "Authentication failed. Please try again.";
+            toast.error("Authentication error", retryMessage);
+            setAuthState("idle");
+            setPreSignedData(null);
+            return;
+          }
+        }
+
+        // Other errors (network, server, etc.)
+        const errorMessage =
+          signinError instanceof Error
+            ? signinError.message
+            : "Login failed. Please check your connection and try again.";
+        toast.error("Login failed", errorMessage);
+        setAuthState("idle");
+        setPreSignedData(null);
+      }
+    } catch (err: any) {
+      if (err instanceof Error && err.name === WALLET_CANCELLED_ERROR) {
+        toast.info("Wallet request cancelled");
+      } else {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Authentication failed. Please try again.";
+        toast.error("Error", message);
+      }
+      setAuthState("idle");
+      setPreSignedData(null);
+      setShowSignupForm(false);
+      setSignupDrawerVisible(false);
+    }
+  }, [
+    authState,
+    selectedAccount,
+    selectedChain,
+    signMessage,
+    disconnect,
+    signinWithBackend,
+    toast,
+  ]);
+
+  const handleSignupFormClose = useCallback(() => {
+    setSignupDrawerVisible(false);
+    setShowSignupForm(false);
+    setPreSignedData(null);
+    setAuthState("idle");
+  }, []);
+
+  const getButtonText = () => {
+    switch (authState) {
+      case "signing":
+        return "Signing...";
+      case "authenticating":
+        return "Authenticating...";
+      case "signingUp":
+        return "Creating account...";
+      default:
+        return "Login";
+    }
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        onPress={handleUnifiedLogin}
+        disabled={authState !== "idle"}
+        activeOpacity={authState !== "idle" ? 1 : 0.8}
+        className="relative overflow-hidden min-w-[160px] flex items-center justify-center rounded-lg border border-white/30 bg-white/10 p-3 text-center"
+      >
+        {authState !== "idle" ? (
+          <View className="flex-row items-center gap-2">
+            <ActivityIndicator size="small" color="white" />
+            <Text className="font-better-medium text-white text-base text-nowrap">
+              {getButtonText()}
+            </Text>
+          </View>
+        ) : (
+          <Text className="font-better-medium text-white text-base text-nowrap">
+            {getButtonText()}
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Signup Form Drawer (shown when user doesn't exist) */}
+      {showSignupForm && preSignedData && (
+        <SignupDrawer
+          isVisible={signupDrawerVisible}
+          onClose={handleSignupFormClose}
+          selectedChain={selectedChain}
+          preSignedData={preSignedData}
+        />
+      )}
     </>
   );
 }

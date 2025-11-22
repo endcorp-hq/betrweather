@@ -33,12 +33,14 @@ export function HomeNavigator() {
         header: () =>
           route.name === "Markets" ||
           route.name === "Profile" ||
+          route.name === "Info" ||
           route.name === "MarketDetail" ? (
             <TopBar />
           ) : null,
         headerShown:
           route.name === "Markets" ||
           route.name === "Profile" ||
+          route.name === "Info" ||
           route.name === "MarketDetail",
       })}
     >

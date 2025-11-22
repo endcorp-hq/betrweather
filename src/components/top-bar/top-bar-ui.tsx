@@ -27,6 +27,7 @@ export function TopBarWalletMenu() {
   const openMenu = () => setVisible(true);
   const closeMenu = () => setVisible(false);
   const { disconnect } = useMobileWallet();
+  const navigation = useNavigation();
 
   const copyAddressToClipboard = async () => {
     if (selectedAccount) {
@@ -136,6 +137,14 @@ export function TopBarWalletMenu() {
                 {/* Logout Button */}
                 <TouchableOpacity
                   onPress={async () => {
+                    // Navigate to Markets tab before logging out
+                    try {
+                      navigation.navigate("Markets" as never);
+                      // Small delay to ensure navigation completes
+                      await new Promise((resolve) => setTimeout(resolve, 100));
+                    } catch (err) {
+                      console.warn("Error navigating to Markets:", err);
+                    }
                     await disconnect();
                     closeMenu();
                   }}

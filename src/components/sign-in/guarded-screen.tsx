@@ -1,7 +1,14 @@
-import { View, Text, TouchableOpacity, Image, Animated, Linking } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  Animated,
+  Linking,
+} from "react-native";
 import { useAuthorization } from "../../hooks/solana/useAuthorization";
 import { DefaultBg } from "../ui";
-import { LoginButton } from "./sign-in-ui";
+import { UnifiedLoginButton } from "./sign-in-ui";
 import { useChainToggle } from "../../hooks/useChainToggle";
 import { Chain } from "@solana-mobile/mobile-wallet-adapter-protocol";
 import React from "react";
@@ -9,6 +16,7 @@ import { useState, useEffect } from "react";
 import { tokenManager } from "../../utils/tokenManager";
 import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useBackendAuth } from "src/hooks/useBackendAuth";
 
 // Chain Toggle Component
 function ChainToggle({
@@ -19,7 +27,9 @@ function ChainToggle({
   onToggle: () => void;
 }) {
   const [containerWidth, setContainerWidth] = React.useState(0);
-  const progress = React.useRef(new Animated.Value(selectedChain.includes("mainnet") ? 0 : 1)).current;
+  const progress = React.useRef(
+    new Animated.Value(selectedChain.includes("mainnet") ? 0 : 1)
+  ).current;
 
   React.useEffect(() => {
     Animated.timing(progress, {
@@ -59,7 +69,7 @@ function ChainToggle({
 
           {/* Labels */}
           <View className="flex-row">
-          <View className="flex-1 py-2 px-1">
+            <View className="flex-1 py-2 px-1">
               <Text
                 className={`text-center text-base font-better-medium ${
                   selectedChain.includes("mainnet")
@@ -104,7 +114,9 @@ export default function GuardedScreen({
   const { selectedAccount, clearAuthorization } = useAuthorization();
   const { jwtTokens } = useBackendAuth();
   const { selectedChain, toggleChain } = useChainToggle();
-  const effectiveSelectedChain: Chain = ENABLE_NETWORK_TOGGLE ? selectedChain : 'solana:mainnet-beta';
+  const effectiveSelectedChain: Chain = ENABLE_NETWORK_TOGGLE
+    ? selectedChain
+    : "solana:mainnet-beta";
   const [hasValidAuth, setHasValidAuth] = useState(true);
   const handleDiscordPress = React.useCallback(() => {
     Linking.openURL("https://discord.gg/p4QBXFeJFx");
@@ -127,7 +139,7 @@ export default function GuardedScreen({
         setHasValidAuth(false);
         return;
       }
-      
+
       const accessTokenValid =
         jwtTokens.accessToken &&
         Date.now() < new Date(jwtTokens.expiresAt).getTime();
@@ -153,7 +165,6 @@ export default function GuardedScreen({
   return (
     <DefaultBg>
       <View className="flex-1 justify-center items-center">
-
         <View className="items-center ">
           <Image
             source={require("../../../assets/logo/betrCloud.png")}
@@ -166,17 +177,20 @@ export default function GuardedScreen({
           {ENABLE_NETWORK_TOGGLE ? (
             <ChainToggle selectedChain={selectedChain} onToggle={toggleChain} />
           ) : null}
-          <View className="flex-row gap-4 mt-20">
-            <LoginButton selectedChain={effectiveSelectedChain} />
-            <SignupButton selectedChain={effectiveSelectedChain} />
+          <View className="flex-row gap-4 justify-center">
+            <UnifiedLoginButton selectedChain={effectiveSelectedChain} />
           </View>
         </View>
-        <View className="bg-blue-900/20 border border-blue-500/50 rounded-lg p-4 mx-4 mt-4">
-          <Text className="text-white text-base font-better-regular text-center">
-            BetrWeather predictions are currently in beta with a limited number of markets.
+        <View className="bg-blue-900/20 border border-blue-500/50 rounded-lg p-4 mx-4 mt-10">
+          <Text className="text-white text-sm font-better-regular text-center">
+            BetrWeather predictions are currently in beta.
           </Text>
-          <Text className="text-white text-base font-better-regular text-center mt-2">
-            If this is your first time using the app, please click sign up to create an account. You must have a seeker or Superteam NFT to gain access. 
+          <Text className="text-white text-sm font-better-regular text-center mt-2">
+            Login to connect your wallet. If you're new,
+            you'll be prompted to create an account.
+          </Text>
+          <Text className="text-white text-sm font-better-regular text-center mt-2">
+            Solana Seeker or Superteam NFT required to gain access.
           </Text>
           <View className="flex-row justify-center gap-3 mt-4 flex-wrap">
             <TouchableOpacity
@@ -184,19 +198,27 @@ export default function GuardedScreen({
               activeOpacity={0.8}
               className="flex-row items-center px-4 py-2 rounded-full border border-white/25 bg-white/10"
             >
-              <MaterialCommunityIcons name="discord" size={20} color="#7289da" />
+              <MaterialCommunityIcons
+                name="discord"
+                size={20}
+                color="#7289da"
+              />
               <Text className="text-white text-sm font-better-medium ml-2">
-                Join our Discord
+                Join Discord
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleTwitterPress}
               activeOpacity={0.8}
-              className="flex-row items-center px-4 py-2 rounded-full border border-white/25 bg-white/10"
+              className="flex-row items-center px-6 py-4 rounded-full border border-white/25 bg-white/10"
             >
-              <MaterialCommunityIcons name="alpha-x-circle-outline" size={20} color="#38bdf8" />
+              <MaterialCommunityIcons
+                name="alpha-x-circle-outline"
+                size={20}
+                color="#38bdf8"
+              />
               <Text className="text-white text-sm font-better-medium ml-2">
-                Follow us on X
+                Follow on X
               </Text>
             </TouchableOpacity>
           </View>
@@ -205,31 +227,3 @@ export default function GuardedScreen({
     </DefaultBg>
   );
 }
-
-// Signup Button Component (uses the drawer)
-function SignupButton({ selectedChain }: { selectedChain: Chain }) {
-  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
-  return (
-    <>
-      <TouchableOpacity
-        onPress={() => setIsDrawerVisible(true)}
-        activeOpacity={0.8}
-        className="relative overflow-hidden w-[120px] flex items-center justify-center rounded-lg border border-white/30 bg-white/10 p-3 text-center"
-      >
-        <Text className="font-better-medium text-white text-base text-nowrap">
-          Signup
-        </Text>
-      </TouchableOpacity>
-
-      <SignupDrawer
-        isVisible={isDrawerVisible}
-        onClose={() => setIsDrawerVisible(false)}
-        selectedChain={selectedChain}
-      />
-    </>
-  );
-}
-
-// Import the LoginDrawer component
-import { SignupDrawer } from "./sign-in-ui";
-import { useBackendAuth } from "src/hooks/useBackendAuth";

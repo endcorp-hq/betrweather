@@ -14,6 +14,10 @@ import {
 import { Account } from "src/types/solana-types";
 import { useChain } from "@/contexts/ChainProvider";
 import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
+import { useQuery } from "@tanstack/react-query";
+import { fetchAuthorization } from "../utils/authUtils";
+import { STORAGE_KEYS } from "../utils/constants";
+import { APP_IDENTITY } from "./solana/useAuthorization";
 
 export const WALLET_CANCELLED_ERROR = "WalletCancelledError";
 
@@ -82,6 +86,12 @@ export function useMobileWallet() {
     userSession,
   } = useAuthorization();
   const { currentChain } = useChain();
+  
+  // Get authorization to check for existing authToken
+  const { data: authorization } = useQuery({
+    queryKey: [STORAGE_KEYS.AUTHORIZATION],
+    queryFn: () => fetchAuthorization(),
+  });
 
   const resolveChainIdentifier = useCallback(
     (override?: Chain): Chain => {
@@ -217,18 +227,50 @@ export function useMobileWallet() {
     async (message: Uint8Array, chainIdentifier?: Chain): Promise<{ signature: Uint8Array; publicKey: string }> => {
       return await transact(async (wallet) => {
         const chainToUse = resolveChainIdentifier(chainIdentifier);
-        await authorizeSession(wallet, chainToUse);
-        const attempt = async () => {
-          if (selectedAccount?.address) {
-            const signed = await wallet.signMessages({
-              addresses: [selectedAccount.address],
-              payloads: [message],
-            });
-            return {
-              signature: signed[0],
-              publicKey: selectedAccount.publicKey.toBase58(),
-            };
+        
+        // Try to sign directly if we have a selectedAccount and authToken
+        // This avoids the double connection prompt
+        const attempt = async (): Promise<{ signature: Uint8Array; publicKey: string }> => {
+          if (selectedAccount?.address && authorization?.authToken) {
+            try {
+              // Try to sign with existing session first (no additional prompt)
+              const signed = await wallet.signMessages({
+                addresses: [selectedAccount.address],
+                payloads: [message],
+              });
+              return {
+                signature: signed[0],
+                publicKey: selectedAccount.publicKey.toBase58(),
+              };
+            } catch (signError: any) {
+              // If signing fails with auth error, we need to reauthorize
+              if (isAuthorizationError(signError)) {
+                // Try reauthorize first (shouldn't prompt if successful)
+                try {
+                  const reauthResult = await wallet.reauthorize({
+                    identity: APP_IDENTITY,
+                    auth_token: authorization.authToken,
+                  });
+                  // Reauthorize succeeded, try signing again
+                  const signed = await wallet.signMessages({
+                    addresses: [selectedAccount.address],
+                    payloads: [message],
+                  });
+                  return {
+                    signature: signed[0],
+                    publicKey: selectedAccount.publicKey.toBase58(),
+                  };
+                } catch (reauthError) {
+                  // Reauthorize failed, fall through to full authorize
+                  throw signError; // Will be caught and handled below
+                }
+              }
+              throw signError;
+            }
           }
+          
+          // No existing session - need to authorize (this will prompt)
+          // Use authorizeSession which handles reauthorize/authorize logic
           const authResult = await authorizeSession(wallet, chainToUse);
           const signedMessages = await wallet.signMessages({
             addresses: [authResult.address],
@@ -239,6 +281,7 @@ export function useMobileWallet() {
             publicKey: authResult.publicKey.toBase58(),
           };
         };
+        
         try {
           return await attempt();
         } catch (e) {
@@ -248,6 +291,7 @@ export function useMobileWallet() {
             throw cancelError;
           }
           if (isAuthorizationError(e)) {
+            // Authorization failed - need to authorize (this will prompt)
             const authResult = await authorizeSession(wallet, chainToUse);
             const signedMessages = await wallet.signMessages({
               addresses: [authResult.address],
@@ -262,7 +306,7 @@ export function useMobileWallet() {
         }
       });
     },
-    [authorizeSession, resolveChainIdentifier, selectedAccount?.address, selectedAccount?.publicKey]
+    [authorizeSession, resolveChainIdentifier, selectedAccount?.address, selectedAccount?.publicKey, authorization?.authToken]
   );
 
   return useMemo(

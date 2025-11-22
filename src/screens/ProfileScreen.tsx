@@ -33,7 +33,21 @@ export default function ProfileScreen() {
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Logout", style: "destructive", onPress: disconnect },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          // Navigate to Markets tab before logging out
+          try {
+            navigation.navigate("Markets" as never);
+            // Small delay to ensure navigation completes
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          } catch (err) {
+            console.warn("Error navigating to Markets:", err);
+          }
+          await disconnect();
+        },
+      },
     ]);
   };
 
