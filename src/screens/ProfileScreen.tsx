@@ -328,7 +328,7 @@ function PersonalStatsView({ user }: { user: any }) {
           </View>
           
           {/* BONK */}
-          <View className="flex-row justify-between items-center">
+          {/* <View className="flex-row justify-between items-center">
             <View className="flex-row items-center">
               <View className="w-8 h-8 rounded-full items-center justify-center mr-3">
                 <Image
@@ -342,10 +342,10 @@ function PersonalStatsView({ user }: { user: any }) {
             <Text className="text-white font-better-semi-bold text-lg">
               {formatNumber((user.totalWonAmountBonk || 0) / 1000000, 4)}
             </Text>
-          </View>
+          </View> */}
 
           {/* SOL */}
-          <View className="flex-row justify-between items-center">
+          {/* <View className="flex-row justify-between items-center">
             <View className="flex-row items-center">
               <View className="w-8 h-8 rounded-full items-center justify-center mr-3">
                 <Image
@@ -359,7 +359,7 @@ function PersonalStatsView({ user }: { user: any }) {
             <Text className="text-white font-better-semi-bold text-lg">
               {formatNumber((user.totalWonAmountSol || 0) / LAMPORTS_PER_SOL, 6)}
             </Text>
-          </View>
+          </View> */}
         </View>
       </View>
     </View>
