@@ -150,7 +150,23 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
 
         {/* Bottom Row */}
         <View style={styles.bottomRow}>
-          {isBettingOpen ? (
+          {hasOutcome ? (
+            <>
+              <View style={styles.timeInfo}>
+                <MaterialCommunityIcons
+                  name="check-circle"
+                  size={12}
+                  color={statusColor}
+                />
+                <Text style={styles.timeText}>
+                  Resolved to {winningDirection === "Yes" ? "YES" : "NO"}
+                </Text>
+              </View>
+              <Text style={[styles.countdownHighlight, { color: statusColor }]}>
+                {winningDirection === "Yes" ? "YES" : "NO"}
+              </Text>
+            </>
+          ) : isBettingOpen ? (
             <>
               <View style={styles.timeInfo}>
                 <MaterialCommunityIcons
