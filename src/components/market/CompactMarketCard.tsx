@@ -162,9 +162,9 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
                   Resolved to {winningDirection === "Yes" ? "YES" : "NO"}
                 </Text>
               </View>
-              <Text style={[styles.countdownHighlight, { color: statusColor }]}>
+              {/* <Text style={[styles.countdownHighlight, { color: statusColor }]}>
                 {winningDirection === "Yes" ? "YES" : "NO"}
-              </Text>
+              </Text> */}
             </>
           ) : isBettingOpen ? (
             <>
