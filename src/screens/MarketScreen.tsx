@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { Text, StyleSheet, View, FlatList, TouchableOpacity, ScrollView, Modal, Pressable, ActivityIndicator } from "react-native";
+import { Text, StyleSheet, View, FlatList, TouchableOpacity, ScrollView, Modal, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { MarketCard, CompactMarketCard } from "@/components";
 import { computeDerived, normalizeWinningDirection, isBackendResolvedState, isPositionClaimable } from "@/utils";
 import theme from "../theme";
@@ -278,6 +278,14 @@ export default function MarketScreen() {
       className="flex-1"
       showsVerticalScrollIndicator={false}
       nestedScrollEnabled={true}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#10b981"
+          colors={["#10b981"]}
+        />
+      }
     >
       {/* Fixed Header Section */}
       <MotiView
@@ -287,6 +295,22 @@ export default function MarketScreen() {
       >
         <View className="px-4 pt-10 pb-4">
           <View className="flex-row justify-end items-center gap-3 mb-4">
+            <TouchableOpacity
+              onPress={onRefresh}
+              activeOpacity={0.7}
+              disabled={refreshing}
+              className="bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 flex-row items-center gap-2"
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <MaterialCommunityIcons
+                  name="refresh"
+                  size={16}
+                  color="white"
+                />
+              )}
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowFilterModal(true)}
               activeOpacity={0.7}

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform } from "react-native";
+import { Platform, AppState, AppStateStatus } from "react-native";
 import { useBackendRelay } from "./useBackendRelay";
 import { useAuthorization } from "./solana/useAuthorization";
+import { useBackendAuth } from "./useBackendAuth";
 import { useChain } from "../contexts/ChainProvider";
 import { useShortx } from "./solana/useContract";
 import { ENABLE_ONCHAIN_CLIENT } from "src/config/featureFlags";
@@ -46,6 +47,7 @@ export function useMarkets(
   const { resolvedLastHours = 24, autoStart = true } = opts;
   const { ensureAuthToken } = useBackendRelay();
   const { selectedAccount, userSession } = useAuthorization();
+  const { isBackendAuthenticated } = useBackendAuth();
   const { marketEvents } = useShortx();
   const { currentChain } = useChain();
 
@@ -87,6 +89,7 @@ export function useMarkets(
   const activePageRef = useRef<number>(1);
   const observingPageRef = useRef<number>(1);
   const resolvedPageRef = useRef<number>(1);
+  const prevAuthStateRef = useRef<boolean>(false);
   const PAGE_LIMIT_DEFAULT = 10;
 
   const selectedNetwork = useMemo(() => {
@@ -700,6 +703,55 @@ export function useMarkets(
       upsertMany(patches);
     } catch {}
   }, [marketEvents, upsertMany]);
+
+  // Refresh markets when app comes to foreground
+  useEffect(() => {
+    if (!autoStart) return;
+    
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        // App has come to the foreground, refresh markets
+        if (!cancelledRef.current) {
+          (async () => {
+            try {
+              await refresh();
+            } catch (e) {
+              // Silently handle errors
+            }
+          })();
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [autoStart, refresh]);
+
+  // Refresh markets when user logs in (auth state changes to authenticated)
+  useEffect(() => {
+    if (!autoStart) return;
+    
+    // Only refresh when transitioning from unauthenticated to authenticated
+    const wasAuthenticated = prevAuthStateRef.current;
+    const isAuthenticated = isBackendAuthenticated;
+    
+    if (!wasAuthenticated && isAuthenticated) {
+      // User just logged in, refresh markets
+      if (!cancelledRef.current) {
+        (async () => {
+          try {
+            await refresh();
+          } catch (e) {
+            // Silently handle errors
+          }
+        })();
+      }
+    }
+    
+    // Update the previous auth state
+    prevAuthStateRef.current = isAuthenticated;
+  }, [isBackendAuthenticated, autoStart, refresh]);
 
   const markets = useMemo(() => marketsList, [marketsList]);
 
