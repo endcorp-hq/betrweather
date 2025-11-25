@@ -323,7 +323,7 @@ function PersonalStatsView({ user }: { user: any }) {
               <Text className="text-gray-300 font-better-regular text-base">USDC</Text>
             </View>
             <Text className="text-white font-better-semi-bold text-lg">
-              ${formatNumber((user.totalWonAmountUSDC || 0) / 1000000, 4)}
+              ${formatNumber((user.totalWonAmountUSDC || 0) / 1000000, 2)}
             </Text>
           </View>
           
