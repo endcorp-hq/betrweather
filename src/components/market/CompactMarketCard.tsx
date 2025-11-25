@@ -56,6 +56,8 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
   const marketStart = Number(market.marketStart) * 1000;
   const marketEnd = Number(market.marketEnd) * 1000;
   const isBettingOpen = now < marketStart;
+  const hasEnded = Number.isFinite(marketEnd) && now >= marketEnd;
+  const isAwaitingResolution = !hasOutcome && !isBettingOpen && hasEnded;
   
   const statusColor = hasOutcome 
     ? "#10b981" 
@@ -181,6 +183,19 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
               <Text style={styles.countdownHighlight}>
                 {getTimeLeft(market.marketStart)} left
               </Text>
+            </>
+          ) : isAwaitingResolution ? (
+            <>
+              <View style={styles.timeInfo}>
+                <MaterialCommunityIcons
+                  name="clock-alert-outline"
+                  size={12}
+                  color="rgba(255, 255, 255, 0.5)"
+                />
+                <Text style={styles.timeText}>
+                  Awaiting resolution
+                </Text>
+              </View>
             </>
           ) : (
             <>
