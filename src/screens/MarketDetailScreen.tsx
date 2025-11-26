@@ -46,6 +46,26 @@ const SUGGESTED_BETS_USDC = [1, 3, 5, 20];
 const SUGGESTED_BETS_BONK = ["30k", "60k", "100k", "200k"];
 const SUGGESTED_BETS_SOL = [0.01, 0.05, 0.1, 0.25];
 
+const WEATHERXM_URL = "https://weatherxm.com/";
+const GOOGLE_WEATHER_URL = "https://developers.google.com/maps/documentation/weather";
+
+const LOCATION_BOUNDS = {
+  london: {
+    name: "London",
+    minLat: 51.2868,
+    maxLat: 51.6919,
+    minLon: -0.5103,
+    maxLon: 0.334,
+  },
+  new_york: {
+    name: "New York",
+    minLat: 40.7128,
+    maxLat: 45.0159,
+    minLon: -79.7624,
+    maxLon: -71.7517,
+  },
+} as const;
+
 // Helper function to convert BONK string to number
 const parseBonkAmount = (bonkString: string): number => {
   if (bonkString.toLowerCase().includes("k")) {
@@ -88,6 +108,72 @@ function SwipeableBetCard({
     () => normalizeWinningDirection(market.winningDirection),
     [market.winningDirection]
   );
+
+  const isRainfallMarket = useMemo(() => {
+    const category = String(market?.category ?? "").toLowerCase();
+    return category === "rain" || category === "rainfall";
+  }, [market?.category]);
+
+  const isTemperatureMarket = useMemo(() => {
+    const category = String(market?.category ?? "").toLowerCase();
+    return category === "temp" || category === "temperature";
+  }, [market?.category]);
+
+  const locationInfo = useMemo(() => {
+    const question = String(market?.question ?? "").toLowerCase();
+    if (question.includes("london")) return LOCATION_BOUNDS.london;
+    if (question.includes("new york") || question.includes("nyc")) {
+      return LOCATION_BOUNDS.new_york;
+    }
+    return null;
+  }, [market?.question]);
+
+  const locationSummary = useMemo(() => {
+    if (!locationInfo) return null;
+    const { name, minLat, maxLat, minLon, maxLon } = locationInfo;
+    if (isTemperatureMarket) {
+      const centerLat = ((minLat + maxLat) / 2).toFixed(4);
+      const centerLon = ((minLon + maxLon) / 2).toFixed(4);
+      return `Forecasts and hourly history are queried for the center point (${centerLat}, ${centerLon}) inside the ${name} bounds (lat ${minLat}–${maxLat}, lon ${minLon}–${maxLon}).`;
+    }
+    return `Station data is aggregated from devices deployed within the ${name} bounds (lat ${minLat}–${maxLat}, lon ${minLon}–${maxLon}).`;
+  }, [locationInfo, isTemperatureMarket]);
+
+  const descriptionText = useMemo(() => {
+    if (isRainfallMarket) {
+      return [
+        `Rainfall markets stream precipitation directly from the WeatherXM community network (${WEATHERXM_URL}).`,
+        locationSummary,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+    if (isTemperatureMarket) {
+      return [
+        `Temperature markets use Google Weather Forecast API snapshots (${GOOGLE_WEATHER_URL}) at market creation to set the published min/max targets. Those forecast values may drift during the betting window even though the question wording remains fixed.`,
+        locationSummary,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+    return (
+      market.description ||
+      "This market allows users to bet on the outcome of a specific event. The resolution will be determined based on the criteria outlined below. Users can place bets on whether the specified condition will occur within the given time frame."
+    );
+  }, [isRainfallMarket, isTemperatureMarket, locationSummary, market.description]);
+
+  const resolutionDetailsText = useMemo(() => {
+    if (isRainfallMarket) {
+      return `After the market window closes we pull the official WeatherXM rainfall history (${WEATHERXM_URL}) for the configured bounds. The total precipitation reported by WeatherXM determines the YES/NO outcome.`;
+    }
+    if (isTemperatureMarket) {
+      return `Outcomes are resolved with Google Maps Weather hourly history (${GOOGLE_WEATHER_URL}). The recorded temperature at each hour for the center of the market bounds determines whether the forecast range was met.`;
+    }
+    return (
+      market.resolutionDetails ||
+      "The market will be resolved based on official data sources and verified information. The outcome will be determined at the resolution time specified above. All bets will be settled according to the official results."
+    );
+  }, [isRainfallMarket, isTemperatureMarket, market.resolutionDetails]);
 
   const marketStatus = useMemo(() => {
     const now = Date.now();
@@ -319,8 +405,7 @@ function SwipeableBetCard({
               <View style={styles.detailSection}>
                 <Text style={styles.sectionTitle}>Description</Text>
                 <Text style={styles.descriptionText}>
-                  {market.description ||
-                    "This market allows users to bet on the outcome of a specific event. The resolution will be determined based on the criteria outlined below. Users can place bets on whether the specified condition will occur within the given time frame."}
+                  {descriptionText}
                 </Text>
               </View>
 
@@ -328,8 +413,7 @@ function SwipeableBetCard({
               <View style={styles.detailSection}>
                 <Text style={styles.sectionTitle}>Resolution Details</Text>
                 <Text style={styles.descriptionText}>
-                  {market.resolutionDetails ||
-                    "The market will be resolved based on official data sources and verified information. The outcome will be determined at the resolution time specified above. All bets will be settled according to the official results."}
+                  {resolutionDetailsText}
                 </Text>
               </View>
 
@@ -352,16 +436,6 @@ function SwipeableBetCard({
                       color="rgba(255, 255, 255, 0.7)"
                     />
                     <Text style={styles.ruleText}>
-                      Maximum bet: $10,000 USDC
-                    </Text>
-                  </View>
-                  <View style={styles.ruleItem}>
-                    <MaterialCommunityIcons
-                      name="circle-small"
-                      size={20}
-                      color="rgba(255, 255, 255, 0.7)"
-                    />
-                    <Text style={styles.ruleText}>
                       Bets are final once placed
                     </Text>
                   </View>
@@ -373,16 +447,6 @@ function SwipeableBetCard({
                     />
                     <Text style={styles.ruleText}>
                       Resolution based on official sources
-                    </Text>
-                  </View>
-                  <View style={styles.ruleItem}>
-                    <MaterialCommunityIcons
-                      name="circle-small"
-                      size={20}
-                      color="rgba(255, 255, 255, 0.7)"
-                    />
-                    <Text style={styles.ruleText}>
-                      No refunds after betting period ends
                     </Text>
                   </View>
                   <View style={styles.ruleItem}>
