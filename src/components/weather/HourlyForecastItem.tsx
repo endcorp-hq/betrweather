@@ -1,9 +1,11 @@
 import React from "react";
 import { View, Text, Image } from "react-native";
+import { useTemperatureUnit } from "@/contexts";
+import { formatTemperature } from "@/utils/temperature";
 
 interface HourlyForecastItemProps {
   time: string;
-  temperature: string;
+  temperature?: string | number | null;
   description: string;
   icon?: string;
   iconUri?: string;
@@ -18,6 +20,8 @@ function HourlyForecastItemInternal({
   iconUri,
   precipitation,
 }: HourlyForecastItemProps) {
+  const { unit } = useTemperatureUnit();
+  const formattedTemperature = formatTemperature(temperature, unit);
 
   return (
     <View
@@ -58,12 +62,12 @@ function HourlyForecastItemInternal({
       {precipitation && (
         <Text className="text-gray-300 text-xs text-center font-better-light mb-1">
           {precipitation}
-      </Text>
+        </Text>
       )}
 
       {/* Temperature */}
       <Text className="text-white text-lg font-better-medium text-center">
-        {temperature}°
+        {formattedTemperature}
       </Text>
     </View>
   );

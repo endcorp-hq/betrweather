@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
-import {DarkCard} from '../ui/DarkCard';
+import { DarkCard } from '../ui/DarkCard';
+import { useTemperatureUnit } from '@/contexts';
+import { formatTemperature } from '@/utils/temperature';
 
 interface DailyForecastItemProps {
   day: string;
-  highTemp: string;
-  lowTemp: string;
+  highTemp: string | number | null;
+  lowTemp: string | number | null;
   icon?: string;
   iconUri?: string;
   rawData?: any; // Raw data for detail screen
@@ -21,6 +23,9 @@ function DailyForecastItemInternal({
   rawData,
   onPress,
 }: DailyForecastItemProps) {
+  const { unit } = useTemperatureUnit();
+  const formattedHigh = formatTemperature(highTemp, unit);
+  const formattedLow = formatTemperature(lowTemp, unit);
 
   // Format day display
   const formatDayDisplay = (dayString: string) => {
@@ -122,16 +127,16 @@ function DailyForecastItemInternal({
 
       {/* High Temperature */}
       <Text className="text-white text-lg font-better-medium text-center mb-1">
-        {highTemp}
+        {formattedHigh}
       </Text>
 
       {/* Low Temperature */}
       <Text className="text-gray-300 text-base font-better-light text-center">
-        {lowTemp}
+        {formattedLow}
       </Text>
     </DarkCard>
     </TouchableOpacity>
   );
 }
 
-export const DailyForecastItem = React.memo(DailyForecastItemInternal); 
+export const DailyForecastItem = React.memo(DailyForecastItemInternal);

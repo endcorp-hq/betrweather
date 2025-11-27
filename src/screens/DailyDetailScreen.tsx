@@ -9,6 +9,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import GlassyCard from '../components/ui/GlassyCard';
 import { getWeatherXMIcon, mapWXMV1IconToWeatherType } from '../utils/weatherUtils';
+import { useTemperatureUnit } from '@/contexts';
+import { formatTemperature } from '@/utils/temperature';
 
 interface DailyDetailScreenProps {
   selectedDay: any;
@@ -58,6 +60,9 @@ export function DailyDetailScreen({ selectedDay, onBack, source }: DailyDetailSc
   };
 
   const dayData = getDayData();
+  const { unit } = useTemperatureUnit();
+  const highTempDisplay = formatTemperature(dayData.highTemp, unit);
+  const lowTempDisplay = formatTemperature(dayData.lowTemp, unit);
 
   return (
     <View style={{ flex: 1, backgroundColor: 'black' }}>
@@ -152,7 +157,7 @@ export function DailyDetailScreen({ selectedDay, onBack, source }: DailyDetailSc
                       fontSize: 32, 
                       fontFamily: 'Poppins-Bold',
                     }}>
-                      {dayData.highTemp}
+                      {highTempDisplay}
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -169,7 +174,7 @@ export function DailyDetailScreen({ selectedDay, onBack, source }: DailyDetailSc
                       fontSize: 18, 
                       fontFamily: 'Poppins-Medium',
                     }}>
-                      {dayData.lowTemp}
+                      {lowTempDisplay}
                     </Text>
                   </View>
                 </View>

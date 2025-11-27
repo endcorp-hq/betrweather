@@ -2,6 +2,8 @@ import React from "react";
 import { View, Text } from "react-native";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import GlassyCard from "../ui/GlassyCard";
+import { useTemperatureUnit } from "@/contexts";
+import { formatTemperature } from "@/utils/temperature";
 
 interface CurrentConditionsProps {
   windSpeed: string;
@@ -22,6 +24,9 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
   pressure,
   precipitationRate, // Add this
 }) => {
+  const { unit } = useTemperatureUnit();
+  const dewPointLabel = formatTemperature(dewPoint, unit);
+
   return (
     <>
       <Text className="text-white text-xl font-better-semi-bold my-2">
@@ -78,40 +83,12 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
                 Humidity
               </Text>
               <Text className="text-gray-400 text-xs font-better-regular text-center">
-                Dew {typeof dewPoint === 'number' ? dewPoint.toFixed(1) : dewPoint}
+                Dew {dewPointLabel}
               </Text>
             </View>
           </View>
         </GlassyCard>
         
-        {/* Rain */}
-        {/* <GlassyCard
-          style={{
-            width: "48%",
-            height: 150,
-            marginBottom: 16,
-          }}
-        >
-          <View className="flex flex-col justify-between items-center h-full py-4">
-            <MaterialCommunityIcons 
-              name="weather-rainy" 
-              size={32} 
-              color="rgba(255, 255, 255, 0.9)" 
-            />
-            <Text className="text-white text-3xl font-better-bold text-center py-2">
-              {precipitationRate}
-            </Text>
-            <View className="items-center">
-              <Text className="text-gray-300 text-xs font-better-medium text-center mb-1">
-                Rain
-              </Text>
-              <Text className="text-gray-400 text-xs font-better-regular text-center">
-                mm/hr
-              </Text>
-            </View>
-          </View>
-        </GlassyCard> */}
-
         {/* UV Index */}
         <GlassyCard
           style={{
@@ -170,4 +147,4 @@ export const CurrentConditions: React.FC<CurrentConditionsProps> = ({
       </View>
     </>
   );
-}; 
+};

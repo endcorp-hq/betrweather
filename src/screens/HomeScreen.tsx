@@ -747,15 +747,16 @@ export function HomeScreen() {
                     data={(currentData.hourlyForecastData as any) || []}
                     keyExtractor={(_, idx) => String(idx)}
                     renderItem={({ item }: { item: any }) => {
-                      const temperature = (
-                        Math.round(
-                          Number(item?.temperature?.degrees ?? item?.temperature ?? 0)
-                        ).toString() || "--"
-                      );
+                      const temperatureValue =
+                        typeof item?.temperature?.degrees === "number"
+                          ? item.temperature.degrees
+                          : typeof item?.temperature === "number"
+                            ? item.temperature
+                            : undefined;
                       return (
                         <HourlyForecastItem
                           time={item?.time}
-                          temperature={temperature}
+                          temperature={temperatureValue}
                           description={item?.description}
                           icon={item?.icon}
                           iconUri={item?.iconUri}

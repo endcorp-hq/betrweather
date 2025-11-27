@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Image } from "react-native";
 import { DarkCard } from "../ui/DarkCard";
-import {
-  getWeatherXMIcon,
-  mapWXMV1IconToWeatherType,
-} from "../../utils/weatherUtils";
 import { getLocalTimeForTimezone } from "../../utils/timezoneUtils";
+import { useTemperatureUnit } from "@/contexts";
+import { formatTemperature } from "@/utils/temperature";
 
 interface MainWeatherDisplayProps {
   city: string;
@@ -32,6 +30,12 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
 }) => {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDate, setCurrentDate] = useState<string>("");
+  const { unit } = useTemperatureUnit();
+
+  const formattedTemp = formatTemperature(temp, unit);
+  const formattedHigh = formatTemperature(high, unit);
+  const formattedLow = formatTemperature(low, unit);
+  const formattedFeelsLike = formatTemperature(feelsLike, unit);
 
   // Get time for current or searched location
   useEffect(() => {
@@ -116,7 +120,7 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
           textBreakStrategy={"simple"}
           className="text-white text-[80px] font-better-light text-center mb-[-10px]"
         >
-          {temp}
+          {formattedTemp}
         </Text>
 
         {/* Weather Description */}
@@ -129,31 +133,29 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
           <View className="flex-1">
             {/* High/Low Temps */}
             <Text className="text-white text-lg font-better-light mb-1">
-              High:{" "}
+              High: {" "}
               <Text className="text-white text-lg font-better-medium">
-                {high}
+                {formattedHigh}
               </Text>{" "}
-              | Low:{" "}
+              | Low: {" "}
               <Text className="text-white text-lg font-better-medium">
-                {low}
+                {formattedLow}
               </Text>
             </Text>
 
             {/* Feels Like */}
             <Text className="text-white text-base font-better-light">
-              Feels like{" "}
+              Feels like {" "}
               <Text className="text-white text-lg font-better-medium">
-                {feelsLike}
+                {formattedFeelsLike}
               </Text>
             </Text>
           </View>
 
           {/* Weather Icon */}
-          <View className="ml-4">
+          <View className="ml-4 items-center">
             {source?.includes("wxm") ? (
-              <Text className="text-4xl">
-                {weatherIcon}
-              </Text>
+              <Text className="text-4xl">{weatherIcon}</Text>
             ) : weatherIcon ? (
               <Image
                 source={{ uri: weatherIcon }}
@@ -163,6 +165,7 @@ export const MainWeatherDisplay: React.FC<MainWeatherDisplayProps> = ({
             ) : (
               <Text className="text-5xl">☀️</Text>
             )}
+
           </View>
         </View>
       </DarkCard>

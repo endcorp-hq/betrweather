@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
 import { calculateDistance } from '../../utils/weatherUtils';
+import { useTemperatureUnit } from '@/contexts';
 
 interface Station {
   lat: number;
@@ -29,9 +30,10 @@ export function WeatherSourceIndicator({
   const [scaleAnim] = useState(new Animated.Value(1));
   const [opacityAnim] = useState(new Animated.Value(0));
   const [calculatedDistance, setCalculatedDistance] = useState<number | null>(null);
+  const { unit, setUnit } = useTemperatureUnit();
 
 
-  // Auto-hide after 3 seconds when expanded
+  // Auto-hide after 6 seconds when expanded
   useEffect(() => {
     if (isExpanded) {
       const timer = setTimeout(() => {
@@ -47,7 +49,7 @@ export function WeatherSourceIndicator({
             useNativeDriver: true,
           }),
         ]).start(() => setIsExpanded(false));
-      }, 3000);
+      }, 6000);
 
       return () => clearTimeout(timer);
     }
@@ -109,7 +111,7 @@ export function WeatherSourceIndicator({
   };
 
   return (
-    <>
+    <View style={{ position: 'relative' }}>
       <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
         <Animated.View
           style={{
@@ -129,6 +131,33 @@ export function WeatherSourceIndicator({
         </Animated.View>
       </TouchableOpacity>
 
+      {source?.includes("wxm") && (
+        <View
+          style={{
+            position: 'absolute',
+            top: -2,
+            right: -6,
+            width: 20,
+            height: 20,
+            backgroundColor: 'rgb(231, 231, 231)',
+            borderRadius: 20,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text
+            style={{
+              color: 'black',
+              fontFamily: 'Poppins-Bold',
+              fontSize: 11,
+              lineHeight: 16,
+            }}
+          >
+            i
+          </Text>
+        </View>
+      )}
+
       {/* Expanded text overlay */}
       <Animated.View
         style={{
@@ -138,9 +167,52 @@ export function WeatherSourceIndicator({
           opacity: opacityAnim,
           transform: [{ scale: scaleAnim }],
           alignSelf: 'flex-start',
+          minWidth: 170,
+          maxWidth: 260,
         }}
         className="bg-white/80 backdrop-blur-md rounded-lg px-3 py-2 border border-gray-200/50"
       >
+        <View style={{ marginBottom: 12 }}>
+          <Text className="text-gray-700 text-xs font-better-medium mb-2">
+            Temperature unit
+          </Text>
+          <View
+            className="flex-row rounded-full overflow-hidden"
+            style={{
+              borderWidth: 1,
+              borderColor: 'rgba(0,0,0,0.1)',
+              alignSelf: 'flex-start',
+            }}
+          >
+            {(['C', 'F'] as const).map((unitOption) => {
+              const isActive = unit === unitOption;
+              return (
+                <TouchableOpacity
+                  key={unitOption}
+                  onPress={() => setUnit(unitOption)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    backgroundColor: isActive ? 'rgba(0,0,0,0.1)' : 'transparent',
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={{
+                      color: '#000',
+                      fontFamily: 'Poppins-Medium',
+                      fontSize: 14,
+                      opacity: isActive ? 1 : 0.6,
+                    }}
+                  >
+                    °{unitOption}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         <Text className="text-black text-sm font-better-medium" numberOfLines={1}>
           {getMessage()}
         </Text>
@@ -155,6 +227,6 @@ export function WeatherSourceIndicator({
           </Text>
         )}
       </Animated.View>
-    </>
+    </View>
   );
 } 
