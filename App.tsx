@@ -6,6 +6,7 @@ import {
   ConnectionProvider,
   ToastProvider,
   TimezoneProvider,
+  TemperatureUnitProvider,
   ChainProvider,
   MarketsProvider,
   PositionsProvider,
@@ -73,11 +74,13 @@ export default function App() {
                 <GestureHandlerRootView style={{ flex: 1 }}>
                   <SafeAreaProvider>
                     <TimezoneProvider>
-                      <MarketsProvider>
-                        <PositionsProvider>
-                          <AppNavigator />
-                        </PositionsProvider>
-                      </MarketsProvider>
+                      <TemperatureUnitProvider>
+                        <MarketsProvider>
+                          <PositionsProvider>
+                            <AppNavigator />
+                          </PositionsProvider>
+                        </MarketsProvider>
+                      </TemperatureUnitProvider>
                     </TimezoneProvider>
                   </SafeAreaProvider>
                 </GestureHandlerRootView>
