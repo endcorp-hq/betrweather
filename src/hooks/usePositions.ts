@@ -30,7 +30,7 @@ export function usePositions() {
   const { fetchNftMetadata, loading, retryCount, lastError } = useNftMetadata();
   const { toast } = useToast();
   const { currentChain, connection } = useChain();
-  const { forwardTx, signBuiltTransaction, buildSettle, getMarketById: backendGetMarketById } = useBackendRelay();
+  const { forwardTx, validateForwardTxResponse, signBuiltTransaction, buildSettle, getMarketById: backendGetMarketById } = useBackendRelay();
   const { signTransaction } = useMobileWallet();
   const queryClient = useQueryClient();
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
@@ -304,7 +304,7 @@ export function usePositions() {
                 signedTx: signedTxB64,
                 options: { skipPreflight: true, maxRetries: 3 },
               });
-              signature = forwarded.signature;
+              signature = validateForwardTxResponse(forwarded);
             }
 
             // Log the transaction signature for debugging/investigation
@@ -315,30 +315,7 @@ export function usePositions() {
             }
 
             if (signature) {
-              // Wait for confirmation before mutating UI
-              if (connection) {
-                try {
-                  await connection.confirmTransaction(signature, 'confirmed');
-                  const [status, parsed] = await Promise.all([
-                    connection.getSignatureStatuses([signature]),
-                    connection.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0 } as any),
-                  ]);
-                  const err = (status?.value?.[0] as any)?.err ?? (parsed as any)?.meta?.err;
-                  if (err) throw new Error('Transaction confirmed with error');
-                } catch (postErr) {
-                  // Confirmation failed or returned error → surface error and stop
-                  toast.update(loadingToastId, {
-                    type: "error",
-                    title: "Transaction Failed",
-                    message: "Your transaction did not confirm successfully.",
-                    duration: 4000,
-                  });
-                  setPositionClaiming(new Web3PublicKey(position.assetId).toBase58(), position.marketId, false);
-                  try { clearTimeout(guardTimeoutId); } catch {}
-                  return;
-                }
-              }
-
+              // Backend has already confirmed and updated DB - proceed with success
               // Success: now remove from UI and show success toast
               setPositions((prev) =>
                 prev.filter(

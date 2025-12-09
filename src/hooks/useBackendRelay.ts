@@ -38,7 +38,7 @@ type ForwardTxRequest = {
   options?: { skipPreflight?: boolean; maxRetries?: number };
 };
 
-type ForwardTxResponse = { signature: string; status: string };
+type ForwardTxResponse = { signature: string; status: string; err?: any };
 
 async function generateIdempotencyKey(): Promise<string> {
   // Prefer Expo Crypto randomUUID if available
@@ -412,6 +412,22 @@ export function useBackendRelay() {
     [API_BASE, ensureAuthToken, currentChain, selectedAccount]
   );
 
+  /**
+   * Validates the forwardTx response and throws if transaction failed
+   */
+  const validateForwardTxResponse = useCallback((response: ForwardTxResponse): string => {
+    if (response.status === 'failed') {
+      const errorMsg = response.err 
+        ? (typeof response.err === 'string' ? response.err : JSON.stringify(response.err))
+        : 'Transaction failed';
+      throw new Error(errorMsg);
+    }
+    if (response.status !== 'confirmed' && response.status !== 'finalized' && response.status !== 'processed') {
+      throw new Error(`Transaction status: ${response.status}`);
+    }
+    return response.signature;
+  }, []);
+
   const forwardTx = useCallback(
     async (payload: ForwardTxRequest): Promise<ForwardTxResponse> => {
       const token = await ensureAuthToken();
@@ -723,6 +739,7 @@ export function useBackendRelay() {
       checkBubblegumAsset,
       mapPosition,
       forwardTx,
+      validateForwardTxResponse,
       getMarkets,
       getMarketsActive,
       getMarketsObserving,
@@ -733,6 +750,6 @@ export function useBackendRelay() {
       getTxStreamUrl,
       signBuiltTransaction,
     }),
-    [ensureAuthToken, clearTokenCache, buildOpenPosition, buildSettle, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, getMarkets, getUserBetsSummary, getUserBetsPaginated, getTxStreamUrl, signBuiltTransaction]
+    [ensureAuthToken, clearTokenCache, buildOpenPosition, buildSettle, verifyOwnership, checkBubblegumAsset, mapPosition, forwardTx, validateForwardTxResponse, getMarkets, getUserBetsSummary, getUserBetsPaginated, getTxStreamUrl, signBuiltTransaction]
   );
 }

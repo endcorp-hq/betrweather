@@ -513,7 +513,7 @@ export default function SlotMachineScreen() {
   const effectiveId = routeDbId ?? id ?? routeMarketId;
 
   const { getMarketById, openPosition, refresh, isInitialized } = useShortx();
-  const { forwardTx, ensureAuthToken, buildOpenPosition, signBuiltTransaction } = useBackendRelay();
+  const { forwardTx, validateForwardTxResponse, ensureAuthToken, buildOpenPosition, signBuiltTransaction } = useBackendRelay();
   const { buildVersionedTx } = useCreateAndSendTx();
   const { signTransaction } = useMobileWallet();
   const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
@@ -1077,16 +1077,12 @@ export default function SlotMachineScreen() {
         const signedTx = await signTransaction(tx);
         if (!signedTx) throw new Error('Wallet did not return a signed transaction');
         const signedTxB64 = Buffer.from((signedTx as any).serialize()).toString('base64');
-        const forwardBody = {
+        const forwarded = await forwardTx({
           signedTx: signedTxB64,
           options: { skipPreflight: false, maxRetries: 3 },
-        };
-        console.log('[Forward Before]', { length: signedTxB64.length, path: '/tx/forward' });
-        const forwarded = await forwardTx(forwardBody);
-        console.log('[Forward After]', { signature: forwarded?.signature, status: forwarded?.status });
-        signature = forwarded.signature;
+        });
+        signature = validateForwardTxResponse(forwarded);
       } else {
-        console.log('[Build Open Position]', finalMarketId);
         // Backend builder fallback: build base64 message, sign, and forward
         const build = await buildOpenPosition({
           marketId: Number(finalMarketId),
@@ -1101,47 +1097,14 @@ export default function SlotMachineScreen() {
         if (!messageBase64) throw new Error('Builder did not return base64 message');
         const { signedTx } = await signBuiltTransaction(messageBase64);
         const signedTxB64 = Buffer.from(signedTx.serialize()).toString('base64');
-        console.log('[Forward Before]', { length: signedTxB64.length, path: '/tx/forward' });
         const forwarded = await forwardTx({
           signedTx: signedTxB64,
           options: { skipPreflight: false, maxRetries: 3 },
         });
-        console.log('[Forward After]', { signature: forwarded?.signature, status: forwarded?.status });
-        signature = forwarded.signature;
+        signature = validateForwardTxResponse(forwarded);
       }
 
-      if (signature && connection) {
-        const confirmDeadline = Date.now() + 30000;
-        let confirmed = false;
-        while (Date.now() < confirmDeadline) {
-          try {
-            const status = await connection.getSignatureStatuses([signature]);
-            const result = status.value?.[0];
-            if (result) {
-              if (result.err) {
-                throw new Error('Bet transaction failed to confirm');
-              }
-              if (
-                result.confirmationStatus === 'confirmed' ||
-                result.confirmationStatus === 'finalized' ||
-                (typeof result.confirmations === 'number' && result.confirmations > 0)
-              ) {
-                confirmed = true;
-                break;
-              }
-            }
-          } catch (statusErr) {
-            console.warn('[Bet Confirm] status error', statusErr);
-          }
-          await sleep(1500);
-        }
-
-        if (!confirmed) {
-          throw new Error('Timed out waiting for bet confirmation');
-        }
-      }
-
-        // Success! Update loading toast to success
+      // Success! Update loading toast to success
         const displayAmount =
           selectedToken === CurrencyType.BONK_5
             ? formatBonkAmount(parsedAmount)
