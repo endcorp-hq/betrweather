@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuthorization } from "./solana/useAuthorization";
+// OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+// import { useAuthorization } from "./solana/useAuthorization";
 import { apiClient } from "../utils/apiClient";
 import {
   User,
@@ -10,14 +11,37 @@ import {
 } from "../utils/userStorage";
 import { getJWTTokens } from "../utils/authUtils";
 import { STORAGE_KEYS } from "../utils/constants";
+import { usePrivy } from "@privy-io/expo";
+
+/**
+ * Extract wallet address from Privy user
+ */
+function getPrivyWalletAddress(privyUser: any): string | null {
+  // Check linked accounts for wallet
+  const walletAccount = privyUser?.linked_accounts?.find(
+    (account: any) => account.type === 'wallet' || account.walletClientType === 'privy'
+  );
+  if (walletAccount?.address) {
+    return walletAccount.address;
+  }
+  
+  // Fallback: check if user has embedded wallet directly
+  if (privyUser?.wallet?.address) {
+    return privyUser.wallet.address;
+  }
+  
+  return null;
+}
 
 export function useUser() {
-  const { selectedAccount } = useAuthorization();
+  const { user: privyUser, isReady } = usePrivy();
   const queryClient = useQueryClient();
   const [isInitialized, setIsInitialized] = useState(false);
   const [shouldRefetchOnMount, setShouldRefetchOnMount] = useState(true);
 
-  // Get JWT tokens
+  // Get wallet address from Privy user
+  const walletAddress = privyUser ? getPrivyWalletAddress(privyUser) : null;
+  // Get JWT tokens (still needed for /users/profile endpoint which uses JWT)
   const { data: jwtTokens, isLoading: isCheckingTokens } = useQuery({
     queryKey: [STORAGE_KEYS.JWT_TOKENS],
     queryFn: getJWTTokens,
@@ -27,11 +51,11 @@ export function useUser() {
   // Initialize from storage on mount
   useEffect(() => {
     const initializeUser = async () => {
-      if (jwtTokens && selectedAccount) {
+      if (jwtTokens && walletAddress) {
         const storedUser = await getUserData();
         if (storedUser) {
           queryClient.setQueryData(
-            ["user", selectedAccount.address],
+            ["user", walletAddress],
             storedUser
           );
         }
@@ -39,7 +63,7 @@ export function useUser() {
       }
     };
     initializeUser();
-  }, [selectedAccount, queryClient, jwtTokens]);
+  }, [walletAddress, queryClient, jwtTokens]);
 
   // Fetch user data - always fetch fresh data on initial load
   const {
@@ -48,15 +72,15 @@ export function useUser() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["user", selectedAccount?.address],
+    queryKey: ["user", walletAddress],
     queryFn: async (): Promise<User | null> => {
-      if (!selectedAccount || !jwtTokens?.accessToken) {
+      if (!walletAddress || !jwtTokens?.accessToken) {
         return null;
       }
       
       try {
         const response = await apiClient.request(
-          `/users/profile?walletAddress=${selectedAccount.publicKey.toBase58()}`,
+          `/users/profile?walletAddress=${walletAddress}`,
           {
             method: "GET",
             headers: {
@@ -89,7 +113,7 @@ export function useUser() {
         return await getUserData();
       }
     },
-    enabled: !!(jwtTokens && selectedAccount && isInitialized),
+    enabled: !!(jwtTokens && walletAddress && isInitialized && isReady),
     staleTime: shouldRefetchOnMount ? 0 : 5 * 60 * 1000, // Force refetch on initial load
     gcTime: 10 * 60 * 1000,
   });
@@ -105,11 +129,11 @@ export function useUser() {
   const updateUserData = useCallback(
     async (userData: User) => {
       // Update React Query cache
-      queryClient.setQueryData(["user", selectedAccount?.address], userData);
+      queryClient.setQueryData(["user", walletAddress], userData);
       // Update AsyncStorage
       await storeUserData(userData);
     },
-    [queryClient, selectedAccount?.address]
+    [queryClient, walletAddress]
   );
 
   // Clear user data from both cache and storage

@@ -14,6 +14,7 @@ import { LocationPermissionScreen } from "../screens/LocationPermissionScreen";
 import { AuthWarmup } from "../contexts/AuthWarmup";
 import ClaimPositionsScreen from "../screens/ClaimPositionsScreen";
 import InfoScreen from "../screens/InfoScreen";
+import { PrivyProfileSetupProvider } from "../contexts/PrivyProfileSetupProvider";
 
 /**
  * This type allows TypeScript to know what routes are defined in this navigator
@@ -46,22 +47,6 @@ declare global {
 
 const Stack = createNativeStackNavigator();
 
-const GuardedDetailScreen = () => {
-  return (
-    <GuardedScreen>
-      <MarketDetailScreen />
-    </GuardedScreen>
-  );
-};
-
-const GuardedClaimPositionsScreen = () => {
-  return (
-    <GuardedScreen>
-      <ClaimPositionsScreen />
-    </GuardedScreen>
-  );
-};
-
 // Start with weather page by default, show permission screen only when needed
 const AppStack = () => {
   return (
@@ -78,12 +63,12 @@ const AppStack = () => {
       />
       <Stack.Screen
         name="MarketDetail"
-        component={GuardedDetailScreen}
+        component={MarketDetailScreen}
         options={{ headerShown: true, header: () => <TopBar /> }}
       />
       <Stack.Screen
         name="ClaimPositions"
-        component={GuardedClaimPositionsScreen}
+        component={ClaimPositionsScreen}
         options={{ headerShown: true, header: () => <TopBar /> }}
       />
       {/* <Stack.Screen
@@ -111,7 +96,13 @@ export const AppNavigator = (props: NavigationProps) => {
     <NavigationContainer theme={MyTheme} {...props}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
       <AuthWarmup />
-      <AppStack />
+      {/* Profile setup provider - runs setup logic only once at top level */}
+      <PrivyProfileSetupProvider>
+        {/* Wrap entire navigation tree with GuardedScreen - only one instance */}
+        <GuardedScreen>
+          <AppStack />
+        </GuardedScreen>
+      </PrivyProfileSetupProvider>
     </NavigationContainer>
   );
 };

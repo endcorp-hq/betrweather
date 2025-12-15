@@ -1,11 +1,15 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { InteractionManager } from "react-native";
-import { useAuthorization } from "./solana/useAuthorization";
+// OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+// import { useAuthorization } from "./solana/useAuthorization";
 import { useNftMetadata } from "./solana/useNft";
 import { useBackendRelay } from "./useBackendRelay";
 import { useShortx } from "./solana";
 import { Buffer } from "buffer";
-import { useMobileWallet } from "./useMobileWallet";
+// OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+// import { useMobileWallet } from "./useMobileWallet";
+import { usePrivy } from "@privy-io/expo";
+import { useEmbeddedSolanaWallet } from "@privy-io/expo";
 
 import { useToast } from "../contexts/CustomToast/ToastProvider";
 import { timeStart } from "@/utils";
@@ -15,8 +19,10 @@ import {
   calculatePayout,
   extractErrorMessage,
 } from "@/utils";
-import { getJWTTokens, isTokenExpired } from "../utils/authUtils";
-import { tokenManager } from "../utils/tokenManager";
+// OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+// import { getJWTTokens, isTokenExpired } from "../utils/authUtils";
+// import { tokenManager } from "../utils/tokenManager";
+import { getPrivyAccessToken } from "../utils/privyAuth";
 
 // Bubblegum burn handled by backend builder; remove client-side burn
 import { publicKey as umiPublicKey } from "@metaplex-foundation/umi";
@@ -25,14 +31,68 @@ import { PublicKey as Web3PublicKey } from "@solana/web3.js";
 import { useChain } from "../contexts/ChainProvider";
 import { useQueryClient } from "@tanstack/react-query";
 
+/**
+ * Get wallet address and public key from Privy user
+ */
+function getPrivyWalletInfo(privyUser: any): { address: string | null; publicKey: Web3PublicKey | null } {
+  // Check linked accounts for wallet
+  const walletAccount = privyUser?.linked_accounts?.find(
+    (account: any) => account.type === 'wallet' || account.walletClientType === 'privy'
+  );
+  if (walletAccount?.address) {
+    try {
+      return {
+        address: walletAccount.address,
+        publicKey: new Web3PublicKey(walletAccount.address),
+      };
+    } catch {
+      // Invalid public key
+    }
+  }
+  
+  // Fallback: check if user has embedded wallet directly
+  if (privyUser?.wallet?.address) {
+    try {
+      return {
+        address: privyUser.wallet.address,
+        publicKey: new Web3PublicKey(privyUser.wallet.address),
+      };
+    } catch {
+      // Invalid public key
+    }
+  }
+  
+  return { address: null, publicKey: null };
+}
+
 export function usePositions() {
-  const { selectedAccount } = useAuthorization();
+  // OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+  // const { selectedAccount } = useAuthorization();
+  const { user: privyUser, isReady } = usePrivy();
+  const { wallets } = useEmbeddedSolanaWallet();
   const { fetchNftMetadata, loading, retryCount, lastError } = useNftMetadata();
   const { toast } = useToast();
   const { currentChain, connection } = useChain();
   const { forwardTx, signBuiltTransaction, buildSettle, getMarketById: backendGetMarketById } = useBackendRelay();
-  const { signTransaction } = useMobileWallet();
+  // OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+  // const { signTransaction } = useMobileWallet();
   const queryClient = useQueryClient();
+
+  // Get wallet info from Privy
+  const walletInfo = useMemo(() => {
+    if (!privyUser || !isReady) {
+      return { address: null, publicKey: null };
+    }
+    return getPrivyWalletInfo(privyUser);
+  }, [privyUser, isReady]);
+
+  // Get Privy wallet for signing
+  const privyWallet = useMemo(() => {
+    if (!wallets || wallets.length === 0) {
+      return null;
+    }
+    return wallets[0];
+  }, [wallets]);
   const [positions, setPositions] = useState<PositionWithMarket[]>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
   const lastRefreshTime = useRef<number>(0);
@@ -110,7 +170,7 @@ export function usePositions() {
 
   // Manual refresh function
   const refreshPositions = useCallback(async () => {
-    if (!selectedAccount) return;
+    if (!walletInfo.address || !walletInfo.publicKey) return;
     const now = Date.now();
     // Debounce/throttle rapid calls (e.g., from multiple views)
     if (now - lastRefreshTime.current < 1500 && inflightPromiseRef.current) {
@@ -121,16 +181,19 @@ export function usePositions() {
     const t = timeStart('Positions', 'refresh');
     setLoadingMarkets(true);
     const p = (async () => {
-      if (!selectedAccount) return;
-      const tokens = await getJWTTokens();
-      if (!tokens) return;
-      const expired = isTokenExpired(tokens);
-      if (expired) {
-        const success = await tokenManager.refreshTokens();
-        if (!success) return;
+      if (!walletInfo.address || !walletInfo.publicKey) return;
+      // Use Privy access token instead of JWT
+      const privyToken = await getPrivyAccessToken();
+      if (!privyToken) {
+        console.warn("⚠️ [usePositions] No Privy access token available, skipping refresh");
+        return;
       }
       const metadata = await fetchNftMetadata();
-      // console.log("metadata obtained", metadata);
+      console.log("🎯 [usePositions] Metadata obtained from fetchNftMetadata:", {
+        metadataCount: metadata?.length || 0,
+        metadata: metadata,
+        walletAddress: walletInfo.address,
+      });
       if (metadata) {
         // Prefer market from backend if included; fallback to client fetch
         const positionsMapped = metadata.map((position) => {
@@ -170,6 +233,13 @@ export function usePositions() {
           return !locallyRemovedKeysRef.current.has(key);
         });
 
+        console.log("🎲 [usePositions] Final positions after filtering:", {
+          positionsMappedCount: positionsMapped.length,
+          filteredPositionsCount: filteredPositions.length,
+          filteredPositions: filteredPositions,
+          locallyRemovedKeys: Array.from(locallyRemovedKeysRef.current),
+        });
+
         // Render immediately
         setPositions(filteredPositions);
 
@@ -192,7 +262,7 @@ export function usePositions() {
       t.end({ positions: undefined });
       inflightPromiseRef.current = null;
     }
-  }, [selectedAccount, fetchNftMetadata, hydrateMarkets, makePositionKey, currentChain]);
+  }, [walletInfo.address, walletInfo.publicKey, fetchNftMetadata, hydrateMarkets, makePositionKey, currentChain]);
 
   // Unified transaction handler for both claim and burn operations
   const handlePositionTransaction = useCallback(
@@ -254,7 +324,7 @@ export function usePositions() {
         { position: "top" }
       );
 
-      if (!selectedAccount) {
+      if (!walletInfo.publicKey) {
         toast.update(loadingToastId, {
           type: "error",
           title: "Error",
@@ -296,10 +366,18 @@ export function usePositions() {
             if ((tx as any)?.relaySubmitted) {
               signature = (tx as any).signature;
             } else {
-              // Sign locally and forward to backend instead of local send
-              const signed = await signTransaction(tx);
-              if (!signed) throw new Error('Wallet did not return a signed transaction');
-              const signedTxB64 = Buffer.from((signed as any).serialize()).toString('base64');
+              // Sign with Privy wallet and forward to backend
+              if (!privyWallet) throw new Error('Wallet does not support signing transactions');
+              const provider = await privyWallet.getProvider();
+              const { signedTransaction: signedTx } = await provider.request({
+                method: 'signTransaction',
+                params: {
+                  transaction: tx,
+                },
+              });
+              if (!signedTx) throw new Error('Wallet did not return a signed transaction');
+              const signedTxB64 = Buffer.from((signedTx as any).serialize()).toString('base64');
+              console.log('signedTxB64 size', signedTxB64.length);
               const forwarded = await forwardTx({
                 signedTx: signedTxB64,
                 options: { skipPreflight: true, maxRetries: 3 },
@@ -465,18 +543,22 @@ export function usePositions() {
       }
     },
     [
-      selectedAccount,
+      walletInfo.publicKey,
+      privyWallet,
       toast,
       setPositionClaiming,
       calculatePayout,
       queryClient,
+      connection,
+      forwardTx,
+      makePositionKey,
     ]
   );
 
   // Unified settle handler (claims when user won, burns when user lost)
   const settlePosition = useCallback(
     async (position: PositionWithMarket) => {
-      if (!selectedAccount?.publicKey) return;
+      if (!walletInfo.publicKey) return;
 
       const payout = calculatePayout(position) ?? 0;
       const operation: 'claim' | 'burn' = payout > 0 ? 'claim' : 'burn';
@@ -484,7 +566,7 @@ export function usePositions() {
       await handlePositionTransaction(position, operation, async () => {
         const build = await buildSettle({
           marketId: position.marketId,
-          payerPubkey: selectedAccount.publicKey.toBase58(),
+          payerPubkey: walletInfo.publicKey!.toBase58(),
           assetId: new Web3PublicKey(position.assetId).toBase58(),
           network: currentChain,
         });
@@ -516,7 +598,7 @@ export function usePositions() {
           : null;
       });
     },
-    [handlePositionTransaction, buildSettle, signBuiltTransaction, forwardTx, selectedAccount, currentChain]
+    [handlePositionTransaction, buildSettle, signBuiltTransaction, forwardTx, walletInfo.publicKey, currentChain]
   );
 
   
@@ -540,10 +622,10 @@ export function usePositions() {
     setPositions([]);
     lastRefreshTime.current = 0;
     inflightPromiseRef.current = null;
-    if (selectedAccount?.publicKey) {
+    if (walletInfo.publicKey) {
       InteractionManager.runAfterInteractions(() => { void refreshPositions(); });
     }
-  }, [currentChain, selectedAccount?.publicKey?.toBase58?.()]);
+  }, [currentChain, walletInfo.address]);
 
   return {
     positions: sortedPositions,

@@ -12,6 +12,10 @@ export { useFilters } from './useFilters';
 // Screen Wrappers
 export { DefaultBg } from './DefaultBg';
 
+// Modals
+export { BottomSheetModal } from './BottomSheetModal';
+export type { BottomSheetButton } from './BottomSheetModal';
+
 // SVG Components
 export { USDC_ICON } from './svg/usdc';
 export { default as WeatherXMIcon } from './svg/weatherxm';

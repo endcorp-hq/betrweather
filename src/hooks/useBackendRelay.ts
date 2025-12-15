@@ -1,16 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useMemo, useRef } from "react";
-import { useAuthorization } from "./solana/useAuthorization";
+// OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+// import { useAuthorization } from "./solana/useAuthorization";
 import { useChain } from "../contexts/ChainProvider";
 import { Buffer } from "buffer";
-import { MessageV0, VersionedTransaction, Transaction } from "@solana/web3.js";
+import { MessageV0, VersionedTransaction, Transaction, PublicKey } from "@solana/web3.js";
 import bs58 from "bs58";
 import * as Crypto from "expo-crypto";
-import { useMobileWallet } from "./useMobileWallet";
+// OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+// import { useMobileWallet } from "./useMobileWallet";
 import { log, timeStart } from "@/utils";
 import { getJWTTokens, clearJWTTokens } from "../utils/authUtils";
 import { tokenManager } from "../utils/tokenManager";
 import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
+import { usePrivy } from "@privy-io/expo";
+import { useEmbeddedSolanaWallet } from "@privy-io/expo";
+import { getPrivyAccessToken } from "../utils/privyAuth";
 
 type BuildTxResponse = {
   txRef: string;
@@ -71,12 +76,66 @@ async function generateIdempotencyKey(): Promise<string> {
   );
 }
 
+/**
+ * Get wallet address and public key from Privy user
+ */
+function getPrivyWalletInfo(privyUser: any): { address: string | null; publicKey: PublicKey | null } {
+  // Check linked accounts for wallet
+  const walletAccount = privyUser?.linked_accounts?.find(
+    (account: any) => account.type === 'wallet' || account.walletClientType === 'privy'
+  );
+  if (walletAccount?.address) {
+    try {
+      return {
+        address: walletAccount.address,
+        publicKey: new PublicKey(walletAccount.address),
+      };
+    } catch {
+      // Invalid public key
+    }
+  }
+  
+  // Fallback: check if user has embedded wallet directly
+  if (privyUser?.wallet?.address) {
+    try {
+      return {
+        address: privyUser.wallet.address,
+        publicKey: new PublicKey(privyUser.wallet.address),
+      };
+    } catch {
+      // Invalid public key
+    }
+  }
+  
+  return { address: null, publicKey: null };
+}
+
 export function useBackendRelay() {
-  const { selectedAccount } = useAuthorization();
+  // OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+  // const { selectedAccount } = useAuthorization();
+  const { user: privyUser, isReady } = usePrivy();
+  const { wallets } = useEmbeddedSolanaWallet();
   const { currentChain, connection } = useChain();
-  const { signMessage, signTransaction } = useMobileWallet();
+  // OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+  // const { signMessage, signTransaction } = useMobileWallet();
   const tokenRef = useRef<string | null>(null);
   const inflightTokenPromiseRef = useRef<Promise<string> | null>(null);
+
+  // Get wallet info from Privy
+  const walletInfo = useMemo(() => {
+    if (!privyUser || !isReady) {
+      return { address: null, publicKey: null };
+    }
+    return getPrivyWalletInfo(privyUser);
+  }, [privyUser, isReady]);
+
+  // Get Privy wallet for signing
+  const privyWallet = useMemo(() => {
+    if (!wallets || wallets.length === 0) {
+      return null;
+    }
+    return wallets[0];
+  }, [wallets]);
 
   const API_BASE = useMemo(() => {
     return process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8001";
@@ -95,7 +154,7 @@ export function useBackendRelay() {
    * If no token exists or refresh fails, it throws an error (should trigger logout).
    */
   const ensureAuthToken = useCallback(async (forceRefresh = false): Promise<string> => {
-    if (!selectedAccount?.publicKey) {
+    if (!walletInfo.publicKey) {
       throw new Error("Wallet not connected. Please reconnect your wallet.");
     }
 
@@ -111,7 +170,7 @@ export function useBackendRelay() {
 
     // Build a single in-flight promise to avoid thundering herd
     const promise = (async () => {
-      if (!selectedAccount?.address) {
+      if (!walletInfo.address) {
         throw new Error("Wallet not connected. Please reconnect your wallet.");
       }
       const t = timeStart('Auth', 'ensureAuthToken');
@@ -125,7 +184,7 @@ export function useBackendRelay() {
       }
 
       // Verify wallet matches
-      if (tokens.walletAddress !== selectedAccount.publicKey.toBase58()) {
+      if (tokens.walletAddress !== walletInfo.address) {
         log('Auth', 'warn', 'JWT wallet mismatch. Clearing tokens.');
         await clearJWTTokens();
         throw new Error("Wallet mismatch. Please login again.");
@@ -174,7 +233,7 @@ export function useBackendRelay() {
     } finally {
       inflightTokenPromiseRef.current = null;
     }
-  }, [selectedAccount]);
+  }, [walletInfo.address]);
 
   // Clear the in-memory token cache when wallet changes
   const clearTokenCache = useCallback(() => {
@@ -191,9 +250,18 @@ export function useBackendRelay() {
       network?: string;
       metadataUri?: string;
     }): Promise<BuildTxResponse> => {
+      // Use Privy access token for authentication
+      const privyToken = await getPrivyAccessToken();
+      if (!privyToken) {
+        throw new Error("Failed to get Privy access token. Please try logging in again.");
+      }
+      
+      // Use payerPubkey from args to ensure it matches what's in the transaction
+      // This should match the wallet address in the Privy token
       const headersBase = {
         "Content-Type": "application/json",
-        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+        "Authorization": `Bearer ${privyToken}`,
+        "wallet-address": args.payerPubkey || (walletInfo.address ?? ""),
       } as Record<string, string>;
 
       const openUrl = `${API_BASE}/tx/build/shortx/open-position`;
@@ -224,7 +292,7 @@ export function useBackendRelay() {
       }
       return res.json();
     },
-    [API_BASE, currentChain, selectedAccount]
+    [API_BASE, currentChain, walletInfo.address]
   );
 
 
@@ -236,11 +304,18 @@ export function useBackendRelay() {
       assetId: string; // base58
       network: string;
     }): Promise<BuildSettleResponse> => {
-      const token = await ensureAuthToken();
+      // Use Privy access token for authentication (same as buildOpenPosition)
+      const privyToken = await getPrivyAccessToken();
+      if (!privyToken) {
+        throw new Error("Failed to get Privy access token. Please try logging in again.");
+      }
+      
+      // Use payerPubkey from args to ensure it matches what's in the transaction
+      // This should match the wallet address in the Privy token
       const headersBase = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+        "Authorization": `Bearer ${privyToken}`,
+        "wallet-address": args.payerPubkey || (walletInfo.address ?? ""),
       } as Record<string, string>;
 
       const settleUrl = `${API_BASE}/tx/build/shortx/settle`;
@@ -255,11 +330,15 @@ export function useBackendRelay() {
       });
 
       if (res.status === 401) {
-        const fresh = await ensureAuthToken(true);
-        log('Relay', 'warn', 'Retry build settle with fresh token');
+        // For Privy, try getting a fresh token (though Privy tokens are typically longer-lived)
+        const freshToken = await getPrivyAccessToken();
+        if (!freshToken) {
+          throw new Error("Privy authentication failed. Please try logging in again.");
+        }
+        log('Relay', 'warn', 'Retry build settle with fresh Privy token');
         res = await fetch(settleUrl, {
           method: "POST",
-          headers: { ...headersBase, Authorization: `Bearer ${fresh}` },
+          headers: { ...headersBase, Authorization: `Bearer ${freshToken}` },
           body: JSON.stringify({ ...args, network: resolveNet(args.network) }),
         });
       }
@@ -295,7 +374,7 @@ export function useBackendRelay() {
       }
       return data as BuildSettleResponse;
     },
-    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
+    [API_BASE, currentChain, walletInfo.address]
   );
 
 
@@ -306,7 +385,7 @@ export function useBackendRelay() {
       const headersBase = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+        "wallet-address": walletInfo.address ?? "",
       } as Record<string, string>;
 
       const verifyUrl = `${API_BASE}/nft/verify-ownership`;
@@ -331,7 +410,7 @@ export function useBackendRelay() {
       if (!res.ok) throw new Error(`Ownership verify failed: ${res.status}`);
       return res.json();
     },
-    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
+    [API_BASE, ensureAuthToken, currentChain, walletInfo.address]
   );
 
   // Check Bubblegum asset (burned/ownership) before building
@@ -341,7 +420,7 @@ export function useBackendRelay() {
       const headersBase = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+        "wallet-address": walletInfo.address ?? "",
       } as Record<string, string>;
 
       const checkUrl = `${API_BASE}/tx/check/bubblegum/asset`;
@@ -370,7 +449,7 @@ export function useBackendRelay() {
       }
       return res.json();
     },
-    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
+    [API_BASE, ensureAuthToken, currentChain, walletInfo.address]
   );
 
   // Upsert asset → position mapping after creation/mint
@@ -387,7 +466,7 @@ export function useBackendRelay() {
       const headersBase = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+        "wallet-address": walletInfo.address ?? "",
       } as Record<string, string>;
 
       let res = await fetch(`${API_BASE}/nft/map-position`, {
@@ -409,18 +488,22 @@ export function useBackendRelay() {
       if (!res.ok) throw new Error(`map-position failed: ${res.status}`);
       return res.json();
     },
-    [API_BASE, ensureAuthToken, currentChain, selectedAccount]
+    [API_BASE, ensureAuthToken, currentChain, walletInfo.address]
   );
 
   const forwardTx = useCallback(
     async (payload: ForwardTxRequest): Promise<ForwardTxResponse> => {
-      const token = await ensureAuthToken();
+      // Use Privy access token instead of JWT
+      const token = await getPrivyAccessToken();
+      if (!token) {
+        throw new Error("Failed to get Privy access token. Please try logging in again.");
+      }
       const idKey = await generateIdempotencyKey();
       const headersBase = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
         "Idempotency-Key": idKey,
-        "wallet-address": selectedAccount?.publicKey?.toBase58?.() ?? "",
+        "wallet-address": walletInfo.address ?? "",
       } as Record<string, string>;
 
       const forwardUrl = `${API_BASE}/tx/forward`;
@@ -432,8 +515,12 @@ export function useBackendRelay() {
       });
 
       if (res.status === 401) {
-        const fresh = await ensureAuthToken(true);
-        log('Relay', 'warn', 'Retry forward tx with fresh token');
+        // Retry with a fresh Privy token
+        const fresh = await getPrivyAccessToken();
+        if (!fresh) {
+          throw new Error("Failed to get Privy access token for retry. Please try logging in again.");
+        }
+        log('Relay', 'warn', 'Retry forward tx with fresh Privy token');
         res = await fetch(forwardUrl, {
           method: "POST",
           headers: {
@@ -464,7 +551,7 @@ export function useBackendRelay() {
       const json = await res.json();
       return json;
     },
-    [API_BASE, ensureAuthToken, selectedAccount]
+    [API_BASE, walletInfo.address]
   );
 
   // Helper to get SSE stream URL for a given signature
@@ -479,7 +566,7 @@ export function useBackendRelay() {
     const headersBase = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+      'wallet-address': walletInfo.address ?? '',
     } as Record<string, string>;
 
     const net = ENABLE_NETWORK_TOGGLE
@@ -500,14 +587,14 @@ export function useBackendRelay() {
       throw new Error(text || `GET /markets failed: ${res.status}`);
     }
     return res.json();
-  }, [API_BASE, ensureAuthToken, selectedAccount]);
+  }, [API_BASE, ensureAuthToken, walletInfo.address]);
 
   const getMarketsActive = useCallback(async (): Promise<any[]> => {
     const token = await ensureAuthToken();
     const headersBase = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+      'wallet-address': walletInfo.address ?? '',
     } as Record<string, string>;
     const net = ENABLE_NETWORK_TOGGLE
       ? ((currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet')
@@ -520,14 +607,14 @@ export function useBackendRelay() {
     }
     if (!res.ok) throw new Error(`GET /markets/active failed: ${res.status}`);
     return res.json();
-  }, [API_BASE, ensureAuthToken, selectedAccount]);
+  }, [API_BASE, ensureAuthToken, walletInfo.address]);
 
   const getMarketsObserving = useCallback(async (): Promise<any[]> => {
     const token = await ensureAuthToken();
     const headersBase = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+      'wallet-address': walletInfo.address ?? '',
     } as Record<string, string>;
     const net = ENABLE_NETWORK_TOGGLE
       ? ((currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet')
@@ -540,14 +627,14 @@ export function useBackendRelay() {
     }
     if (!res.ok) throw new Error(`GET /markets/observing failed: ${res.status}`);
     return res.json();
-  }, [API_BASE, ensureAuthToken, selectedAccount]);
+  }, [API_BASE, ensureAuthToken, walletInfo.address]);
 
   const getMarketsResolved = useCallback(async (lastHours = 24): Promise<any[]> => {
     const token = await ensureAuthToken();
     const headersBase = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+      'wallet-address': walletInfo.address ?? '',
     } as Record<string, string>;
     const net = ENABLE_NETWORK_TOGGLE
       ? ((currentChain && currentChain.includes('mainnet')) ? 'mainnet' : 'devnet')
@@ -560,14 +647,14 @@ export function useBackendRelay() {
     }
     if (!res.ok) throw new Error(`GET /markets/resolved failed: ${res.status}`);
     return res.json();
-  }, [API_BASE, ensureAuthToken, selectedAccount]);
+  }, [API_BASE, ensureAuthToken, walletInfo.address]);
 
   const getMarketById = useCallback(async (idOrMarketId: string | number): Promise<any | null> => {
     const token = await ensureAuthToken();
     const headersBase = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+      'wallet-address': walletInfo.address ?? '',
     } as Record<string, string>;
     const base = API_BASE.replace(/\/$/, '');
     const url = `${base}/markets/${encodeURIComponent(String(idOrMarketId))}`;
@@ -578,7 +665,7 @@ export function useBackendRelay() {
     }
     if (!res.ok) return null;
     return res.json();
-  }, [API_BASE, ensureAuthToken, selectedAccount]);
+  }, [API_BASE, ensureAuthToken, walletInfo.address]);
 
   // Fetch user bets summary (fast grouped view)
   const getUserBetsSummary = useCallback(async (walletAddress?: string): Promise<any> => {
@@ -586,10 +673,10 @@ export function useBackendRelay() {
     const headersBase = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+      'wallet-address': walletInfo.address ?? '',
     } as Record<string, string>;
 
-    const wallet = walletAddress || selectedAccount?.publicKey?.toBase58?.();
+    const wallet = walletAddress || walletInfo.address;
     if (!wallet) throw new Error('Wallet not connected');
     const url = `${API_BASE.replace(/\/$/, '')}/bets/user/${encodeURIComponent(wallet)}/summary`;
     let res = await fetch(url, { method: 'GET', headers: headersBase });
@@ -606,7 +693,7 @@ export function useBackendRelay() {
       throw new Error(text || `GET /bets/user/:wallet/summary failed: ${res.status}`);
     }
     return res.json();
-  }, [API_BASE, ensureAuthToken, selectedAccount]);
+  }, [API_BASE, ensureAuthToken, walletInfo.address]);
 
   // Fetch user bets paginated list (fallback/pagination view)
   const getUserBetsPaginated = useCallback(async (walletAddress: string | undefined, limit = 25, offset = 0, includeClaimed = false): Promise<any[]> => {
@@ -614,10 +701,10 @@ export function useBackendRelay() {
     const headersBase = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'wallet-address': selectedAccount?.publicKey?.toBase58?.() ?? '',
+      'wallet-address': walletInfo.address ?? '',
     } as Record<string, string>;
 
-    const wallet = walletAddress || selectedAccount?.publicKey?.toBase58?.();
+    const wallet = walletAddress || walletInfo.address;
     if (!wallet) throw new Error('Wallet not connected');
     const base = API_BASE.replace(/\/$/, '');
     const includeClaimedParam = includeClaimed ? '&includeClaimed=true' : '';
@@ -644,7 +731,7 @@ export function useBackendRelay() {
       return data.bets;
     }
     return [];
-  }, [API_BASE, ensureAuthToken, selectedAccount]);
+  }, [API_BASE, ensureAuthToken, walletInfo.address]);
 
   const signBuiltTransaction = useCallback(
     async (messageBase64: string): Promise<{
@@ -693,11 +780,18 @@ export function useBackendRelay() {
         }
       }
 
-      // Sign with wallet
-      if (!signTransaction) throw new Error("Wallet does not support transaction signing");
+      // Sign with Privy wallet
+      if (!privyWallet) throw new Error("Wallet does not support transaction signing");
       let result: VersionedTransaction | Transaction | undefined;
       try {
-        result = (await signTransaction(unsignedTx)) as VersionedTransaction | undefined;
+        const provider = await privyWallet.getProvider();
+        const { signedTransaction: signedTx } = await provider.request({
+          method: 'signTransaction',
+          params: {
+            transaction: unsignedTx,
+          },
+        });
+        result = signedTx as VersionedTransaction | undefined;
       } catch (err) {
         // Bubble up detailed wallet error
         throw err;
@@ -710,7 +804,7 @@ export function useBackendRelay() {
       const signaturesB64 = signed.signatures.map((s) => bytesToBase64(s));
       return { signedTx: signed, signaturesB64 };
     },
-    [signTransaction]
+    [privyWallet, connection]
   );
 
   return useMemo(

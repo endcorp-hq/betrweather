@@ -5,30 +5,21 @@ import { useNavigation } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export function TopBar() {
-  const { selectedAccount } = useAuthorization();
-  const navigation = useNavigation();
-
-  const handleInfoPress = () => {
-    navigation.navigate("Info" as never);
-  };
-
   return (
-    <View className="flex-row justify-between items-center px-4 py-2 pt-20 bg-black">
+    <View
+      className="flex-row justify-between items-center px-4 py-2 pt-20 bg-[#fcfcfc] border-b border-gray-200"
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.10,
+        shadowRadius: 10,
+        elevation: 6,
+        zIndex: 10,
+      }}
+    >
       <View className="flex-row items-center flex-1 justify-between">
-        <Text className="text-white text-[24px] font-better-bold">BetrWeather</Text>
-        {/* <TouchableOpacity
-          onPress={handleInfoPress}
-          className="ml-3 p-1"
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons 
-            name="information-outline" 
-            size={24} 
-            color="white" 
-          />
-        </TouchableOpacity> */}
+        <Text className="text-black text-[24px] font-better-bold">BetrWeather</Text>
       </View>
-      {selectedAccount && <TopBarWalletMenu />}
     </View>
   );
 }

@@ -56,8 +56,6 @@ export default function MarketScreen() {
   // Normalize backend markets to the UI shape used here
   const dbMarkets = useMemo(() => {
     const dbMarketsRaw = progressive?.markets || [];
-    console.log('dbMarketsRaw count:', dbMarketsRaw.length);
-    console.log('Categories found:', [...new Set(dbMarketsRaw.map((m: any) => m.uiMarketCategory))].join(', '));
     if (!dbMarketsRaw || !Array.isArray(dbMarketsRaw)) return [] as any[];
     return dbMarketsRaw.map((m: any) => {
       // Convert ISO dates to epoch seconds
@@ -124,18 +122,18 @@ export default function MarketScreen() {
     navigation.navigate("ClaimPositions");
   }, [navigation]);
 
-  // FlatList render item
-  const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
-    <MemoizedMarketCard
-      market={item}
-      index={index}
-    />
-  ), []);
+  // // FlatList render item
+  // const renderItem = useCallback(({ item, index }: { item: any; index: number }) => (
+  //   <MemoizedMarketCard
+  //     market={item}
+  //     index={index}
+  //   />
+  // ), []);
 
-  const keyExtractor = useCallback((item: any, index: number) => {
-    const id = item?.marketId ?? item?.id ?? index;
-    return String(id);
-  }, []);
+  // const keyExtractor = useCallback((item: any, index: number) => {
+  //   const id = item?.marketId ?? item?.id ?? index;
+  //   return String(id);
+  // }, []);
 
   // Helper function to filter markets by category and status
   const filterMarketsByCategory = useCallback((category: string) => {
@@ -264,9 +262,9 @@ export default function MarketScreen() {
   // Show loader when initially loading
   if (progressive?.loading && !hasAnyMarkets) {
     return (
-      <View className="flex-1 justify-center items-center bg-black">
-        <ActivityIndicator size="large" color="#10b981" />
-        <Text className="text-white text-base font-better-regular mt-4">
+      <View className="flex-1 justify-center items-center bg-[#fcfcfc]">
+        <ActivityIndicator size="large" color="#8b5cf6" />
+        <Text className="text-black text-base font-better-regular mt-4">
           Loading markets...
         </Text>
       </View>
@@ -274,32 +272,20 @@ export default function MarketScreen() {
   }
 
   return (
-    <ScrollView 
-      className="flex-1"
-      showsVerticalScrollIndicator={false}
-      nestedScrollEnabled={true}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor="#10b981"
-          colors={["#10b981"]}
-        />
-      }
-    >
+    <View className="flex-1">
       {/* Fixed Header Section */}
       <MotiView
         from={{ opacity: 0, translateY: -20 }}
         animate={{ opacity: 1, translateY: 0 }}
         transition={{ type: 'timing', duration: 400 }}
       >
-        <View className="px-4 pt-10 pb-4">
+        <View className="px-4 pt-10 pb-4 bg-[#fcfcfc]">
           <View className="flex-row justify-end items-center gap-3 mb-4">
             <TouchableOpacity
               onPress={onRefresh}
               activeOpacity={0.7}
               disabled={refreshing}
-              className="bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 flex-row items-center gap-2"
+              className="bg-black border border-white/20 rounded-xl px-3 py-2.5 flex-row items-center gap-2"
             >
               {refreshing ? (
                 <ActivityIndicator size="small" color="white" />
@@ -314,7 +300,7 @@ export default function MarketScreen() {
             <TouchableOpacity
               onPress={() => setShowFilterModal(true)}
               activeOpacity={0.7}
-              className="bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 flex-row items-center gap-2"
+              className="bg-black border border-white/20 rounded-xl px-3 py-2.5 flex-row items-center gap-2"
             >
               <Text className="text-white text-xs font-better-regular">
                 {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
@@ -328,7 +314,7 @@ export default function MarketScreen() {
             <TouchableOpacity
               onPress={handlePortfolioPress}
               activeOpacity={0.8}
-              className="relative flex-row items-center gap-4 bg-white/90 rounded-xl border-2 border-white/20 p-4 py-2"
+              className="bg-black border border-white/20 rounded-xl px-3 py-2.5 flex-row items-center gap-2 relative"
             >
               {hasClaimable && (
                 <View
@@ -350,18 +336,35 @@ export default function MarketScreen() {
                   </Text>
                 </View>
               )}
+              
+              <Text className="text-white text-xs font-better-regular">
+                Portfolio
+              </Text>
               <MaterialCommunityIcons
                 name="chart-line"
                 size={16}
-                color="black"
+                color="white"
               />
-              <Text className="text-black text-sm font-better-semi-bold">
-                Portfolio
-              </Text>
             </TouchableOpacity>
           </View>
         </View>
       </MotiView>
+
+      {/* Scrollable Markets Section */}
+      <ScrollView 
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={true}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#10b981"
+            colors={["#10b981"]}
+          />
+        }
+      >
 
       {/* Quick Markets Section - Only show if markets exist */}
       {quickMarkets.length > 0 && (
@@ -371,7 +374,7 @@ export default function MarketScreen() {
           transition={{ type: 'timing', duration: 500, delay: 100 }}
         >
           <View className="mb-6">
-            <Text className="text-white text-lg font-better-semi-bold text-left mt-4 mb-4 pl-4">
+            <Text className="text-black text-lg font-better-semi-bold text-left mt-4 mb-4 pl-4">
               Quick Markets
             </Text>
             <ScrollView
@@ -396,7 +399,7 @@ export default function MarketScreen() {
           transition={{ type: 'timing', duration: 500, delay: 200 }}
         >
           <View className="mb-6 mt-6">
-            <Text className="text-white text-lg font-better-semi-bold text-left mb-4 pl-4">
+            <Text className="text-black text-lg font-better-semi-bold text-left mb-4 pl-4">
               Rainfall Markets
             </Text>
             <ScrollView
@@ -421,7 +424,7 @@ export default function MarketScreen() {
           transition={{ type: 'timing', duration: 500, delay: 300 }}
         >
           <View className="mb-6">
-            <Text className="text-white text-lg font-better-semi-bold text-left mb-4 pl-4">
+            <Text className="text-black text-lg font-better-semi-bold text-left mb-4 pl-4">
               Temperature Markets
             </Text>
             <ScrollView
@@ -446,6 +449,8 @@ export default function MarketScreen() {
           </Text>
         </View>
       )}
+
+      </ScrollView>
 
       {/* Filter Bottom Sheet Modal */}
       <Modal
@@ -559,36 +564,6 @@ export default function MarketScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 16,
-    backgroundColor: "transparent",
-  },
-  sectionTitle: {
-    color: theme.colors.onSurface,
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: theme.spacing.lg,
-  },
-  filterCard: {
-    marginBottom: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    alignItems: "center",
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 16,
-    marginVertical: theme.spacing.md,
-    textAlign: "center",
-  },
-  emptyText: {
-    color: theme.colors.onSurfaceVariant,
-    fontSize: 16,
-    marginVertical: theme.spacing.lg,
-    textAlign: "center",
-  },
-});

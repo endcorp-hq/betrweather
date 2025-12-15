@@ -6,12 +6,16 @@ import {
   AddressLookupTableAccount,
   Keypair,
   Transaction,
+  PublicKey,
 } from "@solana/web3.js";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useMemo } from "react";
 import axios from "axios";
-import { useAuthorization } from "./useAuthorization";
-import { useMobileWallet } from "../useMobileWallet";
+// OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+// import { useAuthorization } from "./useAuthorization";
+// import { useMobileWallet } from "../useMobileWallet";
 import { useChain } from "../../contexts/ChainProvider";
+import { usePrivy } from "@privy-io/expo";
+import { useEmbeddedSolanaWallet } from "@privy-io/expo";
 
 const getPriorityFee = async () => {
   let fee = 1000;
@@ -28,15 +32,66 @@ const getPriorityFee = async () => {
   return fee;
 };
 
+/**
+ * Get wallet address and public key from Privy user
+ */
+function getPrivyWalletInfo(privyUser: any): { address: string | null; publicKey: PublicKey | null } {
+  const walletAccount = privyUser?.linked_accounts?.find(
+    (account: any) => account.type === 'wallet' || account.walletClientType === 'privy'
+  );
+  if (walletAccount?.address) {
+    try {
+      return {
+        address: walletAccount.address,
+        publicKey: new PublicKey(walletAccount.address),
+      };
+    } catch {
+      // Invalid public key
+    }
+  }
+  
+  if (privyUser?.wallet?.address) {
+    try {
+      return {
+        address: privyUser.wallet.address,
+        publicKey: new PublicKey(privyUser.wallet.address),
+      };
+    } catch {
+      // Invalid public key
+    }
+  }
+  
+  return { address: null, publicKey: null };
+}
+
 export function useCreateAndSendTx() {
-  const { signTransaction } = useMobileWallet();
-  const { selectedAccount } = useAuthorization();
+  // OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+  // const { signTransaction } = useMobileWallet();
+  // const { selectedAccount } = useAuthorization();
+  const { user: privyUser, isReady } = usePrivy();
+  const { wallets } = useEmbeddedSolanaWallet();
   const { connection } = useChain();
   const [isLoading, setIsLoading] = useState(false);
 
   if (!connection) {
     throw new Error("RPC URL not found");
   }
+
+  // Get wallet info from Privy
+  const walletInfo = useMemo(() => {
+    if (!privyUser || !isReady) {
+      return { address: null, publicKey: null };
+    }
+    return getPrivyWalletInfo(privyUser);
+  }, [privyUser, isReady]);
+
+  // Get Privy wallet for signing
+  const privyWallet = useMemo(() => {
+    if (!wallets || wallets.length === 0) {
+      return null;
+    }
+    return wallets[0];
+  }, [wallets]);
 
   const createAndSendTx = useCallback(
     async (
@@ -55,11 +110,11 @@ export function useCreateAndSendTx() {
         signers?: Keypair[];
       } = {}
     ) => {
-      if (!selectedAccount?.publicKey) {
+      if (!walletInfo.publicKey) {
         throw new Error("Wallet not connected");
       }
 
-      if (!signTransaction) {
+      if (!privyWallet) {
         throw new Error("Wallet does not support signing transactions");
       }
 
@@ -70,10 +125,16 @@ export function useCreateAndSendTx() {
         // If a signed versioned transaction is provided, send it directly
         if (signedVersionedTransaction) {
           if (signatureRequired) {
-            // Use signAndSendTransaction for the signed transaction
-            let result = await signTransaction(signedVersionedTransaction);
-            if (result) {
-              signedVersionedTransaction = result as VersionedTransaction;
+            // Sign with Privy wallet
+            const provider = await privyWallet.getProvider();
+            const { signedTransaction: signedTx } = await provider.request({
+              method: 'signTransaction',
+              params: {
+                transaction: signedVersionedTransaction,
+              },
+            });
+            if (signedTx) {
+              signedVersionedTransaction = signedTx as VersionedTransaction;
             }
           }
 
@@ -91,10 +152,16 @@ export function useCreateAndSendTx() {
 
         if (transaction) {
           if (signatureRequired) {
-            // Use signAndSendTransaction for the signed transaction
-            let result = await signTransaction(transaction as Transaction);
-            if (result) {
-              transaction = result as Transaction;
+            // Sign with Privy wallet
+            const provider = await privyWallet.getProvider();
+            const { signedTransaction: signedTx } = await provider.request({
+              method: 'signTransaction',
+              params: {
+                transaction: transaction,
+              },
+            });
+            if (signedTx) {
+              transaction = signedTx as Transaction;
             }
           }
 
@@ -154,15 +221,21 @@ export function useCreateAndSendTx() {
           new TransactionMessage({
             instructions,
             recentBlockhash: blockhash,
-            payerKey: selectedAccount.publicKey,
+            payerKey: walletInfo.publicKey,
           }).compileToV0Message(addressLookupTableAccounts)
         );
 
         console.log("[Tx Build] VersionedTransaction created");
 
         if (signatureRequired) {
-          // Use signAndSendTransaction from wallet
-          const signedTransaction = await signTransaction(tx);
+          // Sign with Privy wallet
+          const provider = await privyWallet.getProvider();
+          const { signedTransaction } = await provider.request({
+            method: 'signTransaction',
+            params: {
+              transaction: tx,
+            },
+          });
           let signature: string | undefined;
           if (signedTransaction) {
             // Pre-send simulation for better error diagnostics (only for VersionedTransaction)
@@ -264,7 +337,7 @@ export function useCreateAndSendTx() {
         setIsLoading(false);
       }
     },
-    [selectedAccount?.publicKey, signTransaction]
+    [walletInfo.publicKey, privyWallet, connection]
   );
 
   const buildVersionedTx = useCallback(
@@ -278,7 +351,7 @@ export function useCreateAndSendTx() {
         addressLookupTableAccounts?: AddressLookupTableAccount[];
       } = {}
     ): Promise<VersionedTransaction> => {
-      if (!selectedAccount?.publicKey) {
+      if (!walletInfo.publicKey) {
         throw new Error("Wallet not connected");
       }
       if (!connection) {
@@ -304,13 +377,13 @@ export function useCreateAndSendTx() {
         new TransactionMessage({
           instructions,
           recentBlockhash: blockhash,
-          payerKey: selectedAccount.publicKey,
+          payerKey: walletInfo.publicKey,
         }).compileToV0Message(addressLookupTableAccounts)
       );
 
       return tx;
     },
-    [selectedAccount?.publicKey]
+    [walletInfo.publicKey, connection]
   );
 
   return {

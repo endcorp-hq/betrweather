@@ -3,9 +3,10 @@ import { View, Text, Animated } from "react-native";
 
 interface LoadingSpinnerProps {
   message?: string;
+  showMessage?: boolean;
 }
 
-export function LogoLoader({ message = "Loading..." }: LoadingSpinnerProps) {
+export function LogoLoader({ message = "Loading...", showMessage = true }: LoadingSpinnerProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -31,14 +32,16 @@ export function LogoLoader({ message = "Loading..." }: LoadingSpinnerProps) {
 
   return (
     <View className="flex-1 justify-center items-center">
-      <Text className="text-white text-3xl font-better-bold mb-4">
+      <Text className="text-black text-3xl font-better-bold mb-4">
         BetrWeather
       </Text>
       
       <Animated.View style={{ opacity: fadeAnim }}>
-        <Text className="text-white text-lg font-better-regular text-center">
-          {message}
-        </Text>
+        {showMessage && (
+          <Text className="text-[#a5a5a5] text-lg font-better-regular text-center">
+            {message}
+          </Text>
+        )}
       </Animated.View>
     </View>
   );

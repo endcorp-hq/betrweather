@@ -3,6 +3,9 @@ import { Buffer } from "buffer";
 import structuredClone from "@ungap/structured-clone";
 import 'react-native-gesture-handler';
 import RNEventSource from 'react-native-sse';
+import 'fast-text-encoding';
+import 'react-native-get-random-values';
+import '@ethersproject/shims';
 
 // import moduleAlias from 'module-alias';
 

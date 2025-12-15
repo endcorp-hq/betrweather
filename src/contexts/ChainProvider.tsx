@@ -9,7 +9,8 @@ import React, {
 } from "react";
 import { Connection, type ConnectionConfig } from "@solana/web3.js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAuthorization } from "../hooks/solana/useAuthorization";
+import { usePrivy } from "@privy-io/expo";
+import { useEmbeddedSolanaWallet } from "@privy-io/expo";
 import { STORAGE_KEYS } from "../utils/constants";
 import { ENABLE_NETWORK_TOGGLE } from "src/config/featureFlags";
 
@@ -36,7 +37,8 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
     null
   );
   const [isLoading, setIsLoading] = useState(false);
-  const { selectedAccount, userSession } = useAuthorization();
+  const { user: privyUser, isReady } = usePrivy();
+  const { wallets } = useEmbeddedSolanaWallet();
   const connectionRef = useRef<Connection | null>(null);
 
   // Cleanup function for connections
@@ -63,18 +65,18 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
           if (parsedSession?.userSession?.chain) {
             // Normalize chain to 'mainnet' | 'devnet'
             const raw: string = parsedSession.userSession.chain;
-            const normalized: NetworkEnvironment = raw.includes('mainnet') ? 'devnet' : 'devnet';
-            setCurrentChain(ENABLE_NETWORK_TOGGLE ? normalized : 'devnet');
+            const normalized: NetworkEnvironment = raw.includes('mainnet') ? 'mainnet' : 'devnet';
+            setCurrentChain(ENABLE_NETWORK_TOGGLE ? normalized : 'mainnet');
             setIsLoading(false);
             return;
           }
           // No chain stored; default depends on feature flag
-          setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'devnet');
+          setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'mainnet');
           setIsLoading(false);
           return;
         }
         // No session found; default depends on feature flag
-        setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'devnet');
+        setCurrentChain(ENABLE_NETWORK_TOGGLE ? 'devnet' : 'mainnet');
       } catch (error) {
         console.error("Error loading chain from storage:", error);
         // Remove user session using React Query
@@ -85,18 +87,16 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       }
     };
 
-    if (selectedAccount) {
-      initializeChain();
-    }
-  }, [selectedAccount]);
+    // Initialize chain immediately, don't wait for user login
+    initializeChain();
+  }, []);
 
-  // Reactively sync chain with the authorized session's chain selection (ignored when toggle disabled)
+  // Reactively sync chain with Privy session (ignored when toggle disabled)
+  // Note: Privy doesn't store chain preference in the same way, so this effect is kept for future use
   useEffect(() => {
-    const chain = userSession?.chain;
-    if (!chain) return;
-    const normalized: NetworkEnvironment = chain.includes('mainnet') ? 'devnet' : 'devnet';
-    setCurrentChain((prev) => (prev !== (ENABLE_NETWORK_TOGGLE ? normalized : 'devnet') ? (ENABLE_NETWORK_TOGGLE ? normalized : 'devnet') : prev));
-  }, [userSession?.chain]);
+    // Chain preference can be stored separately if needed
+    // For now, chain is initialized from storage in initializeChain
+  }, []);
 
   // Cleanup connection when component unmounts
   useEffect(() => {
@@ -110,9 +110,9 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
       return null;
     }
     
-    const effectiveChain: NetworkEnvironment = ENABLE_NETWORK_TOGGLE ? currentChain : 'devnet';
+    const effectiveChain: NetworkEnvironment = ENABLE_NETWORK_TOGGLE ? currentChain : 'mainnet';
     const chainString = effectiveChain === 'mainnet' 
-      ? 'https://api.devnet.solana.com'
+      ? 'https://api.mainnet-beta.solana.com'
       : `https://api.${effectiveChain}.solana.com`;
     const rpcUrl = chainString;
 
@@ -124,12 +124,11 @@ export const ChainProvider: React.FC<ChainProviderProps> = ({
     // Create new connection only if endpoint changed
     const newConnection = new Connection(rpcUrl, config);
     connectionRef.current = newConnection;
-
     return newConnection;
   }, [currentChain, config]);
 
   return (
-    <ChainContext.Provider value={{ currentChain: (ENABLE_NETWORK_TOGGLE ? (currentChain ?? 'devnet') : 'devnet'), connection, isLoading }}>
+    <ChainContext.Provider value={{ currentChain: (ENABLE_NETWORK_TOGGLE ? (currentChain ?? 'devnet') : 'mainnet'), connection, isLoading }}>
       {children}
     </ChainContext.Provider>
   );

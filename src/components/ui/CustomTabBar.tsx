@@ -137,23 +137,24 @@ export function CustomTabBar({
             };
 
             let iconName: any = "circle";
-            let activeColor = "#8b5cf6"; // Purple for consistency
+            let activeColor = "#000000"; // Purple for consistency
             if (route.name === "Weather") {
               iconName = "cloud";
-              activeColor = "#3b82f6"; // Blue for weather
+              activeColor = "#000000"; // Blue for weather
             }
             if (route.name === "Markets") {
               iconName = "finance";
-              activeColor = "#10b981"; // Green for markets/betting
-            }
-            if (route.name === "Profile") {
-              iconName = "face-man";
-              activeColor = "#f59e0b"; // Amber for profile
+              activeColor = "#000000"; // Green for markets/betting
             }
             if (route.name === "Info") {
               iconName = "information-variant";
-              activeColor = "#6366f1"; // Indigo for info
+              activeColor = "#000000"; // Indigo for info
             }
+            if (route.name === "Profile") {
+              iconName = "face-man";
+              activeColor = "#000000"; // Amber for profile
+            }
+            
 
             // Animate icon scale on focus
             const scale = isFocused ? ACTIVE_ICON_SCALE : 1;
@@ -171,9 +172,9 @@ export function CustomTabBar({
                 className={`flex-1 flex-row gap-x-1 items-center justify-center rounded-[30px]`}
                 style={{ 
                   height: TAB_BAR_HEIGHT / 1.5, 
-                  backgroundColor: isFocused ? SECONDARY_COLOR : "transparent",
+                  backgroundColor: isFocused ? "#fcfcfc" : "transparent",
                   borderWidth: isFocused ? 1 : 0,
-                  borderColor: isFocused ? ACTIVE_BORDER_COLOR : "transparent",
+                  borderColor: isFocused ? "#000000" : "transparent",
                 }}
               >
                 <Animated.View style={{ transform: [{ scale }] }}>
@@ -199,7 +200,7 @@ export function CustomTabBar({
                 <Animated.Text
                   entering={FadeIn.duration(200)}
                   exiting={FadeOut.duration(200)}
-                  className="text-white text-xs font-better-regular"
+                  className="text-black text-xs font-better-regular"
                   style={{ color: activeColor, fontWeight: '600' }}
                 >
                   {label as string}

@@ -5,24 +5,9 @@ import { HomeScreen } from "../screens/HomeScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import MarketScreen from "../screens/MarketScreen";
 import { CustomTabBar } from "../components/ui/CustomTabBar";
-import GuardedScreen from "../components/sign-in/guarded-screen";
 import InfoScreen from "../screens/InfoScreen";
 
 const Tab = createBottomTabNavigator();
-function MarketsGuarded() {
-  return (
-    <GuardedScreen>
-      <MarketScreen />
-    </GuardedScreen>
-  );
-}
-function ProfileGuarded() {
-  return (
-    <GuardedScreen>
-      <ProfileScreen />
-    </GuardedScreen>
-  );
-}
 
 export function HomeNavigator() {
   return (
@@ -30,24 +15,19 @@ export function HomeNavigator() {
       initialRouteName="Weather"
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={({ route }) => ({
-        header: () =>
-          route.name === "Markets" ||
-          route.name === "Profile" ||
-          route.name === "Info" ||
-          route.name === "MarketDetail" ? (
-            <TopBar />
-          ) : null,
+        header: () => <TopBar />,
         headerShown:
           route.name === "Markets" ||
           route.name === "Profile" ||
           route.name === "Info" ||
-          route.name === "MarketDetail",
+          route.name === "MarketDetail" ||
+          route.name === "Weather",
       })}
     >
       <Tab.Screen name="Weather" component={HomeScreen} />
-      <Tab.Screen name="Markets" component={MarketsGuarded} />
-      <Tab.Screen name="Profile" component={ProfileGuarded} />
+      <Tab.Screen name="Markets" component={MarketScreen} />
       <Tab.Screen name="Info" component={InfoScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }

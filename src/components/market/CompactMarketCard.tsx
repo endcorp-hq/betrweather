@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, View, Text, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { DarkCard } from "../ui";
+// Removed DarkCard import - using View with custom styling
 import { normalizeWinningDirection } from "@/utils";
 import { formatMarketDuration } from "./format-market-duration";
 
@@ -105,7 +105,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
       ]}
       className="w-[350px] mx-auto"
     >
-      <DarkCard style={styles.card} borderRadius={16}>
+      <View style={styles.card}>
         {/* Header with Status and Volume */}
         <View style={styles.header}>
           <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20` }]}>
@@ -131,7 +131,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
           <MaterialCommunityIcons
             name="clock-outline"
             size={12}
-            color="rgba(255, 255, 255, 0.5)"
+            color="rgba(0, 0, 0, 0.6)"
           />
           <Text style={styles.timeRangeText}>
             {formatMarketDuration(market.marketStart, market.marketEnd)}
@@ -174,7 +174,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
                 <MaterialCommunityIcons
                   name="clock-outline"
                   size={12}
-                  color="rgba(255, 255, 255, 0.5)"
+                  color="rgba(0, 0, 0, 0.6)"
                 />
                 <Text style={styles.timeText}>
                   betting ends in {getTimeLeft(market.marketStart)}
@@ -190,7 +190,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
                 <MaterialCommunityIcons
                   name="clock-alert-outline"
                   size={12}
-                  color="rgba(255, 255, 255, 0.5)"
+                  color="#f59e0b"
                 />
                 <Text style={styles.timeText}>
                   Awaiting resolution
@@ -203,7 +203,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
                 <MaterialCommunityIcons
                   name="timer-sand"
                   size={12}
-                  color="rgba(255, 255, 255, 0.5)"
+                  color="rgba(0, 0, 0, 0.6)"
                 />
                 <Text style={styles.timeText}>
                   resolves in {getTimeLeft(market.marketEnd)}
@@ -220,7 +220,7 @@ export function CompactMarketCard({ market, type = "quick" }: { market: any; typ
         <Text style={styles.marketId}>
           {market?.marketId !== undefined ? String(market.marketId) : 'none'}
         </Text>
-      </DarkCard>
+      </View>
     </Pressable>
   );
 }
@@ -238,9 +238,22 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   card: {
-    
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e6e8ea",
+    borderRadius: 16,
     padding: 12,
     position: "relative",
+    // Drop shadow for iOS
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    // Drop shadow for Android
+    elevation: 3,
   },
   header: {
     flexDirection: "row",
@@ -264,13 +277,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   volume: {
-    color: "#ffffff",
+    color: "#000000",
     fontSize: 12,
     fontWeight: "700",
     fontFamily: "Poppins-Bold",
   },
   question: {
-    color: "#ffffff",
+    color: "#000000",
     fontSize: 13,
     fontWeight: "600",
     fontFamily: "Poppins-SemiBold",
@@ -285,7 +298,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   timeRangeText: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "rgba(0, 0, 0, 0.6)",
     fontSize: 10,
     fontFamily: "Poppins-Regular",
   },
@@ -293,7 +306,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   oddsText: {
-    color: "#ffffff",
+    color: "#000000",
     fontSize: 12,
     fontWeight: "700",
     fontFamily: "Poppins-Bold",
@@ -301,7 +314,7 @@ const styles = StyleSheet.create({
   },
   oddsBar: {
     height: 6,
-    backgroundColor: "rgba(55, 65, 81, 1)",
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
     borderRadius: 3,
     overflow: "hidden",
     marginBottom: 3,
@@ -315,12 +328,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   noLabel: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "rgba(0, 0, 0, 0.6)",
     fontSize: 10,
     fontFamily: "Poppins-Regular",
   },
   yesLabel: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "rgba(0, 0, 0, 0.6)",
     fontSize: 10,
     fontFamily: "Poppins-Regular",
   },
@@ -336,7 +349,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timeText: {
-    color: "rgba(255, 255, 255, 0.5)",
+    color: "rgba(0, 0, 0, 0.6)",
     fontSize: 9,
     fontFamily: "Poppins-Regular",
     flexShrink: 1,
@@ -351,7 +364,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 6,
     right: 10,
-    color: "rgba(255, 255, 255, 0.3)",
+    color: "rgba(0, 0, 0, 0.3)",
     fontSize: 7,
     fontFamily: "Poppins-Regular",
   },

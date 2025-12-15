@@ -184,18 +184,18 @@ export default function ProfileScreen() {
               paddingVertical: 12,
               borderRadius: 9999, // rounded-full
               borderWidth: 1,
-              borderColor: 'rgba(255, 255, 255, 0.5)',
-              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+              borderColor: 'rgba(0, 0, 0, 0.5)',
+              backgroundColor: 'transparent',
             }}
             activeOpacity={0.85}
           >
             <MaterialCommunityIcons
               name="arrow-left"
               size={18}
-              color="white"
+              color="black"
               style={{ marginRight: 6 }}
             />
-            <Text className="font-better-regular text-white text-sm">
+            <Text className="font-better-regular text-black text-sm">
               Back
             </Text>
           </TouchableOpacity>
@@ -203,8 +203,8 @@ export default function ProfileScreen() {
 
         {/* Header Section */}
         <View style={styles.header}>
-          <Text className="text-white text-2xl font-better-semi-bold mb-4">
-            My Current Positions
+          <Text className="text-black text-2xl font-better-semi-bold mb-4">
+            Current Positions
           </Text>
           <Text style={styles.subtitle}>
             Track your prediction market positions
@@ -232,7 +232,7 @@ export default function ProfileScreen() {
             <View
               style={[
                 styles.statCard,
-                { borderColor: "rgba(255, 255, 255, 0.85)", backgroundColor: "rgba(255, 255, 255, 0.85)" },
+                { borderColor: "rgba(0,0,0, 0.4)", backgroundColor: "transparent" },
               ]}
             >
               <Text style={styles.statNumber} className="!text-black">{positions.length}</Text>

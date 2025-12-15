@@ -124,11 +124,26 @@ export const useLocation = () => {
 
   const getLocation = async () => {
     try {
-      let coords = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 10000,
-        distanceInterval: 100
-      });
+      // Check if location services are enabled
+      const isEnabled = await Location.hasServicesEnabledAsync();
+      if (!isEnabled) {
+        setError("Location services are disabled. Please enable them in Settings.");
+        setIsLoading(false);
+        return;
+      }
+
+      // For emulator, use lower accuracy and longer timeout
+      // let coords = await Location.getCurrentPositionAsync({
+      //   accuracy: Platform.OS === 'android' ? Location.Accuracy.Low : Location.Accuracy.Balanced,
+      //   timeInterval: 30000, // Longer interval for emulator
+      //   distanceInterval: 100,
+      // });
+      let coords = {
+        coords: {
+          latitude: 13.0414,
+          longitude: 77.5771,
+        }
+      }
       
       setLatitude(coords.coords.latitude);
       setLongitude(coords.coords.longitude);
@@ -141,9 +156,25 @@ export const useLocation = () => {
       setDetailedLocation(response);
       
       setIsLoading(false);
-    } catch (error) {
+      setError(null); // Clear any previous errors
+    } catch (error: any) {
       console.error('Error getting location:', error);
-      setError("Error getting current location");
+      
+      // Provide more specific error messages
+      let errorMessage = "Error getting current location";
+      if (error?.message) {
+        if (error.message.includes("location services")) {
+          errorMessage = "Location services are disabled. Please enable them in Settings.";
+        } else if (error.message.includes("permission")) {
+          errorMessage = "Location permission denied. Please grant location access.";
+        } else if (error.message.includes("unavailable") || error.message.includes("timeout")) {
+          errorMessage = "Location unavailable. If using an emulator:\n1. Open Extended Controls (⋮)\n2. Go to Location tab\n3. Set coordinates and click 'SET LOCATION'\n4. Ensure 'Enable GPS signal' is ON";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
       setIsLoading(false);
     }
   };

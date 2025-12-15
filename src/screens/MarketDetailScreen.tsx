@@ -7,8 +7,14 @@ import {
   Text,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import { useShortx, useAuthorization, useCreateAndSendTx } from "../hooks/solana";
-import { useBackendRelay, useMobileWallet } from "../hooks";
+import { useShortx, useCreateAndSendTx } from "../hooks/solana";
+// OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+// import { useAuthorization } from "../hooks/solana";
+import { useBackendRelay } from "../hooks";
+// OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+// import { useMobileWallet } from "../hooks";
+import { usePrivy } from "@privy-io/expo";
+import { useEmbeddedSolanaWallet } from "@privy-io/expo";
 import { Buffer } from 'buffer';
 import { PublicKey, TransactionMessage, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import React, {
@@ -38,6 +44,7 @@ import { useToast, useChain } from "@/contexts";
 import type { ParsedAccountData } from "@solana/web3.js";
 import { CURRENCY_DISPLAY_NAMES, CurrencyType } from "src/types/currency";
 import { getJWTTokens } from "../utils/authUtils";
+import { getPrivyAccessToken } from "../utils/privyAuth";
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -501,10 +508,45 @@ function SwipeableBetCard({
   );
 };
 
+/**
+ * Get wallet address and public key from Privy user
+ */
+function getPrivyWalletInfo(privyUser: any): { address: string | null; publicKey: PublicKey | null } {
+  const walletAccount = privyUser?.linked_accounts?.find(
+    (account: any) => account.type === 'wallet' || account.walletClientType === 'privy'
+  );
+  if (walletAccount?.address) {
+    try {
+      return {
+        address: walletAccount.address,
+        publicKey: new PublicKey(walletAccount.address),
+      };
+    } catch {
+      // Invalid public key
+    }
+  }
+  
+  if (privyUser?.wallet?.address) {
+    try {
+      return {
+        address: privyUser.wallet.address,
+        publicKey: new PublicKey(privyUser.wallet.address),
+      };
+    } catch {
+      // Invalid public key
+    }
+  }
+  
+  return { address: null, publicKey: null };
+}
+
 export default function SlotMachineScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { selectedAccount } = useAuthorization();
+  // OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+  // const { selectedAccount } = useAuthorization();
+  const { user: privyUser, isReady } = usePrivy();
+  const { wallets } = useEmbeddedSolanaWallet();
   const { toast } = useToast();
   const { connection, currentChain } = useChain();
   // Accept both dbId and marketId from navigation, and optionally a full market object
@@ -515,7 +557,33 @@ export default function SlotMachineScreen() {
   const { getMarketById, openPosition, refresh, isInitialized } = useShortx();
   const { forwardTx, ensureAuthToken, buildOpenPosition, signBuiltTransaction } = useBackendRelay();
   const { buildVersionedTx } = useCreateAndSendTx();
-  const { signTransaction } = useMobileWallet();
+  // OLD WALLET ADAPTER CODE - KEPT FOR FUTURE USE
+  // const { signTransaction } = useMobileWallet();
+
+  // Get wallet info from Privy
+  const walletInfo = useMemo(() => {
+    if (!privyUser || !isReady) {
+      return { address: null, publicKey: null };
+    }
+    return getPrivyWalletInfo(privyUser);
+  }, [privyUser, isReady]);
+
+  // Get Privy wallet for signing
+  const privyWallet = useMemo(() => {
+    if (!wallets || wallets.length === 0) {
+      return null;
+    }
+    return wallets[0];
+  }, [wallets]);
+
+  // Get wallet address directly from Privy wallet (more reliable than user object)
+  const privyWalletAddress = useMemo(() => {
+    if (privyWallet) {
+      // Privy wallet should have an address property
+      return privyWallet.address || walletInfo.address;
+    }
+    return walletInfo.address;
+  }, [privyWallet, walletInfo.address]);
   const API_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
   const dbByDbIdUrl = routeDbId ? `${API_BASE}/markets/db/${routeDbId}` : '';
   const dbByMarketIdUrl = routeMarketId != null ? `${API_BASE}/markets/${routeMarketId}` : '';
@@ -554,6 +622,7 @@ export default function SlotMachineScreen() {
   const [isOnChain, setIsOnChain] = useState(false);
   const [isEnsuring, setIsEnsuring] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  
 
   const waitForMarketReady = useCallback(
     async (marketId: number) => {
@@ -637,9 +706,9 @@ export default function SlotMachineScreen() {
     let cancelled = false;
     (async () => {
       try {
-        if (!connection || !selectedAccount?.publicKey) return;
+        if (!connection || !walletInfo.publicKey) return;
         // SOL balance
-        const lamports = await connection.getBalance(selectedAccount.publicKey);
+        const lamports = await connection.getBalance(walletInfo.publicKey);
         if (!cancelled) setSolBalance(lamports / LAMPORTS_PER_SOL);
 
         // SPL token balance for the market's mint (if provided)
@@ -647,7 +716,7 @@ export default function SlotMachineScreen() {
           const mintStr = selectedMarket?.mint as string | undefined;
           if (mintStr && mintStr !== "So11111111111111111111111111111111111111112") {
             const resp = await connection.getParsedTokenAccountsByOwner(
-              selectedAccount.publicKey,
+              walletInfo.publicKey,
               { mint: new PublicKey(mintStr) }
             );
             let ui = 0;
@@ -669,7 +738,7 @@ export default function SlotMachineScreen() {
         try {
           const { blockhash } = await connection.getLatestBlockhash();
           const msg = new TransactionMessage({
-            payerKey: selectedAccount.publicKey,
+            payerKey: walletInfo.publicKey,
             recentBlockhash: blockhash,
             instructions: [],
           }).compileToV0Message();
@@ -686,7 +755,7 @@ export default function SlotMachineScreen() {
     return () => {
       cancelled = true;
     };
-  }, [connection, selectedAccount?.publicKey, currentChain, selectedMarket?.mint]);
+  }, [connection, walletInfo.publicKey, currentChain, selectedMarket?.mint]);
 
   // Keep CTA disabled when insufficient USDC or SOL for fees
   useEffect(() => {
@@ -756,6 +825,7 @@ export default function SlotMachineScreen() {
   }, [selectedMarket]);
 
   const handleBet = async (bet: string) => {
+    console.log('entered handleBet');
     if (bet !== "yes" && bet !== "no") {
       toast.error(
         "Select a direction",
@@ -766,7 +836,7 @@ export default function SlotMachineScreen() {
       return;
     }
 
-    if (!selectedAccount || !selectedAccount.publicKey) {
+    if (!walletInfo.publicKey) {
       toast.error("Wallet Error", "Please connect your wallet to place a bet", {
         position: "top",
       });
@@ -795,6 +865,7 @@ export default function SlotMachineScreen() {
     }
     let ensureToastId: string | null = null;
     try {
+      console.log('entered ensure flow');
       if (finalMarketId == null) {
         setIsEnsuring(true);
         ensureToastId = toast.loading(
@@ -827,7 +898,7 @@ export default function SlotMachineScreen() {
         const ensureHeaders = {
           "Content-Type": "application/json",
           ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-          ...(selectedAccount?.publicKey ? { "wallet-address": selectedAccount.publicKey.toBase58() } : {}),
+          ...(walletInfo.publicKey ? { "wallet-address": walletInfo.address } : {}),
         } as Record<string, string>;
         // Send ensure-onchain request
         const ensureRes = await axios.post(
@@ -966,7 +1037,7 @@ export default function SlotMachineScreen() {
       if (selectedToken !== CurrencyType.SOL_9 && marketMint) {
         try {
           const resp = await connection.getParsedTokenAccountsByOwner(
-            selectedAccount.publicKey,
+            walletInfo.publicKey,
             { mint: new PublicKey(marketMint) }
           );
           let uiBalance = 0;
@@ -1004,21 +1075,23 @@ export default function SlotMachineScreen() {
         directionLabel,
       };
 
-      // Fetch JWT token for authorization
-      const authToken = await ensureAuthToken();
+      // Fetch Privy access token for authorization
+      const privyAccessToken = await getPrivyAccessToken();
+      if (!privyAccessToken) {
+        throw new Error("Failed to get Privy access token. Please try logging in again.");
+      }
 
       const metadataUrl = `${process.env.EXPO_PUBLIC_BACKEND_URL}/nft/create`;
       const metadataHeaders = { 
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${authToken}`,
-        "wallet-address": selectedAccount.publicKey.toBase58() 
+        "Authorization": `Bearer ${privyAccessToken}`,
+        "wallet-address": walletInfo.address ?? "" 
       } as Record<string, string>;
 
       // Create metadata
       const response = await axios.post(metadataUrl, metadata, { headers: metadataHeaders });
 
       const metadataUri = response.data.metadataUrl;
-      console.log('this is the metadata uri', metadataUri);
       if (!metadataUri || !selectedMarket) {
         // Update loading toast to error
         toast.update(loadingToastId, {
@@ -1040,29 +1113,35 @@ export default function SlotMachineScreen() {
 
       // Temp preflight logging to diagnose wallet mismatches
       try {
-        const jwt = await getJWTTokens();
-        const selectedWallet58 = selectedAccount.publicKey.toBase58();
-        const jwtWallet58 = jwt?.walletAddress || '';
-        const headerWallet = selectedWallet58; // relay sets this header from selectedAccount
+        const privyToken = await getPrivyAccessToken();
+        const selectedWallet58 = privyWalletAddress ?? walletInfo.address ?? '';
+        const headerWallet = selectedWallet58; // relay sets this header
         const payerPubkey = selectedWallet58; // we pass same value in body
         console.log('[Bet Preflight]', {
+          privyWalletAddress,
+          walletInfoAddress: walletInfo.address,
           selectedWallet58,
-          jwtWallet58,
           headerWallet,
           payerPubkey,
           currentChain,
           marketId: Number(finalMarketId),
+          hasPrivyToken: !!privyToken,
         });
       } catch {}
 
       let signature: string | undefined;
       if (isInitialized) {
         // Build instructions locally via SDK (single tx including ATA init if needed)
+        // Use the wallet address from Privy wallet directly to ensure consistency
+        const payerPublicKey = walletInfo.publicKey;
+        if (!payerPublicKey) {
+          throw new Error("Wallet public key not available");
+        }
         const buyIxs = await openPosition({
           marketId: Number(finalMarketId),
           direction: anchorDirection,
           amount: amountUi,
-          payer: selectedAccount.publicKey,
+          payer: payerPublicKey,
           metadataUri,
         });
 
@@ -1074,13 +1153,25 @@ export default function SlotMachineScreen() {
         const tx = await buildVersionedTx(buyIxs.ixs, {
           addressLookupTableAccounts: buyIxs.addressLookupTableAccounts,
         });
-        const signedTx = await signTransaction(tx);
+
+        console.log("txSize before sign", tx.serialize().length);
+        
+        // Sign with Privy wallet
+        if (!privyWallet) throw new Error('Wallet does not support signing transactions');
+        const provider = await privyWallet.getProvider();
+        const { signedTransaction: signedTx } = await provider.request({
+          method: 'signTransaction',
+          params: {
+            transaction: tx,
+          },
+        });
         if (!signedTx) throw new Error('Wallet did not return a signed transaction');
         const signedTxB64 = Buffer.from((signedTx as any).serialize()).toString('base64');
         const forwardBody = {
           signedTx: signedTxB64,
           options: { skipPreflight: false, maxRetries: 3 },
         };
+        console.log('tx size just before forward', signedTx.serialize().length);
         console.log('[Forward Before]', { length: signedTxB64.length, path: '/tx/forward' });
         const forwarded = await forwardTx(forwardBody);
         console.log('[Forward After]', { signature: forwarded?.signature, status: forwarded?.status });
@@ -1088,12 +1179,17 @@ export default function SlotMachineScreen() {
       } else {
         console.log('[Build Open Position]', finalMarketId);
         // Backend builder fallback: build base64 message, sign, and forward
+        // Use privyWalletAddress to ensure it matches what's in the Privy token
+        const payerAddress = privyWalletAddress ?? walletInfo.address ?? '';
+        if (!payerAddress) {
+          throw new Error("Wallet address not available");
+        }
         const build = await buildOpenPosition({
           marketId: Number(finalMarketId),
           amount: amountUi,
           direction: directionLabel,
           directionLabel,
-          payerPubkey: selectedAccount.publicKey.toBase58(),
+          payerPubkey: payerAddress,
           network: currentChain,
           metadataUri,
         });
@@ -1101,6 +1197,8 @@ export default function SlotMachineScreen() {
         if (!messageBase64) throw new Error('Builder did not return base64 message');
         const { signedTx } = await signBuiltTransaction(messageBase64);
         const signedTxB64 = Buffer.from(signedTx.serialize()).toString('base64');
+        console.log('tx size just before forward', signedTx.serialize().length);
+        
         console.log('[Forward Before]', { length: signedTxB64.length, path: '/tx/forward' });
         const forwarded = await forwardTx({
           signedTx: signedTxB64,
