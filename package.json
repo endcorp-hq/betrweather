@@ -1,6 +1,6 @@
 {
   "name": "betrweather",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -9,16 +9,16 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "build": "npx eas build --profile development --platform android",
-    "build:local": "npx eas build --profile development --platform android --local",
+    "build:local": "yarn dlx eas-cli build --profile development --platform android --local",
     "android:clean": "cd android && ./gradlew clean && ./gradlew cleanBuildCache",
     "android:build": "cd android && ./gradlew assembleDebug",
     "android:build:release": "cd android && ./gradlew assembleRelease",
     "android:deps": "cd android && ./gradlew app:dependencies --configuration implementation",
-    "android:dapp": "npx eas build -p android --profile dapp-store --local",
+    "android:dapp": "yarn dlx eas-cli build -p android --profile dapp-store --local",
     "test": "echo \"No tests specified\" && exit 0",
     "eas-build-pre-install": "corepack enable && yarn set version 4.9.2",
     "prebuild:android": "node scripts/generateWidget.js",
-    "build:android": "eas build --platform android"
+    "build:android": "yarn dlx eas-cli build -p android --profile production --local"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
